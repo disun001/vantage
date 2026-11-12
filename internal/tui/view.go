@@ -139,10 +139,7 @@ func (m model) rowLine(r row) string {
 // winLine draws a window under its session. The session's current window is
 // bold and marked with * like tmux's own status bar.
 func (m model) winLine(w win) string {
-	meta := ""
-	if w.Panes > 1 {
-		meta = fmt.Sprintf("%dp", w.Panes)
-	}
+	meta := fmt.Sprintf("%dp", w.Panes)
 	label := fmt.Sprintf("%d:%s", w.Index, w.Name)
 	if w.Active {
 		label += "*"
