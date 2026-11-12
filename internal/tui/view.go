@@ -80,16 +80,17 @@ func (m model) sidebar() []string {
 	}
 	out[0] = fit(titleStyle.Render(title), sidebarW)
 
+	note := m.noticeLines()
 	y := 2
 	for i, r := range m.rows {
-		if y >= m.h-2 {
+		if y >= m.h-1-len(note) {
 			break
 		}
 		out[y] = m.rowLine(i, r)
 		y++
 	}
-	if m.notice != "" && m.h > 4 {
-		out[m.h-2] = fit(noticeStyle.Render(m.notice), sidebarW)
+	for i, l := range note {
+		out[m.h-1-len(note)+i] = fit(noticeStyle.Render(l), sidebarW)
 	}
 	out[m.h-1] = fit(dimStyle.Render("j/k enter  alt+s focus  q"), sidebarW)
 	return out
@@ -116,4 +117,22 @@ func (m model) rowLine(i int, r row) string {
 		return lipgloss.NewStyle().Underline(true).Render(ansi.Strip(line))
 	}
 	return line
+}
+
+// maxNoticeLines caps how much of the sidebar an error may take.
+const maxNoticeLines = 5
+
+// noticeLines wraps the notice to the sidebar width so a long error (a
+// failed restore names a file and a reason) is readable in full instead of
+// cut off. Past the cap the last line ends with an ellipsis.
+func (m model) noticeLines() []string {
+	if m.notice == "" || m.h < 8 {
+		return nil
+	}
+	lines := strings.Split(ansi.Wrap(m.notice, sidebarW, ""), "\n")
+	if len(lines) > maxNoticeLines {
+		lines = lines[:maxNoticeLines]
+		lines[maxNoticeLines-1] = ansi.Truncate(lines[maxNoticeLines-1], sidebarW-1, "") + "…"
+	}
+	return lines
 }
