@@ -21,7 +21,7 @@ type command struct {
 }
 
 // commands is the single place subcommands are registered.
-var commands = []command{listCmd, restoreCmd, captureCmd}
+var commands = []command{listCmd, restoreCmd, captureCmd, pickCmd}
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))

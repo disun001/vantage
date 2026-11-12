@@ -2,17 +2,19 @@
 
 ```text
 cmd/vantage/        CLI: main.go dispatches; one file per subcommand
-                    (list.go, restore.go, capture.go); flags.go holds shared flag helpers
+                    (list.go, restore.go, capture.go, pick.go); flags.go holds shared flag helpers
 internal/workspace/ workspace schema, load, validate, config dir lookup
 internal/tmux/      thin adapter over the tmux CLI (the only place that execs tmux)
 internal/restore/   builds a live session from a Workspace
 internal/capture/   reads a live session back into a Workspace (ps lookup for ssh/commands)
+internal/sshconfig/ read-only list of host aliases from ssh_config
+internal/pick/      menu choice (local or ssh) and the split it creates
+examples/tmux       tmux snippet binding prefix S / V to the picker
 examples/workspaces sample definitions (the only workspace files tracked)
 docs/               contributor docs
 ```
 
-Planned (see `architecture.md`): `internal/sshconfig`, `internal/pick`,
-`internal/tui`.
+Planned (see `architecture.md`): `internal/tui`.
 
 ## Rules
 

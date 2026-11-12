@@ -30,7 +30,16 @@ vantage reads plain files, so any dotfile manager works. With GNU Stow, put
 your real workspaces there, not in this repo: they contain personal paths and
 host aliases. Only `examples/` is tracked here.
 
-## tmux bindings (planned, milestone 3)
+## tmux bindings
 
-The `prefix S` / `V` picker bindings will ship as a snippet to `source-file`
-from your `tmux.conf`. This section will be filled in then.
+`examples/tmux/vantage.conf` binds `prefix S` (stacked) and `prefix V` (side by
+side) to a popup that asks for a local shell or an ssh host from `~/.ssh/config`.
+Copy it next to your `tmux.conf` and add:
+
+```tmux
+source-file -q ~/.config/tmux/vantage.conf
+```
+
+The popup runs `vantage pick --split h|v` (see `vantage help`). Type a number or
+an alias, or press Enter for a local shell. For a non-default socket add
+`--socket NAME` or export `VANTAGE_SOCKET`.

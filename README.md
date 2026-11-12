@@ -4,8 +4,8 @@ A terminal workspace manager built on tmux. Save tmux sessions as
 **workspaces** (windows, panes, directories, SSH hosts), restore them with one
 command, and (planned) browse them from a sidebar TUI.
 
-**Status:** milestone 2. The workspace format, `vantage restore`, and
-`vantage capture` work. The SSH picker and the sidebar TUI are planned (see
+**Status:** milestone 3. The workspace format, `vantage restore`, `vantage capture`, and
+the ssh split picker (`vantage pick`, tmux snippet in `examples/tmux`) work. The sidebar TUI is planned (see
 [docs/architecture.md](docs/architecture.md)).
 
 ## Quick start
