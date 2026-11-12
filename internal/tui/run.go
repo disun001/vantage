@@ -14,7 +14,7 @@ import (
 // Run starts the TUI and blocks until the user quits.
 func Run(cfg Config) error {
 	h := &hub{}
-	p := tea.NewProgram(newModel(cfg, h), tea.WithAltScreen())
+	p := tea.NewProgram(newModel(cfg, h), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	h.send = p.Send
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("tui: %w", err)

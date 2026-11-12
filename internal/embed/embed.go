@@ -81,6 +81,14 @@ func (t *Term) Paste(text string) {
 	t.em.Paste(text)
 }
 
+// Mouse sends a mouse event, encoded the way the child asked for. It is a
+// no-op while the child has not enabled mouse reporting.
+func (t *Term) Mouse(m uv.MouseEvent) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.em.SendMouse(m)
+}
+
 // PID is the child's process id.
 func (t *Term) PID() int { return t.cmd.Process.Pid }
 

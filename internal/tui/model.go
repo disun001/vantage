@@ -121,6 +121,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.onEdge(msg), nil
 	case tea.KeyMsg:
 		return m.onKey(msg)
+	case tea.MouseMsg:
+		return m.onMouse(msg)
 	}
 	return m, nil
 }

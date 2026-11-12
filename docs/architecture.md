@@ -35,9 +35,10 @@ sidebar TUI.
 
 First slice (`vantage tui`) covers: session sidebar, embedded client,
 `switch-client`, restore of saved workspaces from the sidebar, `M-s` toggle,
-edge-aware `M-h`, key and paste passthrough, resize.
+edge-aware `M-h`, key and paste passthrough, resize, mouse (sidebar click and
+wheel; clicks, drags and wheel over tmux are forwarded when tmux `mouse on`).
 
-Still untested or missing: mouse (not forwarded), scrollback, copy-mode, fast
+Still untested or missing: scrollback, copy-mode, fast
 output, `M-h` is the only focus key into the sidebar (no `M-l` back yet), and
 the tmux status bar of the inner client is still drawn.
 
