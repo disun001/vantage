@@ -693,7 +693,7 @@ func TestRenameHostSaysWhenWorkspacesFail(t *testing.T) {
 
 func TestRenameHostEndToEndOnTempFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config")
-	orig := "Host web\n  HostName 192.0.2.1\n\nHost db\n  ProxyJump web\n"
+	orig := "Host web\n  HostName 192.0.2.1\n\nHost db\n  ProxyJump me@web:22\n"
 	if err := os.WriteFile(path, []byte(orig), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -705,21 +705,11 @@ func TestRenameHostEndToEndOnTempFile(t *testing.T) {
 	m = typed(m, "2")
 	m, cmd = press(m, "enter")
 	m = settleAll(m, cmd)
-	if got, _ := os.ReadFile(path); string(got) != orig {
-		t.Errorf("a host that others jump through was renamed:\n%s", got)
-	}
-	if !strings.Contains(m.notice, "db") || m.hostCur != "web" {
-		t.Errorf("notice %q, cursor %q", m.notice, m.hostCur)
-	}
-	m, _ = press(m, "j", "e", "shift+tab") // db has no dependants
-	m = typed(m, "x")
-	m, cmd = press(m, "enter")
-	m = settleAll(m, cmd)
-	want := strings.Replace(orig, "Host db", "Host dbx", 1)
+	want := "Host web2\n  HostName 192.0.2.1\n\nHost db\n  ProxyJump me@web2:22\n" // db's jump follows
 	if got, _ := os.ReadFile(path); string(got) != want {
 		t.Errorf("file:\n%s\nwant:\n%s", got, want)
 	}
-	if m.hostCur != "dbx" || m.notice != "" {
-		t.Errorf("cursor %q, notice %q", m.hostCur, m.notice)
+	if m.notice != "" || m.hostCur != "web2" {
+		t.Errorf("notice %q, cursor %q", m.notice, m.hostCur)
 	}
 }

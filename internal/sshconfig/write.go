@@ -47,8 +47,10 @@ func (f File) Add(h Host) error {
 
 // Edit sets HostName, User, Port and ProxyJump of the block named from.
 // Options that already match are left alone and an empty value removes the
-// option. When h.Alias differs from from the block is renamed too, unless the
-// new alias exists or other hosts jump through the old one.
+// option. When h.Alias differs from from the block is renamed too, and the
+// ProxyJump hops of other blocks that name the old alias follow. It is refused
+// when the new alias exists or a jump through the old one cannot be rewritten
+// (it lives in an included file).
 func (f File) Edit(from string, h Host) error {
 	if err := Validate(h); err != nil {
 		return err
@@ -156,14 +158,17 @@ func verify(before []Host, next, from string, want *Host) error {
 	if want != nil {
 		to = want.Alias
 	}
-	if users := jumpUsers(before, from); to != from && len(users) > 0 {
-		return fmt.Errorf("%w: %s (change their jump first)", ErrReferenced, strings.Join(users, ", "))
-	}
 	after, err := Hosts(strings.NewReader(next))
 	if err != nil {
 		return fmt.Errorf("new config does not parse: %w", err)
 	}
-	if !reflect.DeepEqual(without(before, from, to), without(after, from, to)) {
+	// A rename also repoints the hops that went through the old alias; nothing
+	// else about the other hosts may differ.
+	expect := withJumpsRenamed(before, from, to)
+	if !reflect.DeepEqual(without(expect, from, to), without(after, from, to)) {
+		if users := jumpUsers(after, from); to != from && len(users) > 0 {
+			return fmt.Errorf("%w: %s (set where vantage cannot change it, such as an Include)", ErrReferenced, strings.Join(users, ", "))
+		}
 		return errors.New("the change would alter other hosts")
 	}
 	lines, err := splitLines(next)
@@ -213,21 +218,50 @@ func jumpUsers(hs []Host, alias string) []string {
 	return out
 }
 
-// jumpsThrough reports whether a ProxyJump list (user@host:port, ...) has a
-// hop that names alias.
+// jumpsThrough reports whether a ProxyJump list has a hop that names alias.
 func jumpsThrough(list, alias string) bool {
 	for _, hop := range strings.Split(list, ",") {
-		if i := strings.LastIndex(hop, "@"); i >= 0 {
-			hop = hop[i+1:]
-		}
-		if i := strings.LastIndex(hop, ":"); i >= 0 && !strings.HasSuffix(hop, "]") {
-			hop = hop[:i]
-		}
-		if hop == alias {
+		if _, host, _ := splitHop(hop); host == alias {
 			return true
 		}
 	}
 	return false
+}
+
+// splitHop cuts one ProxyJump hop, [ssh://][user@]host[:port], into what
+// comes before the host, the host, and what follows it.
+func splitHop(hop string) (pre, host, post string) {
+	if strings.HasPrefix(hop, "ssh://") {
+		pre, hop = "ssh://", hop[len("ssh://"):]
+	}
+	if i := strings.LastIndex(hop, "@"); i >= 0 {
+		pre, hop = pre+hop[:i+1], hop[i+1:]
+	}
+	if i := strings.LastIndex(hop, ":"); i >= 0 && !strings.HasSuffix(hop, "]") {
+		hop, post = hop[:i], hop[i:]
+	}
+	return pre, hop, post
+}
+
+// renameJump returns list with every hop that names from pointing at to
+// instead. User and port of a hop stay.
+func renameJump(list, from, to string) string {
+	hops := strings.Split(list, ",")
+	for i, hop := range hops {
+		if pre, host, post := splitHop(hop); host == from {
+			hops[i] = pre + to + post
+		}
+	}
+	return strings.Join(hops, ",")
+}
+
+// withJumpsRenamed copies hs with from renamed to to in every ProxyJump.
+func withJumpsRenamed(hs []Host, from, to string) []Host {
+	out := append([]Host(nil), hs...)
+	for i := range out {
+		out[i].ProxyJump = renameJump(out[i].ProxyJump, from, to)
+	}
+	return out
 }
 
 // replace swaps in next atomically, unless target no longer holds old.

@@ -19,8 +19,8 @@ var (
 	ErrShared = errors.New("host shares a Host line with other patterns; edit the file by hand")
 	// ErrExists means the alias is already a Host pattern.
 	ErrExists = errors.New("host already exists")
-	// ErrReferenced means other hosts jump through the alias, so renaming it
-	// would break them.
+	// ErrReferenced means other hosts jump through the alias in a place that
+	// cannot be rewritten, so renaming it would break them.
 	ErrReferenced = errors.New("other hosts jump through it")
 )
 
@@ -200,7 +200,7 @@ func joinLines(lines []string) string {
 }
 
 // editBlock sets the four options of from's block and, when h.Alias differs,
-// renames the block. Only options that differ from the block's own values are
+// renames the block and repoints the ProxyJump hops of other blocks. Only options that differ from the block's own values are
 // touched; empty clears the option.
 func editBlock(content, from string, h Host) (string, error) {
 	lines, err := splitLines(content)
@@ -218,6 +218,10 @@ func editBlock(content, from string, h Host) (string, error) {
 			}
 		}
 	}
+	if from != h.Alias {
+		b, _ := own(lines, from)
+		renameJumps(lines, b, from, h.Alias)
+	}
 	for _, f := range fields {
 		if f.get(cur) == f.get(h) {
 			continue
@@ -230,6 +234,21 @@ func editBlock(content, from string, h Host) (string, error) {
 		lines[b.start] = parseLine(lines[b.start]).prefix + h.Alias
 	}
 	return joinLines(lines), nil
+}
+
+// renameJumps repoints, in place, every ProxyJump line outside the skip block
+// whose hops name from. Lines keep their layout; only the hop text changes.
+func renameJumps(lines []string, skip block, from, to string) {
+	for i, s := range lines {
+		if i >= skip.start && i < skip.end {
+			continue
+		}
+		l := parseLine(s)
+		if !is(l, "ProxyJump") || !jumpsThrough(l.value, from) {
+			continue
+		}
+		lines[i] = l.prefix + renameJump(l.value, from, to)
+	}
 }
 
 // setOption replaces, removes or appends one option inside block b. A new

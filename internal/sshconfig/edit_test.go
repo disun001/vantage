@@ -470,7 +470,6 @@ func TestFileEditRenameRefusals(t *testing.T) {
 		is   error
 	}{
 		"new alias exists":   {"web", Host{Alias: "db", HostName: "192.0.2.1", User: "deploy"}, ErrExists},
-		"jumped through":     {"bastion", Host{Alias: "gate", HostName: "192.0.2.9"}, ErrReferenced},
 		"shared Host line":   {"a", Host{Alias: "c"}, ErrShared},
 		"missing":            {"ghost", Host{Alias: "web9"}, ErrNotFound},
 		"wildcard new alias": {"web", Host{Alias: "w*"}, nil},
@@ -504,14 +503,97 @@ func TestJumpsThrough(t *testing.T) {
 	}
 }
 
-func TestFileEditRenameCountsInheritedJumps(t *testing.T) {
-	f := fileWith(t, "Host a\n  HostName 192.0.2.1\n\nHost b\n  HostName 192.0.2.2\n\nHost *\n  ProxyJump a\n", 0o600)
-	if err := f.Edit("a", Host{Alias: "a2", HostName: "192.0.2.1"}); err != nil {
-		// b inherits "ProxyJump a", so renaming a breaks b
-		if !errors.Is(err, ErrReferenced) {
-			t.Fatalf("err = %v", err)
-		}
-		return
+func TestFileEditRenameRepointsOtherHostsJumps(t *testing.T) {
+	in := `Host app
+  HostName 192.0.2.3
+  ProxyJump me@bastion:2222,other,bastion2
+
+Host db
+  HostName 192.0.2.2
+  ProxyJump ssh://root@bastion
+
+Host bastion
+  HostName 192.0.2.9
+
+Host other
+  HostName 192.0.2.8
+  ProxyJump bastion
+`
+	f := fileWith(t, in, 0o600)
+	if err := f.Edit("bastion", Host{Alias: "gate", HostName: "192.0.2.9"}); err != nil {
+		t.Fatal(err)
 	}
-	t.Fatal("rename succeeded although b inherits a jump through a")
+	want := strings.NewReplacer(
+		"me@bastion:2222,other,bastion2", "me@gate:2222,other,bastion2", // bastion2 is another host
+		"ssh://root@bastion", "ssh://root@gate",
+		"Host bastion\n", "Host gate\n",
+		"ProxyJump bastion\n", "ProxyJump gate\n",
+	).Replace(in)
+	if got := readFile(t, f.Path); got != want {
+		t.Errorf("config:\n%s\nwant:\n%s", got, want)
+	}
+	hs, err := f.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if jumpUsers(hs, "bastion") != nil || len(jumpUsers(hs, "gate")) != 3 {
+		t.Errorf("hosts after: %+v", hs)
+	}
+}
+
+func TestFileEditRenameRepointsAnInheritedJump(t *testing.T) {
+	f := fileWith(t, "Host a\n  HostName 192.0.2.1\n\nHost b\n  HostName 192.0.2.2\n\nHost *\n  ProxyJump a\n", 0o600)
+	// a is the default jump of every host, itself included; b follows the rename.
+	if err := f.Edit("a", Host{Alias: "a2", HostName: "192.0.2.1"}); err != nil {
+		t.Fatal(err)
+	}
+	want := "Host a2\n  HostName 192.0.2.1\n\nHost b\n  HostName 192.0.2.2\n\nHost *\n  ProxyJump a2\n"
+	if got := readFile(t, f.Path); got != want {
+		t.Errorf("config:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestFileEditRenameKeepsTheHostsOwnJumpField(t *testing.T) {
+	f := fileWith(t, "Host a\n  ProxyJump x\n\nHost b\n  ProxyJump a\n", 0o600)
+	if err := f.Edit("a", Host{Alias: "a2", ProxyJump: "y"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := readFile(t, f.Path), "Host a2\n  ProxyJump y\n\nHost b\n  ProxyJump a2\n"; got != want {
+		t.Errorf("config:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestFileEditRenameRefusesAJumpItCannotRewrite(t *testing.T) {
+	// The jump lives in an included file, which is not ours to change.
+	inc := filepath.Join(t.TempDir(), "extra")
+	if err := os.WriteFile(inc, []byte("Host *\n  ProxyJump a\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	orig := "Include " + inc + "\n\nHost a\n  HostName 192.0.2.1\n\nHost c\n  HostName 192.0.2.7\n"
+	f := fileWith(t, orig, 0o600)
+	err := f.Edit("a", Host{Alias: "a2", HostName: "192.0.2.1"})
+	if !errors.Is(err, ErrReferenced) || !strings.Contains(err.Error(), "c") {
+		t.Fatalf("err = %v", err)
+	}
+	if got := readFile(t, f.Path); got != orig {
+		t.Errorf("file changed:\n%s", got)
+	}
+}
+
+func TestRenameJump(t *testing.T) {
+	for in, want := range map[string]string{
+		"a":           "b",
+		"me@a:22":     "me@b:22",
+		"x,a,y":       "x,b,y",
+		"ssh://u@a:2": "ssh://u@b:2",
+		"a2,xa,me@xa": "a2,xa,me@xa",
+		"[::1]:22":    "[::1]:22",
+		"":            "",
+		"none":        "none",
+		"u@a,u@a":     "u@b,u@b",
+	} {
+		if got := renameJump(in, "a", "b"); got != want {
+			t.Errorf("renameJump(%q) = %q, want %q", in, got, want)
+		}
+	}
 }
