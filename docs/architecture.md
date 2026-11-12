@@ -28,13 +28,18 @@ sidebar TUI.
 | 1   | Workspace TOML schema + `restore`                                  | Done    |
 | 2   | `capture` (live session to TOML, ssh detection, `autorun = false`) | Done    |
 | 3   | ssh config reader + `pick` popup + tmux bindings (`S` / `V`)       | Done    |
-| 4   | TUI shell: sidebar + embedded tmux + focus keys + socket config    | Planned |
+| 4   | TUI shell: sidebar + embedded tmux + focus keys + socket config    | First slice done (`vantage tui`) |
 | 5   | Tree view, ssh add and edit                                        | Planned |
 
 ## Untested risks for the TUI (milestone 4)
 
-The emulator spike did not cover mouse, scrollback, resize, copy-mode, fast
-output, or key passthrough. Test these early in milestone 4.
+First slice (`vantage tui`) covers: session sidebar, embedded client,
+`switch-client`, restore of saved workspaces from the sidebar, `M-s` toggle,
+edge-aware `M-h`, key and paste passthrough, resize.
+
+Still untested or missing: mouse (not forwarded), scrollback, copy-mode, fast
+output, `M-h` is the only focus key into the sidebar (no `M-l` back yet), and
+the tmux status bar of the inner client is still drawn.
 
 ## Safety
 
