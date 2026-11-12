@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/disun001/vantage/internal/hostuse"
+	"github.com/disun001/vantage/internal/pick"
 	"github.com/disun001/vantage/internal/sshconfig"
 )
 
@@ -58,6 +59,11 @@ type (
 	hostUsageMsg struct {
 		alias string
 		use   hostuse.Usage
+		err   error
+	}
+	// hostSplitMsg reports a finished ssh split.
+	hostSplitMsg struct {
+		alias string
 		err   error
 	}
 	// hostSavedMsg reports a finished add or edit.
@@ -246,6 +252,10 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 		if len(m.hosts) > 0 {
 			return m.startDelete(m.hosts[m.hostPos()].Alias)
 		}
+	case "v":
+		return m.splitHost("h") // side by side, like vim's :vsplit
+	case "s":
+		return m.splitHost("v") // stacked, like :split
 	case "H", "esc", "h", "left":
 		return m.toggleHosts()
 	case "tab", "alt+l":
@@ -254,6 +264,43 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// splitHost splits the embedded client's active pane and runs ssh to the
+// selected host in the new one. dir is "h" (side by side) or "v" (stacked).
+func (m model) splitHost(dir string) (tea.Model, tea.Cmd) {
+	if len(m.hosts) == 0 {
+		return m, nil
+	}
+	if m.term == nil {
+		m.notice = "open a workspace first"
+		return m, nil
+	}
+	alias, c, tty, pid := m.hosts[m.hostPos()].Alias, m.cfg.Client, m.tty, m.term.PID()
+	m.notice = ""
+	return m, func() tea.Msg {
+		var err error
+		if tty == "" {
+			if tty, err = c.ClientTTY(pid); err != nil {
+				return hostSplitMsg{alias: alias, err: errors.New("tmux client not ready, try again")}
+			}
+		}
+		pane, cwd, err := c.ActivePane(tty)
+		if err == nil {
+			_, err = pick.Split(c, pane, dir, cwd, pick.Choice{Alias: alias})
+		}
+		return hostSplitMsg{alias: alias, err: err}
+	}
+}
+
+// onHostSplit shows a failure, or moves the keys to the new pane.
+func (m model) onHostSplit(msg hostSplitMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.notice = msg.err.Error()
+		return m, nil
+	}
+	m.focus = focusTerm
+	return m, m.refresh()
 }
 
 // startDelete looks up what depends on the host, then asks. Without a usage
@@ -424,7 +471,7 @@ func (m model) hostsSidebar() []string {
 	for i, l := range note {
 		out[m.h-1-len(note)+i] = fit(noticeStyle.Render(l), sidebarW)
 	}
-	out[m.h-1] = fit(dimStyle.Render("a e d H alt+s q"), sidebarW)
+	out[m.h-1] = fit(dimStyle.Render("a e d v s H alt+s q"), sidebarW)
 	return out
 }
 

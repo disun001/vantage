@@ -83,6 +83,20 @@ func (c Client) PaneAtLeft(tty string) (bool, error) {
 	return out == "1", nil
 }
 
+// ActivePane returns the ID and working directory of the active pane of the
+// client on tty: the pane a split from that client's view should divide.
+func (c Client) ActivePane(tty string) (id, cwd string, err error) {
+	out, err := c.run("display-message", "-p", "-c", tty, "#{pane_id}|#{pane_current_path}")
+	if err != nil {
+		return "", "", err
+	}
+	id, cwd, _ = strings.Cut(out, "|")
+	if !paneIDRe.MatchString(id) {
+		return "", "", fmt.Errorf("unexpected pane id %q", id)
+	}
+	return id, cwd, nil
+}
+
 // ClientTTY returns the tty of the attached client whose process id is pid.
 // The embedded client's PTY slave name is not exposed by the PTY library, so
 // tmux is asked instead. It fails until the client has registered.

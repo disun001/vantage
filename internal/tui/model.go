@@ -215,6 +215,8 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.onHosts(msg), nil
 	case hostUsageMsg:
 		return m.onHostUsage(msg), nil
+	case hostSplitMsg:
+		return m.onHostSplit(msg)
 	case hostSavedMsg:
 		return m.onHostSaved(msg)
 	case edgeMsg:
