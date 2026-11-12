@@ -71,8 +71,8 @@ func TestNewPrompt(t *testing.T) {
 	if m.prompt == nil || m.prompt.text != "wy" {
 		t.Fatalf("prompt = %+v", m.prompt)
 	}
-	if !strings.Contains(m.sidebar()[m.h-1], "new: wy") {
-		t.Errorf("footer = %q", m.sidebar()[m.h-1])
+	if box := popupText(m); !strings.Contains(box, "new workspace") || !strings.Contains(box, "wy") {
+		t.Errorf("pop-up = %q", box)
 	}
 	m, cmd := press(m, "enter")
 	if m.prompt != nil || cmd == nil {
@@ -286,5 +286,39 @@ func TestWorkspaceDeletePopupSaysWhatGoes(t *testing.T) {
 	}
 	if strings.Contains(ansi.Strip(m.sidebar()[m.h-1]), "y/n") {
 		t.Error("the one-line question must be gone")
+	}
+}
+
+func TestNewAndRenamePromptsArePopups(t *testing.T) {
+	m := manageModel(&fakeManager{})
+	m.w, m.h = 80, 24
+	m, _ = press(m, "n")
+	m = typed(m, "proj")
+	box := popupText(m)
+	for _, want := range []string{"new workspace", "name", "proj", "enter create"} {
+		if !strings.Contains(box, want) {
+			t.Errorf("new pop-up lacks %q:\n%s", want, box)
+		}
+	}
+	if strings.Contains(m.sidebar()[m.h-1], "proj") {
+		t.Error("the sidebar footer still draws the prompt")
+	}
+	lines := strings.Split(m.View(), "\n")
+	if len(lines) != 24 {
+		t.Fatalf("height %d", len(lines))
+	}
+	for i, l := range lines {
+		if w := ansi.StringWidth(l); w != 80 {
+			t.Errorf("line %d is %d cells wide", i, w)
+		}
+	}
+	m, _ = press(m, "esc")
+	m.cur = key{"a", -1}
+	m, _ = press(m, "R")
+	box = popupText(m)
+	for _, want := range []string{"rename workspace", "from a", "enter rename"} {
+		if !strings.Contains(box, want) {
+			t.Errorf("rename pop-up lacks %q:\n%s", want, box)
+		}
 	}
 }

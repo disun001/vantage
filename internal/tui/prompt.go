@@ -16,37 +16,33 @@ const (
 	promptDelete
 )
 
-// prompt is the one-line input at the bottom of the sidebar. While it is
-// open every key goes to it.
+// prompt is the open question about a workspace: its name for new and
+// rename, a yes for delete. It shows as a pop-up and owns every key while open.
 type prompt struct {
 	kind   promptKind
 	target string // session or workspace the prompt acts on
 	text   string // typed text (new, rename)
 }
 
-// label is the text before the cursor.
-func (p prompt) label() string {
-	switch p.kind {
-	case promptNew:
-		return "new: "
-	case promptRename:
-		return "rename: "
+// promptBox is the pop-up for naming a new workspace or renaming one. The
+// end of a long name stays visible next to the cursor.
+func (m model) promptBox() []string {
+	p := m.prompt
+	title, hint := "new workspace", "enter create · esc cancels"
+	rows := []string{titleStyle.Render(title), ""}
+	if p.kind == promptRename {
+		rows[0] = titleStyle.Render("rename workspace")
+		rows = append(rows, dimStyle.Render("from "+p.target), "")
+		hint = "enter rename · esc cancels"
 	}
-	return "delete " + p.target + "? y/n"
-}
-
-// line draws the prompt on one sidebar line, keeping the end of long text
-// visible next to the cursor.
-func (p prompt) line() string {
-	if p.kind == promptDelete {
-		return fit(noticeStyle.Render(p.label()), sidebarW)
-	}
-	room := max(1, sidebarW-len(p.label())-1)
+	inner := max(10, min(44, m.w-6))
+	const label = "name "
 	text := p.text
-	if r := []rune(text); len(r) > room {
+	if room, r := max(1, inner-len(label)-1), []rune(text); len(r) > room {
 		text = "…" + string(r[len(r)-room+1:])
 	}
-	return fit(p.label()+text+cursorStyle.Render(" "), sidebarW)
+	rows = append(rows, curStyle.Render(label)+text+cursorStyle.Render(" "), "", dimStyle.Render(hint))
+	return framed(rows, inner)
 }
 
 // deleteBox is the pop-up that asks before a workspace goes: what the delete

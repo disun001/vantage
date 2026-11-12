@@ -21,6 +21,32 @@ var (
 	layoutLine   = regexp.MustCompile(`^[ \t]*layout[ \t]*=`)
 )
 
+// eachWorkspace runs fn on the path of every saved workspace, and returns the
+// names fn reported as changed. Failures are joined, not fatal.
+func eachWorkspace(fn func(path string) (bool, error)) ([]string, error) {
+	names, err := List()
+	if err != nil {
+		return nil, err
+	}
+	var done []string
+	var failed []error
+	for _, n := range names {
+		path, err := PathOf(n)
+		if err != nil {
+			continue
+		}
+		changed, err := fn(path)
+		if err != nil {
+			failed = append(failed, fmt.Errorf("%s: %w", n, err))
+			continue
+		}
+		if changed {
+			done = append(done, n)
+		}
+	}
+	return done, errors.Join(failed...)
+}
+
 // StripSSH removes the panes that connect to the ssh alias from every saved
 // workspace that has one, and returns the names it changed. The files are
 // edited in place, so comments and layout survive. A window left without panes
@@ -37,32 +63,21 @@ func StripSSH(alias string) ([]string, error) {
 	if !aliasRe.MatchString(alias) {
 		return nil, fmt.Errorf("invalid ssh alias %q", alias)
 	}
-	names, err := List()
-	if err != nil {
-		return nil, err
-	}
-	var done []string
-	var failed []error
-	for _, n := range names {
-		path, err := PathOf(n)
-		if err != nil {
-			continue
-		}
-		changed, err := stripFile(path, alias)
-		if err != nil {
-			failed = append(failed, fmt.Errorf("%s: %w", n, err))
-			continue
-		}
-		if changed {
-			done = append(done, n)
-		}
-	}
-	return done, errors.Join(failed...)
+	return eachWorkspace(func(path string) (bool, error) { return stripFile(path, alias) })
 }
 
 // stripFile rewrites one file. It reports false when the file has no pane for
 // the alias.
 func stripFile(path, alias string) (bool, error) {
+	return rewriteFile(path, alias,
+		func(lines []string) ([]string, error) { return stripLines(lines, alias) },
+		func(ws Workspace) Workspace { return expectedAfterStrip(ws, alias) })
+}
+
+// rewriteFile applies edit to the lines of a workspace file that has a pane
+// for alias. The result must load as exactly what expect says, or nothing is
+// written. It reports false when the file has no pane for the alias.
+func rewriteFile(path, alias string, edit func([]string) ([]string, error), expect func(Workspace) Workspace) (bool, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false, err
@@ -78,7 +93,7 @@ func stripFile(path, alias string) (bool, error) {
 	if strings.Contains(text, "\r") {
 		return false, errors.New("CRLF line endings; edit it by hand")
 	}
-	next, err := stripLines(strings.Split(strings.TrimSuffix(text, "\n"), "\n"), alias)
+	next, err := edit(strings.Split(strings.TrimSuffix(text, "\n"), "\n"))
 	if err != nil {
 		return false, err
 	}
@@ -87,7 +102,7 @@ func stripFile(path, alias string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("the edited file does not load: %w", err)
 	}
-	if !reflect.DeepEqual(got, expectedAfterStrip(old, alias)) {
+	if !reflect.DeepEqual(got, expect(old)) {
 		return false, errors.New("the edit would change more than the ssh panes; edit it by hand")
 	}
 	st, err := os.Stat(path)

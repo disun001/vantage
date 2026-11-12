@@ -103,9 +103,6 @@ func (m model) sidebar() []string {
 		out[m.h-1-len(note)+i] = fit(noticeStyle.Render(l), sidebarW)
 	}
 	out[m.h-1] = fit(dimStyle.Render("space n R d H alt+s q"), sidebarW)
-	if m.prompt != nil && m.prompt.kind != promptDelete { // delete asks in a pop-up
-		out[m.h-1] = m.prompt.line()
-	}
 	return out
 }
 

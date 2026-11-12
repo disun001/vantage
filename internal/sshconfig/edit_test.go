@@ -162,7 +162,7 @@ func TestEditBlock(t *testing.T) {
 		},
 	}
 	for name, c := range cases {
-		got, err := editBlock(c.in, c.h)
+		got, err := editBlock(c.in, c.h.Alias, c.h)
 		if err != nil || got != c.want {
 			t.Errorf("%s:\ngot  %q, %v\nwant %q", name, got, err, c.want)
 		}
@@ -170,16 +170,16 @@ func TestEditBlock(t *testing.T) {
 }
 
 func TestEditBlockErrors(t *testing.T) {
-	if _, err := editBlock(sample, Host{Alias: "db", User: "x"}); !errors.Is(err, ErrShared) {
+	if _, err := editBlock(sample, "db", Host{Alias: "db", User: "x"}); !errors.Is(err, ErrShared) {
 		t.Errorf("shared: %v", err)
 	}
-	if _, err := editBlock(sample, Host{Alias: "nope", User: "x"}); !errors.Is(err, ErrNotFound) {
+	if _, err := editBlock(sample, "nope", Host{Alias: "nope", User: "x"}); !errors.Is(err, ErrNotFound) {
 		t.Errorf("missing: %v", err)
 	}
-	if _, err := editBlock("Host web\r\n  User a\r\n", Host{Alias: "web", User: "b"}); err == nil {
+	if _, err := editBlock("Host web\r\n  User a\r\n", "web", Host{Alias: "web", User: "b"}); err == nil {
 		t.Error("CRLF file accepted")
 	}
-	if _, err := editBlock("Host \"web\"\n  User a\n", Host{Alias: "web", User: "b"}); !errors.Is(err, ErrNotFound) {
+	if _, err := editBlock("Host \"web\"\n  User a\n", "web", Host{Alias: "web", User: "b"}); !errors.Is(err, ErrNotFound) {
 		t.Errorf("quoted pattern: %v", err)
 	}
 }
@@ -214,7 +214,7 @@ func readFile(t *testing.T, p string) string {
 
 func TestFileEditWritesBackupAndKeepsMode(t *testing.T) {
 	f := fileWith(t, sample, 0o640)
-	if err := f.Edit(Host{Alias: "web", HostName: "192.0.2.50", User: "deploy"}); err != nil {
+	if err := f.Edit("web", Host{Alias: "web", HostName: "192.0.2.50", User: "deploy"}); err != nil {
 		t.Fatal(err)
 	}
 	want := strings.Replace(sample, "HostName 192.0.2.1", "HostName 192.0.2.50", 1)
@@ -296,7 +296,7 @@ func TestFileFollowsSymlink(t *testing.T) {
 	if err := os.Symlink(target, link); err != nil {
 		t.Skip("symlinks unavailable:", err)
 	}
-	if err := (File{Path: link}).Edit(Host{Alias: "a", User: "y"}); err != nil {
+	if err := (File{Path: link}).Edit("a", Host{Alias: "a", User: "y"}); err != nil {
 		t.Fatal(err)
 	}
 	if st, err := os.Lstat(link); err != nil || st.Mode()&os.ModeSymlink == 0 {
@@ -315,7 +315,7 @@ func TestFileRefusesBadInputWithoutTouchingTheFile(t *testing.T) {
 		{Alias: "ghost", User: "x"}, // not in the file
 		{Alias: "-oX"},
 	} {
-		if err := f.Edit(h); err == nil {
+		if err := f.Edit(h.Alias, h); err == nil {
 			t.Errorf("Edit(%+v) succeeded", h)
 		}
 	}
@@ -418,4 +418,100 @@ func TestFileDelete(t *testing.T) {
 			t.Errorf("Delete(%q) changed the file", bad)
 		}
 	}
+}
+
+const renameSample = `# my hosts
+Host web
+  HostName 192.0.2.1
+  User deploy
+
+Host db
+  HostName 192.0.2.2
+  ProxyJump me@bastion:22
+
+Host bastion
+  HostName 192.0.2.9
+
+Host *
+  Compression yes
+`
+
+func TestFileEditRenamesTheBlockAndKeepsTheRest(t *testing.T) {
+	f := fileWith(t, renameSample, 0o600)
+	if err := f.Edit("web", Host{Alias: "web2", HostName: "192.0.2.1", User: "root"}); err != nil {
+		t.Fatal(err)
+	}
+	want := strings.Replace(strings.Replace(renameSample, "Host web\n", "Host web2\n", 1), "User deploy", "User root", 1)
+	if got := readFile(t, f.Path); got != want {
+		t.Errorf("config:\n%s\nwant:\n%s", got, want)
+	}
+	if _, err := f.Own("web"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("old alias still there: %v", err)
+	}
+	if got := readFile(t, f.Path+BackupSuffix); got != renameSample {
+		t.Error("backup differs from the original")
+	}
+}
+
+func TestFileEditRenameOnlyChangesTheHostLine(t *testing.T) {
+	f := fileWith(t, renameSample, 0o600)
+	if err := f.Edit("web", Host{Alias: "web2", HostName: "192.0.2.1", User: "deploy"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := readFile(t, f.Path), strings.Replace(renameSample, "Host web\n", "Host web2\n", 1); got != want {
+		t.Errorf("config:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestFileEditRenameRefusals(t *testing.T) {
+	cases := map[string]struct {
+		from string
+		to   Host
+		is   error
+	}{
+		"new alias exists":   {"web", Host{Alias: "db", HostName: "192.0.2.1", User: "deploy"}, ErrExists},
+		"jumped through":     {"bastion", Host{Alias: "gate", HostName: "192.0.2.9"}, ErrReferenced},
+		"shared Host line":   {"a", Host{Alias: "c"}, ErrShared},
+		"missing":            {"ghost", Host{Alias: "web9"}, ErrNotFound},
+		"wildcard new alias": {"web", Host{Alias: "w*"}, nil},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := fileWith(t, renameSample+"\nHost a b\n  User x\n", 0o600)
+			orig := readFile(t, f.Path)
+			err := f.Edit(c.from, c.to)
+			if err == nil || (c.is != nil && !errors.Is(err, c.is)) {
+				t.Fatalf("err = %v, want %v", err, c.is)
+			}
+			if got := readFile(t, f.Path); got != orig {
+				t.Errorf("file changed:\n%s", got)
+			}
+			if _, err := os.Stat(f.Path + BackupSuffix); err == nil {
+				t.Error("backup written for a refused rename")
+			}
+		})
+	}
+}
+
+func TestJumpsThrough(t *testing.T) {
+	for list, want := range map[string]bool{
+		"bastion": true, "me@bastion": true, "me@bastion:22": true, "x,bastion": true,
+		"bastion2": false, "mebastion": false, "me@x:bastion": false, "": false, "[::1]": false,
+	} {
+		if got := jumpsThrough(list, "bastion"); got != want {
+			t.Errorf("jumpsThrough(%q) = %v", list, got)
+		}
+	}
+}
+
+func TestFileEditRenameCountsInheritedJumps(t *testing.T) {
+	f := fileWith(t, "Host a\n  HostName 192.0.2.1\n\nHost b\n  HostName 192.0.2.2\n\nHost *\n  ProxyJump a\n", 0o600)
+	if err := f.Edit("a", Host{Alias: "a2", HostName: "192.0.2.1"}); err != nil {
+		// b inherits "ProxyJump a", so renaming a breaks b
+		if !errors.Is(err, ErrReferenced) {
+			t.Fatalf("err = %v", err)
+		}
+		return
+	}
+	t.Fatal("rename succeeded although b inherits a jump through a")
 }

@@ -23,8 +23,9 @@ type HostStore interface {
 	Own(alias string) (sshconfig.Host, error)
 	// Add appends a new Host block.
 	Add(sshconfig.Host) error
-	// Edit changes the options of an existing Host block.
-	Edit(sshconfig.Host) error
+	// Edit changes the options of the block named from, and renames it when
+	// the host's alias differs.
+	Edit(from string, h sshconfig.Host) error
 	// Delete removes a Host block.
 	Delete(alias string) error
 }
@@ -39,6 +40,8 @@ type HostUsage interface {
 	Close(hostuse.Usage) error
 	// Strip removes the alias's panes from the saved workspaces.
 	Strip(alias string) error
+	// Rename points the saved workspaces' panes for from at the alias to.
+	Rename(from, to string) error
 }
 
 // sidebarView is what the sidebar lists.
@@ -66,10 +69,12 @@ type (
 		alias string
 		err   error
 	}
-	// hostSavedMsg reports a finished add or edit.
+	// hostSavedMsg reports a finished add, edit, rename or delete. alias is
+	// the host's name afterwards (the old one for a delete).
 	hostSavedMsg struct {
 		alias   string
 		deleted bool
+		renamed bool // the alias changed, even if a later step failed
 		err     error
 	}
 )
@@ -80,11 +85,10 @@ type hostField struct {
 	ptr   func(*sshconfig.Host) *string
 }
 
-// hostFields are the form lines in order. Editing skips the first: the alias
-// names the block and never changes.
+// hostFields are the form lines in order.
 var hostFields = []hostField{
-	{"host", func(h *sshconfig.Host) *string { return &h.Alias }},
-	{"hostname", func(h *sshconfig.Host) *string { return &h.HostName }},
+	{"alias", func(h *sshconfig.Host) *string { return &h.Alias }},
+	{"host", func(h *sshconfig.Host) *string { return &h.HostName }},
 	{"user", func(h *sshconfig.Host) *string { return &h.User }},
 	{"port", func(h *sshconfig.Host) *string { return &h.Port }},
 	{"jump", func(h *sshconfig.Host) *string { return &h.ProxyJump }},
@@ -94,17 +98,10 @@ var hostFields = []hostField{
 // screen, Tab moves between them, Enter saves, Esc drops everything.
 type hostForm struct {
 	edit  bool
+	from  string    // the alias being edited, to tell a rename
 	vals  [5]string // indexed like hostFields
 	focus int
 	err   string // why the last Enter did not save
-}
-
-// first is the first line the user can reach.
-func (f hostForm) first() int {
-	if f.edit {
-		return 1
-	}
-	return 0
 }
 
 // host collects the typed values.
@@ -121,7 +118,7 @@ func (f hostForm) host() sshconfig.Host {
 func (f hostForm) check() (int, string) {
 	h := f.host()
 	if h.Alias == "" {
-		return 0, "host is required"
+		return 0, "alias is required"
 	}
 	for i := range hostFields {
 		only := sshconfig.Host{Alias: h.Alias}
@@ -368,7 +365,7 @@ func (m model) startEdit() model {
 		m.notice = ansi.Strip(alias + ": " + err.Error())
 		return m
 	}
-	f := hostForm{edit: true, focus: 1}
+	f := hostForm{edit: true, from: alias, focus: 1}
 	for i, fd := range hostFields {
 		f.vals[i] = *fd.ptr(&own)
 	}
@@ -380,17 +377,16 @@ func (m model) startEdit() model {
 func (m model) onFormKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	f := *m.form
 	m.form = &f
-	last := len(hostFields) - 1
+	n := len(hostFields)
 	switch k.Type {
 	case tea.KeyEsc, tea.KeyCtrlC:
 		m.form = nil
 	case tea.KeyEnter:
 		return m.submitForm()
 	case tea.KeyTab, tea.KeyDown:
-		f.focus = f.first() + (f.focus-f.first()+1)%(last+1-f.first())
+		f.focus = (f.focus + 1) % n
 	case tea.KeyShiftTab, tea.KeyUp:
-		n := last + 1 - f.first()
-		f.focus = f.first() + (f.focus-f.first()+n-1)%n
+		f.focus = (f.focus + n - 1) % n
 	case tea.KeyBackspace:
 		if r := []rune(f.vals[f.focus]); len(r) > 0 {
 			f.vals[f.focus] = string(r[:len(r)-1])
@@ -417,15 +413,21 @@ func (m model) submitForm() (tea.Model, tea.Cmd) {
 
 // saveHost writes the finished form in the background.
 func (m model) saveHost(f hostForm) tea.Cmd {
-	s, h := m.cfg.SSH, f.host()
+	s, u, h := m.cfg.SSH, m.cfg.HostUse, f.host()
 	return func() tea.Msg {
-		var err error
-		if f.edit {
-			err = s.Edit(h)
-		} else {
-			err = s.Add(h)
+		if !f.edit {
+			return hostSavedMsg{alias: h.Alias, err: s.Add(h)}
 		}
-		return hostSavedMsg{alias: h.Alias, err: err}
+		if err := s.Edit(f.from, h); err != nil {
+			return hostSavedMsg{alias: f.from, err: err}
+		}
+		msg := hostSavedMsg{alias: h.Alias, renamed: f.from != h.Alias}
+		if msg.renamed && u != nil {
+			if err := u.Rename(f.from, h.Alias); err != nil {
+				msg.err = fmt.Errorf("host renamed, but workspaces not fully updated: %w", err)
+			}
+		}
+		return msg
 	}
 }
 
@@ -433,6 +435,9 @@ func (m model) onHostSaved(msg hostSavedMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.err != nil:
 		m.notice = ansi.Strip(fmt.Sprintf("%s: %v", msg.alias, msg.err))
+		if msg.renamed {
+			m.hostCur = msg.alias
+		}
 	case msg.deleted:
 		m.notice, m.hostCur = "", m.neighbour(msg.alias)
 	default:
@@ -484,7 +489,7 @@ func (m model) formBox() []string {
 		title = "edit host"
 	}
 	rows := []string{titleStyle.Render(title), ""}
-	const labelW = 10 // "hostname" plus a gap
+	const labelW = 7 // "alias" plus a gap
 	for i, fd := range hostFields {
 		label := fit(fd.label, labelW)
 		text := f.vals[i]
@@ -492,12 +497,9 @@ func (m model) formBox() []string {
 		if r := []rune(text); len(r) > room {
 			text = "…" + string(r[len(r)-room+1:])
 		}
-		switch {
-		case f.edit && i == 0:
-			rows = append(rows, dimStyle.Render(fit(label+text, inner)))
-		case i == f.focus:
+		if i == f.focus {
 			rows = append(rows, curStyle.Render(label)+fit(text+cursorStyle.Render(" "), inner-labelW))
-		default:
+		} else {
 			rows = append(rows, fit(dimStyle.Render(label)+text, inner))
 		}
 	}
@@ -552,6 +554,8 @@ func (m model) popup() []string {
 	switch {
 	case m.prompt != nil && m.prompt.kind == promptDelete:
 		return m.deleteBox()
+	case m.prompt != nil:
+		return m.promptBox()
 	case m.form != nil:
 		return m.formBox()
 	case m.hostDel != nil:
@@ -578,11 +582,5 @@ func overlay(lines, box []string, w int) []string {
 	return out
 }
 
-// hostLine is the alias followed by its address.
-func hostLine(h sshconfig.Host) string {
-	meta := h.HostName
-	if h.User != "" && meta != "" {
-		meta = h.User + "@" + meta
-	}
-	return fit(" "+h.Alias+" "+dimStyle.Render(meta), sidebarW)
-}
+// hostLine is the alias alone: the form shows the rest.
+func hostLine(h sshconfig.Host) string { return fit(" "+h.Alias, sidebarW) }

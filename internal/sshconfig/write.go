@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/disun001/vantage/internal/workspace"
@@ -44,14 +45,18 @@ func (f File) Add(h Host) error {
 	return f.write(h.Alias, &h, func(old string) (string, error) { return addBlock(old, h) })
 }
 
-// Edit sets HostName, User, Port and ProxyJump of h.Alias's block. Options
-// that already match are left alone and an empty value removes the option.
-// The alias itself is never changed.
-func (f File) Edit(h Host) error {
+// Edit sets HostName, User, Port and ProxyJump of the block named from.
+// Options that already match are left alone and an empty value removes the
+// option. When h.Alias differs from from the block is renamed too, unless the
+// new alias exists or other hosts jump through the old one.
+func (f File) Edit(from string, h Host) error {
 	if err := Validate(h); err != nil {
 		return err
 	}
-	return f.write(h.Alias, &h, func(old string) (string, error) { return editBlock(old, h) })
+	if !workspace.ValidSSHAlias(from) {
+		return fmt.Errorf("alias %q is not a plain host alias", from)
+	}
+	return f.write(from, &h, func(old string) (string, error) { return editBlock(old, from, h) })
 }
 
 // Delete removes the Host block named by alias alone. Comments above the
@@ -103,13 +108,13 @@ func (f File) target() (string, error) {
 // write runs one guarded change to alias's block. The file is only replaced
 // when
 //   - it parses before and after the change,
-//   - no host other than alias changed, and its block holds exactly the
-//     options in want (nil: the block is gone),
+//   - no host other than alias (and the name it is renamed to) changed, and
+//     the block holds exactly the options in want (nil: the block is gone),
 //   - the file was not modified by someone else meanwhile.
 //
 // The old content is copied to Path+BackupSuffix first, and the new content
 // reaches the file by an atomic rename of a temp file in the same directory.
-func (f File) write(alias string, want *Host, change func(old string) (string, error)) error {
+func (f File) write(from string, want *Host, change func(old string) (string, error)) error {
 	target, err := f.target()
 	if err != nil {
 		return err
@@ -129,7 +134,7 @@ func (f File) write(alias string, want *Host, change func(old string) (string, e
 	if next == old {
 		return nil // already as asked: leave the file and the backup alone
 	}
-	if err := verify(before, next, alias, want); err != nil {
+	if err := verify(before, next, from, want); err != nil {
 		return fmt.Errorf("refusing to write: %w", err)
 	}
 	dir := filepath.Dir(target)
@@ -144,26 +149,36 @@ func (f File) write(alias string, want *Host, change func(old string) (string, e
 	return replace(target, old, next, mode)
 }
 
-// verify re-parses the new text and compares it with the old.
-func verify(before []Host, next, alias string, want *Host) error {
+// verify re-parses the new text and compares it with the old. from is the
+// block that changes; want.Alias is the name it ends up with.
+func verify(before []Host, next, from string, want *Host) error {
+	to := from
+	if want != nil {
+		to = want.Alias
+	}
+	if users := jumpUsers(before, from); to != from && len(users) > 0 {
+		return fmt.Errorf("%w: %s (change their jump first)", ErrReferenced, strings.Join(users, ", "))
+	}
 	after, err := Hosts(strings.NewReader(next))
 	if err != nil {
 		return fmt.Errorf("new config does not parse: %w", err)
 	}
-	if !reflect.DeepEqual(without(before, alias), without(after, alias)) {
+	if !reflect.DeepEqual(without(before, from, to), without(after, from, to)) {
 		return errors.New("the change would alter other hosts")
 	}
 	lines, err := splitLines(next)
 	if err != nil {
 		return err
 	}
-	got, err := ownValues(lines, alias)
-	if want == nil { // a delete: the host must be gone
+	if _, err := ownValues(lines, from); want == nil || to != from { // the old name must be gone
 		if !errors.Is(err, ErrNotFound) {
 			return errors.New("the host would still be in the file")
 		}
+	}
+	if want == nil {
 		return nil
 	}
+	got, err := ownValues(lines, to)
 	if err != nil {
 		return fmt.Errorf("new config lacks the host: %w", err)
 	}
@@ -173,14 +188,46 @@ func verify(before []Host, next, alias string, want *Host) error {
 	return nil
 }
 
-func without(hs []Host, alias string) []Host {
+func without(hs []Host, aliases ...string) []Host {
 	var out []Host
 	for _, h := range hs {
-		if h.Alias != alias {
+		if !slices.Contains(aliases, h.Alias) {
 			out = append(out, h)
 		}
 	}
 	return out
+}
+
+// jumpUsers names the hosts whose ProxyJump goes through alias, as the
+// effective values say (a wildcard default counts). At most five are named.
+func jumpUsers(hs []Host, alias string) []string {
+	var out []string
+	for _, h := range hs {
+		if h.Alias != alias && jumpsThrough(h.ProxyJump, alias) {
+			out = append(out, h.Alias)
+		}
+	}
+	if len(out) > 5 {
+		out = append(out[:5], "…")
+	}
+	return out
+}
+
+// jumpsThrough reports whether a ProxyJump list (user@host:port, ...) has a
+// hop that names alias.
+func jumpsThrough(list, alias string) bool {
+	for _, hop := range strings.Split(list, ",") {
+		if i := strings.LastIndex(hop, "@"); i >= 0 {
+			hop = hop[i+1:]
+		}
+		if i := strings.LastIndex(hop, ":"); i >= 0 && !strings.HasSuffix(hop, "]") {
+			hop = hop[:i]
+		}
+		if hop == alias {
+			return true
+		}
+	}
+	return false
 }
 
 // replace swaps in next atomically, unless target no longer holds old.

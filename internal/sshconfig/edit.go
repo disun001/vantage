@@ -19,6 +19,9 @@ var (
 	ErrShared = errors.New("host shares a Host line with other patterns; edit the file by hand")
 	// ErrExists means the alias is already a Host pattern.
 	ErrExists = errors.New("host already exists")
+	// ErrReferenced means other hosts jump through the alias, so renaming it
+	// would break them.
+	ErrReferenced = errors.New("other hosts jump through it")
 )
 
 // The editable options, in the order a new block lists them.
@@ -48,7 +51,7 @@ func Validate(h Host) error {
 		return fmt.Errorf("alias %q: use letters, digits and . _ @ %% + - only", h.Alias)
 	}
 	if h.HostName != "" && !hostNameRe.MatchString(h.HostName) {
-		return fmt.Errorf("hostname %q is not a host name or address", h.HostName)
+		return fmt.Errorf("host %q is not a host name or address", h.HostName)
 	}
 	if h.User != "" && !userRe.MatchString(h.User) {
 		return fmt.Errorf("user %q has characters ssh would misread", h.User)
@@ -196,23 +199,35 @@ func joinLines(lines []string) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
-// editBlock sets the four options of h's block. Only options that differ from
-// the block's own values are touched; empty clears the option.
-func editBlock(content string, h Host) (string, error) {
+// editBlock sets the four options of from's block and, when h.Alias differs,
+// renames the block. Only options that differ from the block's own values are
+// touched; empty clears the option.
+func editBlock(content, from string, h Host) (string, error) {
 	lines, err := splitLines(content)
 	if err != nil {
 		return "", err
 	}
-	cur, err := ownValues(lines, h.Alias)
+	cur, err := ownValues(lines, from)
 	if err != nil {
 		return "", err
+	}
+	if from != h.Alias {
+		for _, b := range blocks(lines) {
+			if hasAlias(b, h.Alias) {
+				return "", fmt.Errorf("%q: %w", h.Alias, ErrExists)
+			}
+		}
 	}
 	for _, f := range fields {
 		if f.get(cur) == f.get(h) {
 			continue
 		}
-		b, _ := own(lines, h.Alias) // found above; lines moved since
+		b, _ := own(lines, from) // found above; lines moved since
 		lines = setOption(lines, b, f.key, f.get(h))
+	}
+	if from != h.Alias {
+		b, _ := own(lines, from)
+		lines[b.start] = parseLine(lines[b.start]).prefix + h.Alias
 	}
 	return joinLines(lines), nil
 }

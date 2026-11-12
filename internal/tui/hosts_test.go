@@ -22,6 +22,8 @@ type fakeHosts struct {
 	shared map[string]bool
 	calls  []string
 	err    error
+	// editErr fails Edit only, so the list still loads.
+	editErr error
 }
 
 func (f *fakeHosts) List() ([]sshconfig.Host, error) { return f.hosts, f.err }
@@ -46,10 +48,17 @@ func (f *fakeHosts) Add(h sshconfig.Host) error {
 	return f.err
 }
 
-func (f *fakeHosts) Edit(h sshconfig.Host) error {
-	f.calls = append(f.calls, "edit "+h.Alias)
+func (f *fakeHosts) Edit(from string, h sshconfig.Host) error {
+	call := "edit " + from
+	if from != h.Alias {
+		call += ">" + h.Alias
+	}
+	f.calls = append(f.calls, call)
+	if f.editErr != nil {
+		return f.editErr
+	}
 	for i := range f.hosts {
-		if f.hosts[i].Alias == h.Alias && f.err == nil {
+		if f.hosts[i].Alias == from && f.err == nil {
 			f.hosts[i] = h
 		}
 	}
@@ -142,7 +151,7 @@ func TestHostsViewListsAndMoves(t *testing.T) {
 		t.Fatalf("hosts=%v cur=%q", m.hosts, m.hostCur)
 	}
 	side := strings.Join(m.sidebar(), "\n")
-	for _, want := range []string{"ssh hosts", "web", "deploy@192.0.2.1", "db"} {
+	for _, want := range []string{"ssh hosts", "web", "db"} {
 		if !strings.Contains(side, want) {
 			t.Errorf("sidebar lacks %q:\n%s", want, side)
 		}
@@ -206,13 +215,13 @@ func TestFormTabWrapsAndShiftTabGoesBack(t *testing.T) {
 	if m.form.focus != 0 {
 		t.Errorf("tab from the bottom: focus %d", m.form.focus)
 	}
-	m, _ = press(m, "esc", "e", "shift+tab") // editing never lands on the alias
-	if m.form.focus != 4 {
+	m, _ = press(m, "esc", "e", "shift+tab") // editing starts on host and can reach the alias
+	if m.form.focus != 0 {
 		t.Fatalf("edit shift+tab: focus %d", m.form.focus)
 	}
-	m, _ = press(m, "tab")
-	if m.form.focus != 1 {
-		t.Errorf("edit tab wraps to %d, want 1", m.form.focus)
+	m, _ = press(m, "shift+tab")
+	if m.form.focus != 4 {
+		t.Errorf("edit shift+tab wraps to %d, want 4", m.form.focus)
 	}
 }
 
@@ -233,11 +242,11 @@ func TestFormStopsOnInvalidField(t *testing.T) {
 	if m.form == nil || m.form.focus != 1 || m.form.err == "" || cmd != nil {
 		t.Fatalf("an invalid hostname must keep the form open on it: %+v", m.form)
 	}
-	if !strings.Contains(strings.Join(m.formBox(), "\n"), "hostname") || len(f.calls) != 0 {
+	if !strings.Contains(strings.Join(m.formBox(), "\n"), "host \"x;y\"") || len(f.calls) != 0 {
 		t.Errorf("calls = %v", f.calls)
 	}
 	m, _ = press(m, "esc", "a", "enter") // alias is required
-	if m.form == nil || m.form.err != "host is required" {
+	if m.form == nil || m.form.err != "alias is required" {
 		t.Errorf("empty alias: %+v", m.form)
 	}
 }
@@ -280,7 +289,7 @@ func TestFormPopsUpOverTheScreen(t *testing.T) {
 		t.Fatalf("height %d", len(lines))
 	}
 	all := ansi.Strip(strings.Join(lines, "\n"))
-	for _, want := range []string{"add host", "hostname", "user", "port", "jump", "tab next", "x"} {
+	for _, want := range []string{"add host", "alias", "host", "user", "port", "jump", "tab next", "x"} {
 		if !strings.Contains(all, want) {
 			t.Errorf("screen lacks %q", want)
 		}
@@ -422,9 +431,16 @@ type fakeUse struct {
 	findErr   error
 	closeErr  error
 	stripErr  error
+	renameErr error
+	renamed   []string
 	closed    []string
 	stripped  []string
 	findCalls int
+}
+
+func (f *fakeUse) Rename(from, to string) error {
+	f.renamed = append(f.renamed, from+">"+to)
+	return f.renameErr
 }
 
 func (f *fakeUse) Strip(alias string) error {
@@ -598,4 +614,110 @@ func TestKeyLogRecordsKeysButNotText(t *testing.T) {
 	}
 	off := hostModel(nil) // a nil KeyLog must not panic
 	off.Update(tea.KeyMsg{Type: tea.KeyEnter})
+}
+
+func TestEditFormOffersTheAliasAndShowsOnlyAliasesInTheList(t *testing.T) {
+	m := openHosts(t, twoHosts())
+	m.w, m.h = 80, 24
+	if all := ansi.Strip(strings.Join(m.sidebar(), "\n")); strings.Contains(all, "192.0.2") || strings.Contains(all, "deploy") {
+		t.Errorf("the list shows more than aliases:\n%s", all)
+	}
+	m, _ = press(m, "e")
+	if m.form.vals[0] != "web" || m.form.from != "web" {
+		t.Fatalf("form = %+v", m.form)
+	}
+	if box := ansi.Strip(strings.Join(m.formBox(), "\n")); !strings.Contains(box, "alias") || !strings.Contains(box, "192.0.2.1") {
+		t.Errorf("box:\n%s", box)
+	}
+}
+
+func TestRenameHostEditsTheBlockAndTheWorkspaces(t *testing.T) {
+	f, u := twoHosts(), &fakeUse{}
+	m := openHosts(t, f)
+	m.cfg.HostUse = u
+	m, _ = press(m, "e", "shift+tab") // to the alias
+	m = typed(m, "2")
+	m, cmd := press(m, "enter")
+	m = settleAll(m, cmd)
+	if !reflect.DeepEqual(f.calls, []string{"edit web>web2"}) || !reflect.DeepEqual(u.renamed, []string{"web>web2"}) {
+		t.Errorf("calls %v, workspace renames %v", f.calls, u.renamed)
+	}
+	if m.hostCur != "web2" || !m.hasHost("web2") || m.hasHost("web") || m.notice != "" {
+		t.Errorf("cursor %q, hosts %v, notice %q", m.hostCur, m.hosts, m.notice)
+	}
+}
+
+func TestEditWithoutRenameLeavesWorkspacesAlone(t *testing.T) {
+	f, u := twoHosts(), &fakeUse{}
+	m := openHosts(t, f)
+	m.cfg.HostUse = u
+	m, _ = press(m, "e", "9")
+	m, cmd := press(m, "enter")
+	settleAll(m, cmd)
+	if len(u.renamed) != 0 {
+		t.Errorf("workspaces rewritten without a rename: %v", u.renamed)
+	}
+}
+
+func TestRenameHostRefusedKeepsEverything(t *testing.T) {
+	f, u := twoHosts(), &fakeUse{}
+	f.editErr = sshconfig.ErrReferenced
+	m := openHosts(t, f)
+	m.cfg.HostUse = u
+	m, _ = press(m, "e", "shift+tab")
+	m = typed(m, "2")
+	m, cmd := press(m, "enter")
+	m = settleAll(m, cmd)
+	if len(u.renamed) != 0 || !strings.Contains(m.notice, "jump through") || m.hostCur != "web" {
+		t.Errorf("renamed %v, notice %q, cursor %q", u.renamed, m.notice, m.hostCur)
+	}
+}
+
+func TestRenameHostSaysWhenWorkspacesFail(t *testing.T) {
+	f, u := twoHosts(), &fakeUse{renameErr: errors.New("proj: locked")}
+	m := openHosts(t, f)
+	m.cfg.HostUse = u
+	m, _ = press(m, "e", "shift+tab")
+	m = typed(m, "2")
+	m, cmd := press(m, "enter")
+	m = settleAll(m, cmd)
+	if !strings.Contains(m.notice, "host renamed, but workspaces not fully updated") || !strings.Contains(m.notice, "proj: locked") {
+		t.Errorf("notice %q", m.notice)
+	}
+	if m.hostCur != "web2" {
+		t.Errorf("the cursor must follow the renamed host, got %q", m.hostCur)
+	}
+}
+
+func TestRenameHostEndToEndOnTempFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	orig := "Host web\n  HostName 192.0.2.1\n\nHost db\n  ProxyJump web\n"
+	if err := os.WriteFile(path, []byte(orig), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m := hostModel(nil)
+	m.cfg.SSH = sshconfig.File{Path: path}
+	m, cmd := press(m, "H")
+	m = settleAll(m, cmd)
+	m, _ = press(m, "e", "shift+tab")
+	m = typed(m, "2")
+	m, cmd = press(m, "enter")
+	m = settleAll(m, cmd)
+	if got, _ := os.ReadFile(path); string(got) != orig {
+		t.Errorf("a host that others jump through was renamed:\n%s", got)
+	}
+	if !strings.Contains(m.notice, "db") || m.hostCur != "web" {
+		t.Errorf("notice %q, cursor %q", m.notice, m.hostCur)
+	}
+	m, _ = press(m, "j", "e", "shift+tab") // db has no dependants
+	m = typed(m, "x")
+	m, cmd = press(m, "enter")
+	m = settleAll(m, cmd)
+	want := strings.Replace(orig, "Host db", "Host dbx", 1)
+	if got, _ := os.ReadFile(path); string(got) != want {
+		t.Errorf("file:\n%s\nwant:\n%s", got, want)
+	}
+	if m.hostCur != "dbx" || m.notice != "" {
+		t.Errorf("cursor %q, notice %q", m.hostCur, m.notice)
+	}
 }

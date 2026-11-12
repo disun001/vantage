@@ -1,6 +1,7 @@
 // Package hostuse finds what depends on an ssh host alias before it is
 // deleted: saved workspaces with a pane for it and live tmux panes connected
-// to it. It can also close those live panes and strip the saved ones.
+// to it. It can also close those live panes, strip the saved ones and point
+// them at a renamed alias.
 package hostuse
 
 import (
@@ -48,6 +49,13 @@ func (f Finder) Find(alias string) (Usage, error) {
 // workspace.StripSSH for what that touches and what it refuses).
 func (f Finder) Strip(alias string) error {
 	_, err := workspace.StripSSH(alias)
+	return err
+}
+
+// Rename points the saved workspaces' panes for from at the alias to (see
+// workspace.RenameSSH). Live panes keep running; they are already connected.
+func (f Finder) Rename(from, to string) error {
+	_, err := workspace.RenameSSH(from, to)
 	return err
 }
 
