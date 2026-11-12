@@ -63,7 +63,7 @@ func runPick(args []string, out io.Writer) error {
 	for i, h := range cfgHosts {
 		hosts[i] = pick.Host{
 			Alias: h.Alias, HostName: h.HostName, User: h.User, Port: h.Port,
-			ProxyJump: h.ProxyJump, Open: open[h.Alias],
+			ProxyJump: h.ProxyJump, Open: connections.Lookup(open, h.Alias, h.HostName),
 		}
 	}
 

@@ -96,3 +96,56 @@ func TestEmbeddedSession(t *testing.T) {
 		t.Error("quitting the TUI must leave the tmux session running")
 	}
 }
+
+// TestDetachAndReopen covers the embedded client ending (prefix d, or its
+// session being killed): the TUI must stay up, say so, and attach again on
+// the next selection.
+func TestDetachAndReopen(t *testing.T) {
+	c := testClient(t)
+	if _, err := c.NewSession("alpha", "w", t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	pr, pw := io.Pipe()
+	out := &syncBuf{}
+	h := &hub{}
+	p := tea.NewProgram(newModel(Config{Client: c}, h), tea.WithInput(pr), tea.WithOutput(out), tea.WithAltScreen())
+	h.send = p.Send
+	done := make(chan error, 1)
+	go func() { _, err := p.Run(); done <- err }()
+	t.Cleanup(func() { p.Kill(); _ = pw.Close() })
+
+	p.Send(tea.WindowSizeMsg{Width: 100, Height: 24})
+	waitFor(t, "first attach", func() bool { return strings.Contains(out.String(), "alpha") })
+	// The client registers with tmux a moment after it starts.
+	waitFor(t, "client attached", func() bool {
+		o, err := exec.Command("tmux", "-L", c.Socket, "list-clients").Output()
+		return err == nil && len(o) > 0
+	})
+
+	if err := exec.Command("tmux", "-L", c.Socket, "detach-client", "-s", "alpha").Run(); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "detach notice", func() bool { return strings.Contains(out.String(), "detached: enter") })
+
+	p.Send(tea.KeyMsg{Type: tea.KeyEnter}) // cursor is on alpha: attach again
+	waitFor(t, "reattached", func() bool {
+		o, err := exec.Command("tmux", "-L", c.Socket, "list-clients").Output()
+		return err == nil && len(o) > 0
+	})
+	for _, r := range "echo vt$((20+22))" {
+		p.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+	p.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	waitFor(t, "shell output after reattach", func() bool { return strings.Contains(out.String(), "vt42") })
+
+	p.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s"), Alt: true})
+	p.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("program: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("did not quit")
+	}
+}

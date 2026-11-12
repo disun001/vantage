@@ -113,6 +113,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.term != nil && m.term.PID() == msg.pid {
 			m.term, m.tty, m.current = nil, "", ""
 			m.focus = focusSidebar
+			m.notice = "detached: enter reopens"
 		}
 		return m, m.refresh()
 	case readyMsg:

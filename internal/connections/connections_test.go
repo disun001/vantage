@@ -20,7 +20,7 @@ func TestFind(t *testing.T) {
 		"/dev/t0": {"-zsh"},
 		"/dev/t1": {"zsh -c ssh web; rc=$?; exit $rc", "ssh web"},
 		"/dev/t2": {"ssh web"},
-		"/dev/t3": {"ssh -p 2200 db"}, // options: not a plain alias
+		"/dev/t3": {"ssh -p 2200 me@db"}, // options and user are ignored
 		"/dev/t4": nil,
 	}
 	lister := func(tty string) ([]string, error) {
@@ -30,8 +30,20 @@ func TestFind(t *testing.T) {
 		return procs[tty], nil
 	}
 	got := find(panes, lister)
-	want := map[string][]tmux.PaneRef{"web": {panes[1], panes[2]}}
+	want := map[string][]tmux.PaneRef{"web": {panes[1], panes[2]}, "db": {panes[3]}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func TestLookup(t *testing.T) {
+	p1, p2 := tmux.PaneRef{Pane: "%1"}, tmux.PaneRef{Pane: "%2"}
+	open := map[string][]tmux.PaneRef{"web": {p1}, "10.0.0.5": {p1, p2}}
+	got := Lookup(open, "web", "10.0.0.5", "")
+	if !reflect.DeepEqual(got, []tmux.PaneRef{p1, p2}) {
+		t.Fatalf("got %v, want %v then %v once each", got, p1, p2)
+	}
+	if got := Lookup(open, "nope"); got != nil {
+		t.Fatalf("got %v, want nil", got)
 	}
 }

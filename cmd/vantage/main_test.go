@@ -35,12 +35,6 @@ func TestParseInterspersed(t *testing.T) {
 func TestRunDispatch(t *testing.T) {
 	var out, errOut bytes.Buffer
 
-	if code := run(nil, &out, &errOut); code != 2 || !strings.Contains(errOut.String(), "usage:") {
-		t.Errorf("no args: code=%d err=%q", code, errOut.String())
-	}
-
-	out.Reset()
-	errOut.Reset()
 	if code := run([]string{"help"}, &out, &errOut); code != 0 || !strings.Contains(out.String(), "restore") {
 		t.Errorf("help: code=%d out=%q", code, out.String())
 	}
@@ -55,6 +49,21 @@ func TestRunDispatch(t *testing.T) {
 	errOut.Reset()
 	if code := run([]string{"restore"}, &out, &errOut); code != 1 || !strings.Contains(errOut.String(), "exactly one") {
 		t.Errorf("restore without arg: code=%d err=%q", code, errOut.String())
+	}
+}
+
+func TestDefaultToTUI(t *testing.T) {
+	for _, tt := range []struct{ in, want []string }{
+		{nil, []string{"tui"}},
+		{[]string{"--socket", "x"}, []string{"tui", "--socket", "x"}},
+		{[]string{"-h"}, []string{"-h"}},
+		{[]string{"--help"}, []string{"--help"}},
+		{[]string{"list"}, []string{"list"}},
+		{[]string{"help"}, []string{"help"}},
+	} {
+		if got := defaultToTUI(tt.in); !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%v: got %v, want %v", tt.in, got, tt.want)
+		}
 	}
 }
 

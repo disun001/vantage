@@ -53,7 +53,7 @@ func (m model) onSidebarKey(s string) (tea.Model, tea.Cmd) {
 		m.cursor = max(0, len(m.rows)-1)
 	case "r":
 		return m, m.refresh()
-	case "l", "right", "tab":
+	case "l", "right", "tab", "alt+l":
 		if m.term != nil {
 			m.focus = focusTerm
 		}

@@ -41,7 +41,7 @@ func build(name, home string, panes []tmux.PaneInfo, procs Lister) (workspace.Wo
 	lastWindow := -1
 	for _, p := range panes {
 		if p.Window != lastWindow {
-			ws.Windows = append(ws.Windows, workspace.Window{Name: p.WindowName, Layout: p.Layout})
+			ws.Windows = append(ws.Windows, workspace.Window{Name: p.WindowName, Layout: compactLayout(p.Layout)})
 			lastWindow = p.Window
 		}
 		w := &ws.Windows[len(ws.Windows)-1]

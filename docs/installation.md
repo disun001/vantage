@@ -40,5 +40,5 @@ Copy it next to your `tmux.conf` and add:
 source-file -q ~/.config/tmux/vantage.conf
 ```
 
-The popup runs `vantage pick --split h|v` (see `vantage help`). Move with `j`/`k`, press `/` to fuzzy-filter, Enter to choose (the first entry is a local shell), Esc to go back or cancel. The right side shows the highlighted host (address, user, port, jump) and a green `●` marks hosts already connected in another pane or window. Only plain `ssh <alias>` connections are detected, and selecting still opens a new split. For a non-default socket add
+The popup runs `vantage pick --split h|v` (see `vantage help`). Move with `j`/`k`, press `/` to fuzzy-filter, Enter to choose (the first entry is a local shell), Esc to go back or cancel. The right side shows the highlighted host (address, user, port, jump) and a green `●` marks hosts already connected in another pane or window. A connection counts when the pane's foreground command is `ssh` to the host's alias or its real address; options like `-p` and a `user@` prefix are ignored. Selecting still opens a new split. For a non-default socket add
 `--socket NAME` or export `VANTAGE_SOCKET`.

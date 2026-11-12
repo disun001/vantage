@@ -5,8 +5,8 @@ A terminal workspace manager built on tmux. Save tmux sessions as
 command, and browse them from a sidebar TUI.
 
 **Status:** milestone 4 in progress. The workspace format, `vantage restore`, `vantage capture`, the ssh
-split picker (`vantage pick`, tmux snippet in `examples/tmux`), and a first `vantage tui` (session sidebar with
-an embedded tmux; `M-s` toggles focus) work. Mouse works; scrollback is not verified (see
+split picker (`vantage pick`, tmux snippet in `examples/tmux`), and `vantage tui` (also just `vantage`: session sidebar with
+an embedded tmux; `M-s` toggles focus, `M-h` / `M-l` move between sidebar and tmux) work. Mouse works; scrollback is not verified (see
 [docs/architecture.md](docs/architecture.md)).
 
 ## Quick start

@@ -54,7 +54,8 @@ name = "db"
 
 `vantage capture <session> [--name N] [--force] [--socket S]` writes `<config>/workspaces/<name>.toml` from a running session.
 
-- Windows keep their name and tmux layout string; panes keep their directory (home is written as `~`).
+- Windows keep their name and layout. tmux 3.8 reports layouts as long JSON, so capture rewrites them to the short classic string (`csum,WxH,x,y{...}`) that every tmux version accepts. A one-pane window saves no layout.
+- Panes keep their directory (home is written as `~`).
 - A pane whose foreground process is exactly `ssh <alias>` becomes `ssh = "<alias>"`.
 - Any other foreground command (including `ssh` with options or ports) is saved as `cmd` with `autorun = false`, so restore never runs it unless you edit the file.
 - Idle shells save nothing. An existing file is only replaced with `--force`.

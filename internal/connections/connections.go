@@ -7,10 +7,11 @@ import (
 	"github.com/disun001/vantage/internal/tmux"
 )
 
-// Find maps each ssh alias to the panes currently running exactly
-// `ssh <alias>` in the foreground, in tmux's own pane order. Only plain alias
-// connections are detected, the same rule capture uses. A pane whose process
-// list cannot be read is skipped, so one odd pane never hides the others.
+// Find maps each ssh destination (the host word of the command, so an alias,
+// a hostname, or an IP) to the panes currently running ssh to it in the
+// foreground, in tmux's own pane order. Options like -p and user@ are
+// ignored. A pane whose process list cannot be read is skipped, so one odd
+// pane never hides the others. Use Lookup to match a configured host.
 func Find(c tmux.Client, procs capture.Lister) (map[string][]tmux.PaneRef, error) {
 	panes, err := c.ListAllPanes()
 	if err != nil {
@@ -27,9 +28,28 @@ func find(panes []tmux.PaneRef, procs capture.Lister) map[string][]tmux.PaneRef 
 			continue
 		}
 		for _, l := range lines {
-			if alias, ok := capture.SSHAlias(l); ok {
-				out[alias] = append(out[alias], p)
+			if dest, ok := capture.SSHDestination(l); ok {
+				out[dest] = append(out[dest], p)
 				break
+			}
+		}
+	}
+	return out
+}
+
+// Lookup returns the panes connected to any of the given names (a host's
+// alias and its real HostName), without listing a pane twice.
+func Lookup(open map[string][]tmux.PaneRef, names ...string) []tmux.PaneRef {
+	var out []tmux.PaneRef
+	seen := map[string]bool{}
+	for _, n := range names {
+		if n == "" {
+			continue
+		}
+		for _, p := range open[n] {
+			if !seen[p.Pane] {
+				seen[p.Pane] = true
+				out = append(out, p)
 			}
 		}
 	}

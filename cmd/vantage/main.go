@@ -29,10 +29,7 @@ func main() {
 
 // run is main without os.Exit so it can be tested. It returns the exit code.
 func run(args []string, out, errOut io.Writer) int {
-	if len(args) == 0 {
-		fmt.Fprint(errOut, usageText())
-		return 2
-	}
+	args = defaultToTUI(args)
 	switch args[0] {
 	case "-h", "--help", "help":
 		fmt.Fprint(out, usageText())
@@ -51,9 +48,25 @@ func run(args []string, out, errOut io.Writer) int {
 	return 2
 }
 
+// defaultToTUI makes a bare `vantage` (or `vantage --socket x`) start the TUI.
+// Help flags still print usage.
+func defaultToTUI(args []string) []string {
+	if len(args) == 0 {
+		return []string{"tui"}
+	}
+	switch args[0] {
+	case "-h", "--help", "-help":
+		return args
+	}
+	if strings.HasPrefix(args[0], "-") {
+		return append([]string{"tui"}, args...)
+	}
+	return args
+}
+
 func usageText() string {
 	var b strings.Builder
-	b.WriteString("vantage - tmux workspaces\n\nusage:\n")
+	b.WriteString("vantage - tmux workspaces\n\nusage: (no command starts the TUI)\n")
 	for _, c := range commands {
 		fmt.Fprintf(&b, "  vantage %-24s %s\n", c.usage, c.summary)
 	}
