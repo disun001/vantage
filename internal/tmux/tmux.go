@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -123,4 +124,40 @@ func (c Client) ListPanes(format string) ([]string, error) {
 		return nil, nil
 	}
 	return strings.Split(out, "\n"), nil
+}
+
+// PaneInfo describes one live pane, as needed by capture.
+type PaneInfo struct {
+	Window     int
+	WindowName string
+	Layout     string
+	CWD        string
+	// Command is the foreground command's name (tmux #{pane_current_command}).
+	Command string
+	// TTY is the pane's terminal device, e.g. /dev/ttys003.
+	TTY string
+}
+
+// ListSessionPanes returns every pane of one session, ordered by window then
+// pane index. WindowName is last in the format so a "|" in it cannot shift
+// the other fields.
+func (c Client) ListSessionPanes(session string) ([]PaneInfo, error) {
+	const format = "#{window_index}|#{window_layout}|#{pane_current_path}|#{pane_current_command}|#{pane_tty}|#{window_name}"
+	out, err := c.run("list-panes", "-s", "-t", "="+session, "-F", format)
+	if err != nil {
+		return nil, err
+	}
+	var panes []PaneInfo
+	for _, line := range strings.Split(out, "\n") {
+		f := strings.SplitN(line, "|", 6)
+		if len(f) != 6 {
+			return nil, fmt.Errorf("unexpected list-panes line %q", line)
+		}
+		idx, err := strconv.Atoi(f[0])
+		if err != nil {
+			return nil, fmt.Errorf("bad window index in %q: %w", line, err)
+		}
+		panes = append(panes, PaneInfo{Window: idx, Layout: f[1], CWD: f[2], Command: f[3], TTY: f[4], WindowName: f[5]})
+	}
+	return panes, nil
 }

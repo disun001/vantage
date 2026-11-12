@@ -51,6 +51,9 @@ var (
 	aliasRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._@%+-]*$`)
 )
 
+// ValidSSHAlias reports whether s is safe to pass to `ssh` as a host alias.
+func ValidSSHAlias(s string) bool { return aliasRe.MatchString(s) }
+
 // Load reads and validates a workspace file. If the file omits `name`, the
 // file's base name (without extension) is used.
 func Load(path string) (Workspace, error) {
