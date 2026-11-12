@@ -297,7 +297,8 @@ func (m model) startTerm(cmd *exec.Cmd) (*embed.Term, error) {
 		return nil, fmt.Errorf("window too small")
 	}
 	h := m.hub
-	return embed.Start(cmd, cols, rows,
+	return embed.Start(
+		cmd, cols, rows,
 		func() {
 			if h.dirty.CompareAndSwap(false, true) {
 				h.send(outputMsg{})

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/disun001/vantage/internal/sshconfig"
@@ -44,40 +45,63 @@ type (
 	}
 )
 
-// hostField is one step of the add / edit form.
+// hostField is one line of the add / edit form.
 type hostField struct {
 	label string
 	ptr   func(*sshconfig.Host) *string
 }
 
-// hostFields are the form steps in order. Editing skips the first: the alias
+// hostFields are the form lines in order. Editing skips the first: the alias
 // names the block and never changes.
 var hostFields = []hostField{
-	{"host: ", func(h *sshconfig.Host) *string { return &h.Alias }},
-	{"hostname: ", func(h *sshconfig.Host) *string { return &h.HostName }},
-	{"user: ", func(h *sshconfig.Host) *string { return &h.User }},
-	{"port: ", func(h *sshconfig.Host) *string { return &h.Port }},
-	{"jump: ", func(h *sshconfig.Host) *string { return &h.ProxyJump }},
+	{"host", func(h *sshconfig.Host) *string { return &h.Alias }},
+	{"hostname", func(h *sshconfig.Host) *string { return &h.HostName }},
+	{"user", func(h *sshconfig.Host) *string { return &h.User }},
+	{"port", func(h *sshconfig.Host) *string { return &h.Port }},
+	{"jump", func(h *sshconfig.Host) *string { return &h.ProxyJump }},
 }
 
-// hostForm asks for a host's fields one line at a time at the bottom of the
-// sidebar. Enter keeps the line and moves on, an empty line leaves the option
-// unset, Esc drops everything.
+// hostForm is the pop-up for adding or editing a host: every field is on
+// screen, Tab moves between them, Enter saves, Esc drops everything.
 type hostForm struct {
-	edit bool
-	host sshconfig.Host // answers so far; for an edit, the block's own values
-	step int            // index into hostFields
-	text string
+	edit  bool
+	vals  [5]string // indexed like hostFields
+	focus int
+	err   string // why the last Enter did not save
 }
 
-func (f hostForm) line() string {
-	label := hostFields[f.step].label
-	room := max(1, sidebarW-len(label)-1)
-	text := f.text
-	if r := []rune(text); len(r) > room {
-		text = "…" + string(r[len(r)-room+1:])
+// first is the first line the user can reach.
+func (f hostForm) first() int {
+	if f.edit {
+		return 1
 	}
-	return fit(label+text+cursorStyle.Render(" "), sidebarW)
+	return 0
+}
+
+// host collects the typed values.
+func (f hostForm) host() sshconfig.Host {
+	var h sshconfig.Host
+	for i, fd := range hostFields {
+		*fd.ptr(&h) = strings.TrimSpace(f.vals[i])
+	}
+	return h
+}
+
+// check finds the first field ssh would not accept, so the cursor can go
+// there with a message.
+func (f hostForm) check() (int, string) {
+	h := f.host()
+	if h.Alias == "" {
+		return 0, "host is required"
+	}
+	for i := range hostFields {
+		only := sshconfig.Host{Alias: h.Alias}
+		*hostFields[i].ptr(&only) = *hostFields[i].ptr(&h)
+		if err := sshconfig.Validate(only); err != nil {
+			return i, err.Error()
+		}
+	}
+	return -1, ""
 }
 
 func (m model) hostPos() int {
@@ -200,7 +224,11 @@ func (m model) startEdit() model {
 		m.notice = ansi.Strip(alias + ": " + err.Error())
 		return m
 	}
-	m.form, m.notice = &hostForm{edit: true, host: own, step: 1, text: own.HostName}, ""
+	f := hostForm{edit: true, focus: 1}
+	for i, fd := range hostFields {
+		f.vals[i] = *fd.ptr(&own)
+	}
+	m.form, m.notice = &f, ""
 	return m
 }
 
@@ -208,61 +236,52 @@ func (m model) startEdit() model {
 func (m model) onFormKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	f := *m.form
 	m.form = &f
+	last := len(hostFields) - 1
 	switch k.Type {
 	case tea.KeyEsc, tea.KeyCtrlC:
 		m.form = nil
 	case tea.KeyEnter:
-		return m.advanceForm()
+		return m.submitForm()
+	case tea.KeyTab, tea.KeyDown:
+		f.focus = f.first() + (f.focus-f.first()+1)%(last+1-f.first())
+	case tea.KeyShiftTab, tea.KeyUp:
+		n := last + 1 - f.first()
+		f.focus = f.first() + (f.focus-f.first()+n-1)%n
 	case tea.KeyBackspace:
-		if r := []rune(f.text); len(r) > 0 {
-			m.form.text = string(r[:len(r)-1])
+		if r := []rune(f.vals[f.focus]); len(r) > 0 {
+			f.vals[f.focus] = string(r[:len(r)-1])
 		}
 	case tea.KeyCtrlU:
-		m.form.text = ""
+		f.vals[f.focus] = ""
 	case tea.KeyRunes:
-		m.form.text += strings.Join(strings.Fields(string(k.Runes)), "") // no blanks in any field
+		f.vals[f.focus] += strings.Join(strings.Fields(string(k.Runes)), "") // no blanks in any field
 	}
 	return m, nil
 }
 
-// advanceForm stores the line, checks it, and moves to the next field or
-// saves after the last one.
-func (m model) advanceForm() (tea.Model, tea.Cmd) {
+// submitForm saves, or stops on the field that is wrong.
+func (m model) submitForm() (tea.Model, tea.Cmd) {
 	f := *m.form
-	f.text = strings.TrimSpace(f.text)
-	if !f.edit && f.step == 0 && f.text == "" {
-		m.form = nil // nothing typed for the alias: treat Enter as cancel
+	if i, msg := f.check(); i >= 0 {
+		f.focus, f.err = i, ansi.Strip(msg)
+		m.form = &f
 		return m, nil
 	}
-	next := f.host
-	*hostFields[f.step].ptr(&next) = f.text
-	if err := sshconfig.Validate(next); err != nil {
-		m.notice = ansi.Strip(err.Error())
-		return m, nil
-	}
-	m.notice = ""
-	f.host = next
-	if f.step == len(hostFields)-1 {
-		m.form = nil
-		return m, m.saveHost(f)
-	}
-	f.step++
-	f.text = *hostFields[f.step].ptr(&f.host)
-	m.form = &f
-	return m, nil
+	m.form, m.notice = nil, ""
+	return m, m.saveHost(f)
 }
 
 // saveHost writes the finished form in the background.
 func (m model) saveHost(f hostForm) tea.Cmd {
-	s := m.cfg.SSH
+	s, h := m.cfg.SSH, f.host()
 	return func() tea.Msg {
 		var err error
 		if f.edit {
-			err = s.Edit(f.host)
+			err = s.Edit(h)
 		} else {
-			err = s.Add(f.host)
+			err = s.Add(h)
 		}
-		return hostSavedMsg{alias: f.host.Alias, err: err}
+		return hostSavedMsg{alias: h.Alias, err: err}
 	}
 }
 
@@ -303,8 +322,64 @@ func (m model) hostsSidebar() []string {
 		out[m.h-1-len(note)+i] = fit(noticeStyle.Render(l), sidebarW)
 	}
 	out[m.h-1] = fit(dimStyle.Render("a e H alt+s q"), sidebarW)
-	if m.form != nil {
-		out[m.h-1] = m.form.line()
+	return out
+}
+
+// formBox draws the pop-up as a bordered block of lines.
+func (m model) formBox() []string {
+	f := m.form
+	inner := max(10, min(40, m.w-6))
+	title := "add host"
+	if f.edit {
+		title = "edit host"
+	}
+	rows := []string{titleStyle.Render(title), ""}
+	const labelW = 10 // "hostname" plus a gap
+	for i, fd := range hostFields {
+		label := fit(fd.label, labelW)
+		text := f.vals[i]
+		room := max(1, inner-labelW-1)
+		if r := []rune(text); len(r) > room {
+			text = "…" + string(r[len(r)-room+1:])
+		}
+		switch {
+		case f.edit && i == 0:
+			rows = append(rows, dimStyle.Render(fit(label+text, inner)))
+		case i == f.focus:
+			rows = append(rows, curStyle.Render(label)+fit(text+cursorStyle.Render(" "), inner-labelW))
+		default:
+			rows = append(rows, fit(dimStyle.Render(label)+text, inner))
+		}
+	}
+	rows = append(rows, "")
+	if f.err != "" {
+		rows = append(rows, ansi.Wrap(noticeStyle.Render(f.err), inner, ""))
+	}
+	rows = append(rows, dimStyle.Render("tab next · enter save · esc"))
+	var lines []string
+	for _, r := range rows {
+		for _, l := range strings.Split(r, "\n") {
+			lines = append(lines, fit(l, inner))
+		}
+	}
+	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1).Render(strings.Join(lines, "\n"))
+	return strings.Split(box, "\n")
+}
+
+// overlay draws box over lines, centred.
+func overlay(lines, box []string, w int) []string {
+	if len(box) == 0 {
+		return lines
+	}
+	bw := ansi.StringWidth(box[0])
+	x, y := max(0, (w-bw)/2), max(0, (len(lines)-len(box))/2)
+	out := append([]string(nil), lines...)
+	for i, b := range box {
+		if y+i >= len(out) {
+			break
+		}
+		base := out[y+i]
+		out[y+i] = ansi.Truncate(base, x, "") + "\x1b[0m" + b + "\x1b[0m" + ansi.TruncateLeft(base, x+bw, "")
 	}
 	return out
 }

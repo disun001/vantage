@@ -25,16 +25,14 @@ func (m model) View() string {
 	side := m.sidebar()
 	right := m.right()
 	div := dimStyle.Render("│")
-	var b strings.Builder
-	for i := 0; i < m.h; i++ {
-		if i > 0 {
-			b.WriteByte('\n')
-		}
-		b.WriteString(side[i])
-		b.WriteString(div)
-		b.WriteString(right[i])
+	lines := make([]string, m.h)
+	for i := range lines {
+		lines[i] = side[i] + div + right[i]
 	}
-	return b.String()
+	if m.form != nil {
+		lines = overlay(lines, m.formBox(), m.w)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // fit truncates or pads s to exactly w cells.

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/disun001/vantage/internal/sshconfig"
 )
@@ -140,24 +141,21 @@ func TestAddHostForm(t *testing.T) {
 	f := twoHosts()
 	m := openHosts(t, f)
 	m, _ = press(m, "a")
-	if m.form == nil || !strings.Contains(m.sidebar()[m.h-1], "host: ") {
+	if m.form == nil || m.form.edit || m.form.focus != 0 {
 		t.Fatalf("form = %+v", m.form)
 	}
 	m = typed(m, "new")
-	m, _ = press(m, "enter")
+	m, _ = press(m, "tab")
 	m = typed(m, "192.0.2.9")
-	m, _ = press(m, "enter", "enter") // no user
+	m, _ = press(m, "tab", "tab") // skip user
 	m = typed(m, "2200")
-	if !strings.Contains(m.sidebar()[m.h-1], "port: 2200") {
-		t.Errorf("footer = %q", m.sidebar()[m.h-1])
-	}
-	m, _ = press(m, "enter")
+	m, _ = press(m, "tab")
 	m = typed(m, "web")
 	m, cmd := press(m, "enter")
 	if m.form != nil || cmd == nil {
-		t.Fatalf("last Enter must save: form=%+v", m.form)
+		t.Fatalf("Enter must save: form=%+v", m.form)
 	}
-	m = settle(m, cmd)
+	m = settleAll(m, cmd)
 	want := sshconfig.Host{Alias: "new", HostName: "192.0.2.9", Port: "2200", ProxyJump: "web"}
 	if got := f.hosts[len(f.hosts)-1]; got != want || !reflect.DeepEqual(f.calls, []string{"add new"}) {
 		t.Errorf("saved %+v, calls %v", got, f.calls)
@@ -167,35 +165,56 @@ func TestAddHostForm(t *testing.T) {
 	}
 }
 
-func TestFormKeepsStepOnInvalidInput(t *testing.T) {
+func TestFormTabWrapsAndShiftTabGoesBack(t *testing.T) {
+	m := openHosts(t, twoHosts())
+	m, _ = press(m, "a", "shift+tab")
+	if m.form.focus != 4 {
+		t.Errorf("shift+tab from the top: focus %d", m.form.focus)
+	}
+	m, _ = press(m, "tab")
+	if m.form.focus != 0 {
+		t.Errorf("tab from the bottom: focus %d", m.form.focus)
+	}
+	m, _ = press(m, "esc", "e", "shift+tab") // editing never lands on the alias
+	if m.form.focus != 4 {
+		t.Fatalf("edit shift+tab: focus %d", m.form.focus)
+	}
+	m, _ = press(m, "tab")
+	if m.form.focus != 1 {
+		t.Errorf("edit tab wraps to %d, want 1", m.form.focus)
+	}
+}
+
+func TestFormStopsOnInvalidField(t *testing.T) {
 	f := twoHosts()
 	m := openHosts(t, f)
 	m, _ = press(m, "a")
 	m = typed(m, "n")
-	m, _ = press(m, "enter")
+	m, _ = press(m, "tab")
 	m = typed(m, "bad host") // the space is dropped, not typed
-	if m.form.text != "badhost" {
-		t.Fatalf("text = %q", m.form.text)
+	if m.form.vals[1] != "badhost" {
+		t.Fatalf("text = %q", m.form.vals[1])
 	}
 	m, _ = press(m, "ctrl+u")
 	m = typed(m, "x;y")
-	m, _ = press(m, "enter")
-	if m.form == nil || m.form.step != 1 || m.notice == "" {
-		t.Fatalf("an invalid hostname must stay on its step: %+v notice=%q", m.form, m.notice)
+	m, _ = press(m, "tab", "tab", "tab") // wander off to another field
+	m, cmd := press(m, "enter")
+	if m.form == nil || m.form.focus != 1 || m.form.err == "" || cmd != nil {
+		t.Fatalf("an invalid hostname must keep the form open on it: %+v", m.form)
 	}
-	if len(f.calls) != 0 {
+	if !strings.Contains(strings.Join(m.formBox(), "\n"), "hostname") || len(f.calls) != 0 {
 		t.Errorf("calls = %v", f.calls)
+	}
+	m, _ = press(m, "esc", "a", "enter") // alias is required
+	if m.form == nil || m.form.err != "host is required" {
+		t.Errorf("empty alias: %+v", m.form)
 	}
 }
 
 func TestFormCancel(t *testing.T) {
 	f := twoHosts()
 	m := openHosts(t, f)
-	m, _ = press(m, "a", "enter") // empty alias
-	if m.form != nil {
-		t.Error("Enter on an empty alias must cancel")
-	}
-	m, _ = press(m, "a", "x", "enter", "esc")
+	m, _ = press(m, "a", "x", "esc")
 	if m.form != nil || len(f.calls) != 0 {
 		t.Errorf("esc must drop the form: %+v calls=%v", m.form, f.calls)
 	}
@@ -205,22 +224,43 @@ func TestEditHostForm(t *testing.T) {
 	f := twoHosts()
 	m := openHosts(t, f)
 	m, _ = press(m, "e")
-	if m.form == nil || !m.form.edit || m.form.text != "192.0.2.1" || m.form.step != 1 {
+	if m.form == nil || !m.form.edit || m.form.focus != 1 || m.form.vals[1] != "192.0.2.1" || m.form.vals[2] != "deploy" {
 		t.Fatalf("form = %+v", m.form)
 	}
 	m, _ = press(m, "backspace", "9") // 192.0.2.9
-	m, _ = press(m, "enter")
-	if m.form.text != "deploy" {
-		t.Fatalf("user step should be prefilled, got %q", m.form.text)
-	}
-	m, cmd := press(m, "enter", "enter", "enter") // keep user, port and jump; the last Enter saves
+	m, cmd := press(m, "enter")
 	if m.form != nil {
 		t.Fatalf("form still open: %+v", m.form)
 	}
-	m = settle(m, cmd)
+	m = settleAll(m, cmd)
 	want := sshconfig.Host{Alias: "web", HostName: "192.0.2.9", User: "deploy"}
 	if f.hosts[0] != want || !reflect.DeepEqual(f.calls, []string{"edit web"}) {
 		t.Errorf("hosts[0] = %+v, calls %v", f.hosts[0], f.calls)
+	}
+}
+
+func TestFormPopsUpOverTheScreen(t *testing.T) {
+	m := openHosts(t, twoHosts())
+	m.w, m.h = 80, 24
+	plain := strings.Split(m.View(), "\n")
+	m, _ = press(m, "a", "x")
+	lines := strings.Split(m.View(), "\n")
+	if len(lines) != 24 {
+		t.Fatalf("height %d", len(lines))
+	}
+	all := ansi.Strip(strings.Join(lines, "\n"))
+	for _, want := range []string{"add host", "hostname", "user", "port", "jump", "tab next", "x"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("screen lacks %q", want)
+		}
+	}
+	for i, l := range lines {
+		if w := ansi.StringWidth(l); w != 80 {
+			t.Errorf("line %d is %d cells wide", i, w)
+		}
+	}
+	if plain[0] != lines[0] {
+		t.Error("the top line should be untouched by a centred box")
 	}
 }
 
@@ -235,7 +275,7 @@ func TestEditSharedHostSaysWhy(t *testing.T) {
 func TestSaveErrorBecomesNotice(t *testing.T) {
 	f := twoHosts()
 	m := openHosts(t, f)
-	m, _ = press(m, "a", "n", "enter", "enter", "enter", "enter")
+	m, _ = press(m, "a", "n")
 	f.err = errors.New("disk full")
 	m, cmd := press(m, "enter")
 	m = settle(m, cmd)
@@ -273,11 +313,11 @@ func TestHostsEndToEndOnTempFile(t *testing.T) {
 	m, cmd := press(m, "H")
 	m = settleAll(m, cmd)
 	m, _ = press(m, "e", "backspace", "5") // 192.0.2.5
-	m, cmd = press(m, "enter", "enter", "enter", "enter")
+	m, cmd = press(m, "enter")
 	m = settleAll(m, cmd)
 	m, _ = press(m, "a")
 	m = typed(m, "db")
-	m, cmd = press(m, "enter", "enter", "enter", "enter", "enter")
+	m, cmd = press(m, "enter")
 	m = settleAll(m, cmd)
 	got, err := os.ReadFile(path)
 	if err != nil {
