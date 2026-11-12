@@ -503,6 +503,8 @@ func (d hostDelete) box(w int) []string {
 // popup is the pop-up to draw over the screen, if one is open.
 func (m model) popup() []string {
 	switch {
+	case m.prompt != nil && m.prompt.kind == promptDelete:
+		return m.deleteBox()
 	case m.form != nil:
 		return m.formBox()
 	case m.hostDel != nil:

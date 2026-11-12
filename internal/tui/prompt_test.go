@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/disun001/vantage/internal/manage"
 	"github.com/disun001/vantage/internal/workspace"
@@ -154,7 +155,7 @@ func TestDeletePrompt(t *testing.T) {
 	m, _ = press(m, "esc")
 	m.cur = key{"saved", -1}
 	m, _ = press(m, "d")
-	if m.prompt == nil || !strings.Contains(m.sidebar()[m.h-1], "delete saved? y/n") {
+	if m.prompt == nil || !strings.Contains(popupText(m), "delete workspace") || !strings.Contains(popupText(m), "Removes the saved file.") {
 		t.Fatalf("no confirm: %+v", m.prompt)
 	}
 	m, cmd := press(m, "x") // anything but y cancels
@@ -254,5 +255,36 @@ func TestManageEndToEnd(t *testing.T) {
 	}
 	if _, err := os.Stat(os.Getenv("VANTAGE_CONFIG_DIR")); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestWorkspaceDeletePopupSaysWhatGoes(t *testing.T) {
+	m := manageModel(&fakeManager{})
+	m.w, m.h = 80, 24
+	m.rows[1].Windows, m.rows[1].Panes = 3, 5 // b: running, not saved
+	m.cur = key{"b", -1}
+	m, _ = press(m, "d")
+	txt := popupText(m)
+	if !strings.Contains(txt, "Kills the running session (3 windows, 5") || strings.Contains(txt, "saved file") {
+		t.Errorf("live-only popup:\n%s", txt)
+	}
+	m, _ = press(m, "esc")
+	m.cur = key{"a", -1} // a: running and saved
+	m, _ = press(m, "d")
+	txt = popupText(m)
+	if !strings.Contains(txt, "Removes the saved file.") || !strings.Contains(txt, "Kills the running session") {
+		t.Errorf("live+saved popup:\n%s", txt)
+	}
+	lines := strings.Split(m.View(), "\n")
+	if len(lines) != 24 {
+		t.Fatalf("height %d", len(lines))
+	}
+	for i, l := range lines {
+		if w := ansi.StringWidth(l); w != 80 {
+			t.Errorf("line %d is %d cells wide", i, w)
+		}
+	}
+	if strings.Contains(ansi.Strip(m.sidebar()[m.h-1]), "y/n") {
+		t.Error("the one-line question must be gone")
 	}
 }

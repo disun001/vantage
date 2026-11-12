@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -46,6 +47,26 @@ func (p prompt) line() string {
 		text = "…" + string(r[len(r)-room+1:])
 	}
 	return fit(p.label()+text+cursorStyle.Render(" "), sidebarW)
+}
+
+// deleteBox is the pop-up that asks before a workspace goes: what the delete
+// removes, and what running work it ends.
+func (m model) deleteBox() []string {
+	name := m.prompt.target
+	rows := []string{titleStyle.Render("delete workspace"), "", curStyle.Render(name), ""}
+	for _, r := range m.rows {
+		if r.Name != name {
+			continue
+		}
+		if r.Saved {
+			rows = append(rows, "Removes the saved file.")
+		}
+		if r.Live {
+			rows = append(rows, noticeStyle.Render(fmt.Sprintf("Kills the running session (%d windows, %d panes).", r.Windows, r.Panes)))
+		}
+	}
+	rows = append(rows, "", dimStyle.Render("y delete · any other key cancels"))
+	return framed(rows, max(10, min(44, m.w-6)))
 }
 
 // startPrompt opens a prompt for the line under the cursor, or says why not.
