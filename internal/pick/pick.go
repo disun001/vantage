@@ -57,8 +57,7 @@ func parse(s string, hosts []string) (Choice, error) {
 
 // Split splits pane in direction dir ("h" side by side, "v" stacked). For an
 // ssh choice the new pane runs ssh directly, so nothing is typed or echoed and
-// it feels like opening on the remote host; when ssh ends it falls back to a
-// local shell instead of closing the pane. It returns the new pane's ID.
+// it feels like opening on the remote host, and the pane closes when ssh ends. It returns the new pane's ID.
 func Split(c tmux.Client, pane, dir, cwd string, ch Choice) (string, error) {
 	if dir != "h" && dir != "v" {
 		return "", fmt.Errorf("split direction must be h or v, got %q", dir)
@@ -73,9 +72,7 @@ func Split(c tmux.Client, pane, dir, cwd string, ch Choice) (string, error) {
 	if !workspace.ValidSSHAlias(ch.Alias) {
 		return "", fmt.Errorf("invalid ssh alias %q", ch.Alias)
 	}
-	// The alias is validated above, so it is safe inside this shell command.
-	// ${SHELL:-sh} is expanded by the pane's shell, not by us.
-	id, err := c.SplitWindowRun(pane, dir, cwd, "ssh "+ch.Alias+`; exec "${SHELL:-sh}"`)
+	id, err := c.SplitWindowRun(pane, dir, cwd, workspace.SSHCommand(ch.Alias))
 	if err != nil {
 		return "", fmt.Errorf("split: %w", err)
 	}

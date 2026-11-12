@@ -76,7 +76,7 @@ func Restore(c tmux.Client, ws workspace.Workspace) (res Result, err error) {
 func start(c tmux.Client, pane string, p workspace.Pane) error {
 	switch {
 	case p.SSH != "":
-		return c.SendLine(pane, "ssh "+p.SSH)
+		return c.RespawnPane(pane, workspace.SSHCommand(p.SSH))
 	case p.Cmd != "" && p.Autorun:
 		return c.SendLine(pane, p.Cmd)
 	}

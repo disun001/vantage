@@ -51,6 +51,14 @@ var (
 	aliasRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._@%+-]*$`)
 )
 
+// SSHCommand is the shell command a pane runs to connect to alias. The pane
+// closes when ssh ends, like a local shell. Exit status 255 means ssh itself
+// failed (unreachable host, auth), so it waits for Enter first or the error
+// would vanish with the pane. alias must pass ValidSSHAlias.
+func SSHCommand(alias string) string {
+	return "ssh " + alias + `; rc=$?; if [ $rc -eq 255 ]; then echo; echo "ssh failed, press Enter"; read _; fi; exit $rc`
+}
+
 // ValidSSHAlias reports whether s is safe to pass to `ssh` as a host alias.
 func ValidSSHAlias(s string) bool { return aliasRe.MatchString(s) }
 

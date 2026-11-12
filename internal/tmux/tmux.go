@@ -99,6 +99,13 @@ func (c Client) split(pane, flag, cwd, command string) (string, error) {
 	return c.run(args...)
 }
 
+// RespawnPane replaces whatever runs in pane with a shell command. The caller
+// must have validated command.
+func (c Client) RespawnPane(pane, command string) error {
+	_, err := c.run("respawn-pane", "-k", "-t", pane, command)
+	return err
+}
+
 // SelectLayout applies a layout preset or layout string to the pane's window.
 func (c Client) SelectLayout(pane, layout string) error {
 	_, err := c.run("select-layout", "-t", pane, layout)
