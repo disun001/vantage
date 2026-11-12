@@ -18,9 +18,9 @@ func TestMergeRows(t *testing.T) {
 	got := mergeRows(live, wins, panes, []string{"z", "a", "c"})
 	want := []row{
 		{Name: "b", Live: true, Windows: 2, Panes: 2, Wins: []win{{1, "x", 2, true}, {2, "y", 1, false}}},
-		{Name: "a", Live: true, Windows: 1, Panes: 1, Wins: []win{{0, "z", 1, true}}},
-		{Name: "c"},
-		{Name: "z"},
+		{Name: "a", Live: true, Saved: true, Windows: 1, Panes: 1, Wins: []win{{0, "z", 1, true}}},
+		{Name: "c", Saved: true},
+		{Name: "z", Saved: true},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %+v\nwant %+v", got, want)

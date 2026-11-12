@@ -19,6 +19,7 @@ type win struct {
 type row struct {
 	Name    string
 	Live    bool
+	Saved   bool // a workspace file exists
 	Windows int
 	Panes   int
 	Wins    []win
@@ -48,8 +49,12 @@ func mergeRows(live []tmux.Session, wins []tmux.Window, panes []tmux.PaneRef, sa
 	}
 	rows := make([]row, 0, len(live)+len(saved))
 	seen := map[string]bool{}
+	isSaved := map[string]bool{}
+	for _, n := range saved {
+		isSaved[n] = true
+	}
 	for _, s := range live {
-		rows = append(rows, row{Name: s.Name, Live: true, Windows: s.Windows, Panes: count[s.Name], Wins: byID[s.ID]})
+		rows = append(rows, row{Name: s.Name, Live: true, Saved: isSaved[s.Name], Windows: s.Windows, Panes: count[s.Name], Wins: byID[s.ID]})
 		seen[s.Name] = true
 	}
 	var rest []string
@@ -60,7 +65,7 @@ func mergeRows(live []tmux.Session, wins []tmux.Window, panes []tmux.PaneRef, sa
 	}
 	sort.Strings(rest)
 	for _, n := range rest {
-		rows = append(rows, row{Name: n})
+		rows = append(rows, row{Name: n, Saved: true})
 	}
 	return rows
 }

@@ -6,6 +6,7 @@ cmd/vantage/        CLI: main.go dispatches; one file per subcommand
 internal/workspace/ workspace schema, load, validate, config dir lookup
 internal/tmux/      thin adapter over the tmux CLI (the only place that execs tmux)
 internal/restore/   builds a live session from a Workspace
+internal/manage/    create, rename, delete workspaces (file and live session together)
 internal/capture/   reads a live session back into a Workspace (ps lookup for ssh/commands)
 internal/sshconfig/ read-only list of hosts (alias, address, user, port, jump) from ssh_config
 internal/connections/ which ssh hosts are already open in live tmux panes

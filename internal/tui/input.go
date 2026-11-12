@@ -5,6 +5,9 @@ import (
 )
 
 func (m model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.prompt != nil {
+		return m.onPromptKey(k)
+	}
 	s := k.String()
 	if s == "alt+s" {
 		if m.focus == focusTerm {
@@ -57,6 +60,12 @@ func (m model) onSidebarKey(s string) (tea.Model, tea.Cmd) {
 		m = m.toggle(true)
 	case "r":
 		return m, m.refresh()
+	case "n":
+		m = m.startPrompt(promptNew)
+	case "R":
+		m = m.startPrompt(promptRename)
+	case "d":
+		m = m.startPrompt(promptDelete)
 	case "l", "right":
 		return m.descend()
 	case "tab", "alt+l":

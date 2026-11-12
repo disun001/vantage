@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/disun001/vantage/internal/capture"
+	"github.com/disun001/vantage/internal/manage"
 	"github.com/disun001/vantage/internal/restore"
 	"github.com/disun001/vantage/internal/tmux"
 	"github.com/disun001/vantage/internal/tui"
@@ -28,6 +30,7 @@ func runTUI(args []string, _ io.Writer) error {
 	return tui.Run(tui.Config{
 		Client: client,
 		Saved:  workspace.List,
+		Manage: manage.Manager{Client: client, Procs: capture.PS},
 		Restore: func(name string) error {
 			path, err := workspace.Resolve(name)
 			if err != nil {

@@ -26,6 +26,19 @@ type Config struct {
 	Saved func() ([]string, error)
 	// Restore creates the session for a saved workspace if it is not live.
 	Restore func(name string) error
+	// Manage creates, renames and deletes workspaces. Nil turns the n, R
+	// and d keys off.
+	Manage Manager
+}
+
+// Manager changes workspaces on behalf of the sidebar.
+type Manager interface {
+	// Create starts and saves a new workspace.
+	Create(name string) error
+	// Rename renames the saved workspace and the live session.
+	Rename(from, to string) error
+	// Delete removes the saved file only; a live session stays.
+	Delete(name string) error
 }
 
 type focus int
@@ -56,6 +69,7 @@ type model struct {
 	bar     statusBar
 	current string // session the embedded client shows
 	notice  string
+	prompt  *prompt
 	shown   bool // a live session was auto-shown once; do not re-attach after a detach
 }
 
@@ -78,6 +92,11 @@ type (
 		tty     string
 		bar     statusBar
 		haveBar bool
+	}
+	manageMsg struct { // a workspace create, rename or delete finished
+		op       promptKind
+		from, to string
+		err      error
 	}
 	exitMsg  struct{ pid int }
 	readyMsg struct { // a session is live and can be shown
@@ -175,6 +194,8 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.refresh()
 	case readyMsg:
 		return m.onReady(msg)
+	case manageMsg:
+		return m.onManage(msg)
 	case edgeMsg:
 		return m.onEdge(msg), nil
 	case tea.KeyMsg:

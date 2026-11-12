@@ -127,6 +127,12 @@ func (c Client) KillSession(name string) error {
 	return err
 }
 
+// RenameSession gives the session called from a new name.
+func (c Client) RenameSession(from, to string) error {
+	_, err := c.run("rename-session", "-t", "="+from, to)
+	return err
+}
+
 // KillServer stops the whole server. Refused on the default server.
 func (c Client) KillServer() error {
 	if c.Socket == "" {

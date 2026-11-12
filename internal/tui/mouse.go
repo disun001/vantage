@@ -15,6 +15,9 @@ const chevronW = 2
 // the sidebar handles its own clicks and wheel, and events over the tmux
 // region are translated to its coordinates and forwarded.
 func (m model) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	if m.prompt != nil { // the prompt owns the input until it is answered
+		return m, nil
+	}
 	if msg.X < sidebarW {
 		return m.onSidebarMouse(msg)
 	}
