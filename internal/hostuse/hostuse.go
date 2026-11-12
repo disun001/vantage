@@ -45,6 +45,15 @@ func (f Finder) Find(alias string) (Usage, error) {
 	return u, first
 }
 
+// Live returns the open panes running ssh to the alias, in tmux's pane order.
+func (f Finder) Live(alias string) ([]tmux.PaneRef, error) {
+	open, err := connections.Find(f.Client, f.Procs)
+	if err != nil {
+		return nil, err
+	}
+	return connections.Lookup(open, alias), nil
+}
+
 // Strip removes the panes for alias from the saved workspaces (see
 // workspace.StripSSH for what that touches and what it refuses).
 func (f Finder) Strip(alias string) error {

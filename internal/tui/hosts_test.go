@@ -438,6 +438,8 @@ type fakeUse struct {
 	findCalls int
 }
 
+func (f *fakeUse) Live(string) ([]tmux.PaneRef, error) { return f.use.Panes, f.findErr }
+
 func (f *fakeUse) Rename(from, to string) error {
 	f.renamed = append(f.renamed, from+">"+to)
 	return f.renameErr

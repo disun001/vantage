@@ -72,6 +72,17 @@ func (c Client) NewWindow(session, window, cwd string) (string, error) {
 	return c.run(args...)
 }
 
+// NewWindowRun is NewWindow with a shell command run in the window instead of
+// an interactive shell. The caller must have validated command. The window
+// becomes the session's current one.
+func (c Client) NewWindowRun(session, window, command string) (string, error) {
+	args := []string{"new-window", "-t", "=" + session + ":", "-P", "-F", "#{pane_id}"}
+	if window != "" {
+		args = append(args, "-n", window)
+	}
+	return c.run(append(args, command)...)
+}
+
 // SplitWindow splits the target pane. dir is "h" (side by side) or "v"
 // (stacked). It returns the new pane's ID.
 func (c Client) SplitWindow(pane, dir, cwd string) (string, error) {

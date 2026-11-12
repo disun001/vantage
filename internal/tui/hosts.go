@@ -12,6 +12,7 @@ import (
 	"github.com/disun001/vantage/internal/hostuse"
 	"github.com/disun001/vantage/internal/pick"
 	"github.com/disun001/vantage/internal/sshconfig"
+	"github.com/disun001/vantage/internal/tmux"
 )
 
 // HostStore reads and changes the ssh hosts the sidebar's hosts view shows.
@@ -40,6 +41,8 @@ type HostUsage interface {
 	Close(hostuse.Usage) error
 	// Strip removes the alias's panes from the saved workspaces.
 	Strip(alias string) error
+	// Live returns the open panes running ssh to the alias.
+	Live(alias string) ([]tmux.PaneRef, error)
 	// Rename points the saved workspaces' panes for from at the alias to.
 	Rename(from, to string) error
 }
@@ -249,6 +252,8 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 		if len(m.hosts) > 0 {
 			return m.startDelete(m.hosts[m.hostPos()].Alias)
 		}
+	case "enter":
+		return m.openHost()
 	case "v":
 		return m.splitHost("h") // side by side, like vim's :vsplit
 	case "s":
@@ -276,11 +281,9 @@ func (m model) splitHost(dir string) (tea.Model, tea.Cmd) {
 	alias, c, tty, pid := m.hosts[m.hostPos()].Alias, m.cfg.Client, m.tty, m.term.PID()
 	m.notice = ""
 	return m, func() tea.Msg {
-		var err error
-		if tty == "" {
-			if tty, err = c.ClientTTY(pid); err != nil {
-				return hostSplitMsg{alias: alias, err: errors.New("tmux client not ready, try again")}
-			}
+		tty, err := clientTTY(c, tty, pid)
+		if err != nil {
+			return hostSplitMsg{alias: alias, err: err}
 		}
 		pane, cwd, err := c.ActivePane(tty)
 		if err == nil {
@@ -476,7 +479,7 @@ func (m model) hostsSidebar() []string {
 	for i, l := range note {
 		out[m.h-1-len(note)+i] = fit(noticeStyle.Render(l), sidebarW)
 	}
-	out[m.h-1] = fit(dimStyle.Render("a e d v s H alt+s q"), sidebarW)
+	out[m.h-1] = fit(dimStyle.Render("⏎ a e d v s H alt+s q"), sidebarW)
 	return out
 }
 
@@ -560,6 +563,8 @@ func (m model) popup() []string {
 		return m.formBox()
 	case m.hostDel != nil:
 		return m.hostDel.box(m.w)
+	case m.hostPick != nil:
+		return m.hostPick.box(m.w)
 	}
 	return nil
 }

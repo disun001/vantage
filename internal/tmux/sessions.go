@@ -97,6 +97,24 @@ func (c Client) ActivePane(tty string) (id, cwd string, err error) {
 	return id, cwd, nil
 }
 
+// ClientSession returns the name of the session the client on tty shows.
+func (c Client) ClientSession(tty string) (string, error) {
+	return c.run("display-message", "-p", "-c", tty, "#{session_name}")
+}
+
+// FocusPane makes the pane its window's active pane and the window its
+// session's current one. It does not move any client: SwitchClient does.
+func (c Client) FocusPane(pane string) error {
+	if !paneIDRe.MatchString(pane) {
+		return fmt.Errorf("invalid pane id %q", pane)
+	}
+	if _, err := c.run("select-window", "-t", pane); err != nil {
+		return err
+	}
+	_, err := c.run("select-pane", "-t", pane)
+	return err
+}
+
 // ClientTTY returns the tty of the attached client whose process id is pid.
 // The embedded client's PTY slave name is not exposed by the PTY library, so
 // tmux is asked instead. It fails until the client has registered.

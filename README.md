@@ -9,7 +9,7 @@ split picker (`vantage pick`, tmux snippet in `examples/tmux`), and `vantage tui
 The TUI shows sessions with their windows in a sidebar (`space` folds), embeds tmux (its own status bar is hidden),
 and supports the mouse. `M-s` toggles focus, `M-h` / `M-l` move between sidebar and tmux.
 Sidebar keys: `n` new workspace and `R` rename (each asks for the name in a pop-up), `d` delete the workspace file and kill its session (confirmed in a pop-up).
-`H` switches the sidebar to your ssh hosts: `v` opens an ssh split beside the active pane and `s` one below it, `a` adds a host, `e` edits one in a pop-up (alias, host, user, port, jump; a new alias renames it and updates the saved workspaces), `d` deletes one after a `y` in a pop-up, warning there if workspaces or open panes use it (the open panes are closed and the saved workspaces lose those panes).
+`H` switches the sidebar to your ssh hosts: `Enter` goes to the pane already connected to the host (a pop-up asks which when several are open) or opens ssh in a new window, `v` opens an ssh split beside the active pane and `s` one below it, `a` adds a host, `e` edits one in a pop-up (alias, host, user, port, jump; a new alias renames it and updates the saved workspaces), `d` deletes one after a `y` in a pop-up, warning there if workspaces or open panes use it (the open panes are closed and the saved workspaces lose those panes).
 Changes go straight to `~/.ssh/config`, with a copy kept in `~/.ssh/config.vantage.bak`
 (see [docs/architecture.md](docs/architecture.md)).
 

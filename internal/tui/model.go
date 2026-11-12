@@ -65,27 +65,28 @@ type hub struct {
 }
 
 type model struct {
-	cfg     Config
-	hub     *hub
-	w, h    int
-	rows    []row
-	cur     key             // the line under the cursor, by name
-	top     int             // first visible item, for scrolling
-	open    map[string]bool // sessions the user opened or closed by hand
-	focus   focus
-	term    *embed.Term
-	tty     string // tty of the embedded tmux client, once known
-	bar     statusBar
-	current string // session the embedded client shows
-	notice  string
-	prompt  *prompt
-	view    sidebarView
-	hosts   []sshconfig.Host
-	hostCur string // alias under the cursor in the hosts view
-	hostTop int
-	form    *hostForm
-	hostDel *hostDelete // the delete question, while it is open
-	shown   bool        // a live session was auto-shown once; do not re-attach after a detach
+	cfg      Config
+	hub      *hub
+	w, h     int
+	rows     []row
+	cur      key             // the line under the cursor, by name
+	top      int             // first visible item, for scrolling
+	open     map[string]bool // sessions the user opened or closed by hand
+	focus    focus
+	term     *embed.Term
+	tty      string // tty of the embedded tmux client, once known
+	bar      statusBar
+	current  string // session the embedded client shows
+	notice   string
+	prompt   *prompt
+	view     sidebarView
+	hosts    []sshconfig.Host
+	hostCur  string // alias under the cursor in the hosts view
+	hostTop  int
+	form     *hostForm
+	hostDel  *hostDelete // the delete question, while it is open
+	hostPick *hostPick   // the choice of connected pane, while it is open
+	shown    bool        // a live session was auto-shown once; do not re-attach after a detach
 }
 
 // statusBar is the tmux status bar of the embedded client. The embedded
@@ -211,14 +212,6 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.onReady(msg)
 	case manageMsg:
 		return m.onManage(msg)
-	case hostsMsg:
-		return m.onHosts(msg), nil
-	case hostUsageMsg:
-		return m.onHostUsage(msg), nil
-	case hostSplitMsg:
-		return m.onHostSplit(msg)
-	case hostSavedMsg:
-		return m.onHostSaved(msg)
 	case edgeMsg:
 		return m.onEdge(msg), nil
 	case tea.KeyMsg:
@@ -226,7 +219,7 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseMsg:
 		return m.onMouse(msg)
 	}
-	return m, nil
+	return m.updateHosts(msg)
 }
 
 func (m model) onRows(msg rowsMsg) model {
