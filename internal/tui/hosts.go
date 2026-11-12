@@ -22,6 +22,8 @@ type HostStore interface {
 	Add(sshconfig.Host) error
 	// Edit changes the options of an existing Host block.
 	Edit(sshconfig.Host) error
+	// Delete removes a Host block.
+	Delete(alias string) error
 }
 
 // sidebarView is what the sidebar lists.
@@ -40,8 +42,9 @@ type (
 	}
 	// hostSavedMsg reports a finished add or edit.
 	hostSavedMsg struct {
-		alias string
-		err   error
+		alias   string
+		deleted bool
+		err     error
 	}
 )
 
@@ -157,6 +160,23 @@ func (m model) onHosts(msg hostsMsg) model {
 	return m
 }
 
+// neighbour is the host to park the cursor on when alias goes away: the one
+// below it, else the one above.
+func (m model) neighbour(alias string) string {
+	for i, h := range m.hosts {
+		if h.Alias != alias {
+			continue
+		}
+		switch {
+		case i+1 < len(m.hosts):
+			return m.hosts[i+1].Alias
+		case i > 0:
+			return m.hosts[i-1].Alias
+		}
+	}
+	return ""
+}
+
 func (m model) hasHost(alias string) bool {
 	for _, h := range m.hosts {
 		if h.Alias == alias {
@@ -202,6 +222,10 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 		m.form, m.notice = &hostForm{}, ""
 	case "e":
 		return m.startEdit(), nil
+	case "d":
+		if len(m.hosts) > 0 {
+			m.hostDel, m.notice = m.hosts[m.hostPos()].Alias, ""
+		}
 	case "H", "esc", "h", "left":
 		return m.toggleHosts()
 	case "tab", "alt+l":
@@ -210,6 +234,19 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// onHostDelKey answers the delete question: y deletes, anything else cancels.
+func (m model) onHostDelKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
+	alias := m.hostDel
+	m.hostDel = ""
+	if k.String() != "y" {
+		return m, nil
+	}
+	s := m.cfg.SSH
+	return m, func() tea.Msg {
+		return hostSavedMsg{alias: alias, deleted: true, err: s.Delete(alias)}
+	}
 }
 
 // startEdit opens the form on the host under the cursor, prefilled with what
@@ -286,9 +323,12 @@ func (m model) saveHost(f hostForm) tea.Cmd {
 }
 
 func (m model) onHostSaved(msg hostSavedMsg) (tea.Model, tea.Cmd) {
-	if msg.err != nil {
+	switch {
+	case msg.err != nil:
 		m.notice = ansi.Strip(fmt.Sprintf("%s: %v", msg.alias, msg.err))
-	} else {
+	case msg.deleted:
+		m.notice, m.hostCur = "", m.neighbour(msg.alias)
+	default:
 		m.notice, m.hostCur = "", msg.alias
 	}
 	return m, m.loadHosts()
@@ -321,7 +361,10 @@ func (m model) hostsSidebar() []string {
 	for i, l := range note {
 		out[m.h-1-len(note)+i] = fit(noticeStyle.Render(l), sidebarW)
 	}
-	out[m.h-1] = fit(dimStyle.Render("a e H alt+s q"), sidebarW)
+	out[m.h-1] = fit(dimStyle.Render("a e d H alt+s q"), sidebarW)
+	if m.hostDel != "" {
+		out[m.h-1] = fit(noticeStyle.Render("delete "+m.hostDel+"? y/n"), sidebarW)
+	}
 	return out
 }
 

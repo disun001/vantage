@@ -342,3 +342,80 @@ func TestFileRefusesUnparsableConfig(t *testing.T) {
 		t.Errorf("file changed: %q", got)
 	}
 }
+
+func TestDeleteBlock(t *testing.T) {
+	cases := map[string]struct{ in, alias, want string }{
+		"middle": {
+			"Host a\n  User x\n\nHost b\n  User y\n\nHost c\n  User z\n", "b",
+			"Host a\n  User x\n\nHost c\n  User z\n",
+		},
+		"first": {
+			"Host a\n  User x\n\nHost b\n  User y\n", "a",
+			"Host b\n  User y\n",
+		},
+		"last drops the trailing blank": {
+			"Host a\n  User x\n\nHost b\n  User y\n", "b",
+			"Host a\n  User x\n",
+		},
+		"only host": {"Host a\n  User x\n", "a", ""},
+		"comment of the next section stays": {
+			"Host a\n  User x\n\n# defaults\nHost *\n  User d\n", "a",
+			"# defaults\nHost *\n  User d\n",
+		},
+		"comment above the block stays": {
+			"# about a\nHost a\n  User x\nHost b\n", "a",
+			"# about a\nHost b\n",
+		},
+		"globals above survive": {
+			"Compression yes\n\nHost a\n  User x\n", "a",
+			"Compression yes\n",
+		},
+		"before a match": {
+			"Host a\n  User x\nMatch all\n  User y\n", "a",
+			"Match all\n  User y\n",
+		},
+	}
+	for name, c := range cases {
+		got, err := deleteBlock(c.in, c.alias)
+		if err != nil || got != c.want {
+			t.Errorf("%s:\ngot  %q, %v\nwant %q", name, got, err, c.want)
+		}
+	}
+	if _, err := deleteBlock(sample, "db"); !errors.Is(err, ErrShared) {
+		t.Errorf("shared: %v", err)
+	}
+	if _, err := deleteBlock(sample, "nope"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("missing: %v", err)
+	}
+}
+
+func TestFileDelete(t *testing.T) {
+	f := fileWith(t, sample, 0o600)
+	if err := f.Delete("web"); err != nil {
+		t.Fatal(err)
+	}
+	hosts, err := f.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, h := range hosts {
+		if h.Alias == "web" {
+			t.Error("web is still listed")
+		}
+	}
+	if got := readFile(t, f.Path+BackupSuffix); got != sample {
+		t.Errorf("backup differs from the original:\n%s", got)
+	}
+	if err := f.Delete("web"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("second delete: %v", err)
+	}
+	for _, bad := range []string{"db", "-oX", "x\ny", "*"} {
+		before := readFile(t, f.Path)
+		if err := f.Delete(bad); err == nil {
+			t.Errorf("Delete(%q) succeeded", bad)
+		}
+		if readFile(t, f.Path) != before {
+			t.Errorf("Delete(%q) changed the file", bad)
+		}
+	}
+}

@@ -301,3 +301,29 @@ func addBlock(content string, h Host) (string, error) {
 	out := append(append(append([]string{}, lines[:at]...), add...), lines[at:]...)
 	return joinLines(out), nil
 }
+
+// deleteBlock removes the Host block named by alias alone. Comment lines
+// directly above the next section are kept: they belong to it.
+func deleteBlock(content, alias string) (string, error) {
+	lines, err := splitLines(content)
+	if err != nil {
+		return "", err
+	}
+	b, err := own(lines, alias)
+	if err != nil {
+		return "", err
+	}
+	end := b.end
+	if end < len(lines) {
+		for end > b.start+1 && strings.HasPrefix(strings.TrimSpace(lines[end-1]), "#") {
+			end--
+		}
+	}
+	out := append(append([]string{}, lines[:b.start]...), lines[end:]...)
+	if end == len(lines) { // the block was last: no blank line should trail it
+		for len(out) > 0 && strings.TrimSpace(out[len(out)-1]) == "" {
+			out = out[:len(out)-1]
+		}
+	}
+	return joinLines(out), nil
+}

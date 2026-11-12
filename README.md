@@ -9,7 +9,7 @@ split picker (`vantage pick`, tmux snippet in `examples/tmux`), and `vantage tui
 The TUI shows sessions with their windows in a sidebar (`space` folds), embeds tmux (its own status bar is hidden),
 and supports the mouse. `M-s` toggles focus, `M-h` / `M-l` move between sidebar and tmux.
 Sidebar keys: `n` new workspace, `R` rename, `d` delete the workspace file and kill its session.
-`H` switches the sidebar to your ssh hosts: `a` adds a host, `e` edits one (hostname, user, port, jump).
+`H` switches the sidebar to your ssh hosts: `a` adds a host, `e` edits one (hostname, user, port, jump), `d` deletes one after `y`.
 Changes go straight to `~/.ssh/config`, with a copy kept in `~/.ssh/config.vantage.bak`
 (see [docs/architecture.md](docs/architecture.md)).
 

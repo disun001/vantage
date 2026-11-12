@@ -11,6 +11,9 @@ func (m model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.form != nil {
 		return m.onFormKey(k)
 	}
+	if m.hostDel != "" {
+		return m.onHostDelKey(k)
+	}
 	s := k.String()
 	if s == "alt+s" {
 		if m.focus == focusTerm {

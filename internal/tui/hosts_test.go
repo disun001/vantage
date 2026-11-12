@@ -54,6 +54,20 @@ func (f *fakeHosts) Edit(h sshconfig.Host) error {
 	return f.err
 }
 
+func (f *fakeHosts) Delete(alias string) error {
+	f.calls = append(f.calls, "delete "+alias)
+	if f.err != nil {
+		return f.err
+	}
+	for i, h := range f.hosts {
+		if h.Alias == alias {
+			f.hosts = append(f.hosts[:i:i], f.hosts[i+1:]...)
+			break
+		}
+	}
+	return nil
+}
+
 func hostModel(f *fakeHosts) model {
 	m := manageModel(&fakeManager{})
 	if f != nil { // a nil pointer in the interface would not be nil
@@ -329,5 +343,58 @@ func TestHostsEndToEndOnTempFile(t *testing.T) {
 	}
 	if m.notice != "" || m.hostCur != "db" || len(m.hosts) != 2 {
 		t.Errorf("notice=%q cur=%q hosts=%v", m.notice, m.hostCur, m.hosts)
+	}
+}
+
+func TestDeleteHost(t *testing.T) {
+	f := twoHosts()
+	m := openHosts(t, f)
+	m, _ = press(m, "j", "d") // db
+	if m.hostDel != "db" || !strings.Contains(m.sidebar()[m.h-1], "delete db? y/n") {
+		t.Fatalf("hostDel=%q footer=%q", m.hostDel, m.sidebar()[m.h-1])
+	}
+	m, cmd := press(m, "n")
+	if m.hostDel != "" || cmd != nil || len(f.calls) != 0 {
+		t.Fatalf("any other key must cancel: %q calls=%v", m.hostDel, f.calls)
+	}
+	m, cmd = press(m, "d", "y")
+	if cmd == nil {
+		t.Fatal("y must delete")
+	}
+	m = settleAll(m, cmd)
+	if !reflect.DeepEqual(f.calls, []string{"delete db"}) || len(m.hosts) != 2 {
+		t.Errorf("calls=%v hosts=%v", f.calls, m.hosts)
+	}
+	if m.hostCur != "grp" { // the host below the deleted one
+		t.Errorf("cursor = %q", m.hostCur)
+	}
+	m, _ = press(m, "d", "y") // grp is last: its neighbour is the one above
+	m = settleAll(m, func() tea.Msg { return hostSavedMsg{alias: "grp", deleted: true} })
+	if m.hostCur != "web" {
+		t.Errorf("cursor = %q", m.hostCur)
+	}
+}
+
+func TestDeleteHostErrorAndMouse(t *testing.T) {
+	f := twoHosts()
+	f.shared["db"] = true
+	m := openHosts(t, f)
+	m, _ = press(m, "d")
+	next, _ := m.Update(tea.MouseMsg{X: 2, Y: firstRowY + 1, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	if got := next.(model); got.hostCur != "web" {
+		t.Errorf("click moved the cursor during the question: %q", got.hostCur)
+	}
+	f.err = errors.New("read-only file")
+	m, cmd := press(m, "y")
+	m = settleAll(m, cmd)
+	if !strings.Contains(m.notice, "read-only file") || len(m.hosts) != 3 {
+		t.Errorf("notice=%q hosts=%v", m.notice, m.hosts)
+	}
+}
+
+func TestDeleteNothingWhenEmpty(t *testing.T) {
+	m := openHosts(t, &fakeHosts{})
+	if m, _ = press(m, "d"); m.hostDel != "" {
+		t.Error("asked to delete from an empty list")
 	}
 }

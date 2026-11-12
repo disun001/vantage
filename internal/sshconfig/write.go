@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/disun001/vantage/internal/workspace"
 )
 
 // File is an ssh config file that vantage can read and change.
@@ -39,7 +41,7 @@ func (f File) Add(h Host) error {
 	if err := Validate(h); err != nil {
 		return err
 	}
-	return f.write(h, func(old string) (string, error) { return addBlock(old, h) })
+	return f.write(h.Alias, &h, func(old string) (string, error) { return addBlock(old, h) })
 }
 
 // Edit sets HostName, User, Port and ProxyJump of h.Alias's block. Options
@@ -49,7 +51,17 @@ func (f File) Edit(h Host) error {
 	if err := Validate(h); err != nil {
 		return err
 	}
-	return f.write(h, func(old string) (string, error) { return editBlock(old, h) })
+	return f.write(h.Alias, &h, func(old string) (string, error) { return editBlock(old, h) })
+}
+
+// Delete removes the Host block named by alias alone. Comments above the
+// block stay; a block that shares its Host line with other patterns is
+// refused.
+func (f File) Delete(alias string) error {
+	if !workspace.ValidSSHAlias(alias) {
+		return fmt.Errorf("alias %q is not a plain host alias", alias)
+	}
+	return f.write(alias, nil, func(old string) (string, error) { return deleteBlock(old, alias) })
 }
 
 // read returns the file text and mode. A missing file reads as empty.
@@ -88,15 +100,16 @@ func (f File) target() (string, error) {
 	return f.Path, nil
 }
 
-// write runs one guarded change. The file is only replaced when
+// write runs one guarded change to alias's block. The file is only replaced
+// when
 //   - it parses before and after the change,
-//   - no host other than want.Alias changed, and the block for want.Alias
-//     holds exactly the requested options,
+//   - no host other than alias changed, and its block holds exactly the
+//     options in want (nil: the block is gone),
 //   - the file was not modified by someone else meanwhile.
 //
 // The old content is copied to Path+BackupSuffix first, and the new content
 // reaches the file by an atomic rename of a temp file in the same directory.
-func (f File) write(want Host, change func(old string) (string, error)) error {
+func (f File) write(alias string, want *Host, change func(old string) (string, error)) error {
 	target, err := f.target()
 	if err != nil {
 		return err
@@ -116,7 +129,7 @@ func (f File) write(want Host, change func(old string) (string, error)) error {
 	if next == old {
 		return nil // already as asked: leave the file and the backup alone
 	}
-	if err := verify(before, next, want); err != nil {
+	if err := verify(before, next, alias, want); err != nil {
 		return fmt.Errorf("refusing to write: %w", err)
 	}
 	dir := filepath.Dir(target)
@@ -132,24 +145,30 @@ func (f File) write(want Host, change func(old string) (string, error)) error {
 }
 
 // verify re-parses the new text and compares it with the old.
-func verify(before []Host, next string, want Host) error {
+func verify(before []Host, next, alias string, want *Host) error {
 	after, err := Hosts(strings.NewReader(next))
 	if err != nil {
 		return fmt.Errorf("new config does not parse: %w", err)
 	}
-	if !reflect.DeepEqual(without(before, want.Alias), without(after, want.Alias)) {
+	if !reflect.DeepEqual(without(before, alias), without(after, alias)) {
 		return errors.New("the change would alter other hosts")
 	}
 	lines, err := splitLines(next)
 	if err != nil {
 		return err
 	}
-	got, err := ownValues(lines, want.Alias)
+	got, err := ownValues(lines, alias)
+	if want == nil { // a delete: the host must be gone
+		if !errors.Is(err, ErrNotFound) {
+			return errors.New("the host would still be in the file")
+		}
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("new config lacks the host: %w", err)
 	}
-	if got != want {
-		return fmt.Errorf("new config has %+v, wanted %+v", got, want)
+	if got != *want {
+		return fmt.Errorf("new config has %+v, wanted %+v", got, *want)
 	}
 	return nil
 }
