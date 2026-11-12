@@ -147,6 +147,9 @@ func (m model) listCap() int {
 
 // scrolled keeps the cursor line inside the visible window of the list.
 func (m model) scrolled() model {
+	if m.view == viewHosts {
+		return m.hostScrolled()
+	}
 	items := m.items()
 	c, p := m.listCap(), m.pos(items)
 	if p < m.top {

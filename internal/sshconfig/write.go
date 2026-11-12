@@ -113,6 +113,9 @@ func (f File) write(want Host, change func(old string) (string, error)) error {
 	if err != nil {
 		return err
 	}
+	if next == old {
+		return nil // already as asked: leave the file and the backup alone
+	}
 	if err := verify(before, next, want); err != nil {
 		return fmt.Errorf("refusing to write: %w", err)
 	}

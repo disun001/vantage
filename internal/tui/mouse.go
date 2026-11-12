@@ -15,7 +15,7 @@ const chevronW = 2
 // the sidebar handles its own clicks and wheel, and events over the tmux
 // region are translated to its coordinates and forwarded.
 func (m model) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	if m.prompt != nil { // the prompt owns the input until it is answered
+	if m.prompt != nil || m.form != nil { // a prompt owns the input until it is answered
 		return m, nil
 	}
 	if msg.X < sidebarW {
@@ -38,6 +38,9 @@ func (m model) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) onSidebarMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	if m.view == viewHosts {
+		return m.onHostMouse(msg), nil
+	}
 	switch {
 	case msg.Button == tea.MouseButtonWheelUp:
 		m = m.move(-1)
@@ -55,6 +58,22 @@ func (m model) onSidebarMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// onHostMouse selects hosts: the wheel moves the cursor, a click picks a line.
+func (m model) onHostMouse(msg tea.MouseMsg) model {
+	switch {
+	case msg.Button == tea.MouseButtonWheelUp:
+		m = m.moveHost(-1)
+	case msg.Button == tea.MouseButtonWheelDown:
+		m = m.moveHost(1)
+	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
+		m.focus = focusSidebar
+		if i := msg.Y - firstRowY + m.hostTop; msg.Y >= firstRowY && i < len(m.hosts) {
+			m.hostCur = m.hosts[i].Alias
+		}
+	}
+	return m
 }
 
 // toVT converts a Bubble Tea mouse event to the emulator's, at x, y relative

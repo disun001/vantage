@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/disun001/vantage/internal/embed"
+	"github.com/disun001/vantage/internal/sshconfig"
 	"github.com/disun001/vantage/internal/tmux"
 )
 
@@ -29,6 +30,8 @@ type Config struct {
 	// Manage creates, renames and deletes workspaces. Nil turns the n, R
 	// and d keys off.
 	Manage Manager
+	// SSH lists, adds and edits ssh hosts. Nil turns the hosts view off.
+	SSH HostStore
 }
 
 // Manager changes workspaces on behalf of the sidebar.
@@ -70,6 +73,11 @@ type model struct {
 	current string // session the embedded client shows
 	notice  string
 	prompt  *prompt
+	view    sidebarView
+	hosts   []sshconfig.Host
+	hostCur string // alias under the cursor in the hosts view
+	hostTop int
+	form    *hostForm
 	shown   bool // a live session was auto-shown once; do not re-attach after a detach
 }
 
@@ -196,6 +204,10 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.onReady(msg)
 	case manageMsg:
 		return m.onManage(msg)
+	case hostsMsg:
+		return m.onHosts(msg), nil
+	case hostSavedMsg:
+		return m.onHostSaved(msg)
 	case edgeMsg:
 		return m.onEdge(msg), nil
 	case tea.KeyMsg:

@@ -77,6 +77,9 @@ func (m model) right() []string {
 }
 
 func (m model) sidebar() []string {
+	if m.view == viewHosts {
+		return m.hostsSidebar()
+	}
 	out := make([]string, m.h)
 	for i := range out {
 		out[i] = strings.Repeat(" ", sidebarW)
@@ -101,7 +104,7 @@ func (m model) sidebar() []string {
 	for i, l := range note {
 		out[m.h-1-len(note)+i] = fit(noticeStyle.Render(l), sidebarW)
 	}
-	out[m.h-1] = fit(dimStyle.Render("enter space n R d alt+s q"), sidebarW)
+	out[m.h-1] = fit(dimStyle.Render("space n R d H alt+s q"), sidebarW)
 	if m.prompt != nil {
 		out[m.h-1] = m.prompt.line()
 	}
