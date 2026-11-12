@@ -91,7 +91,7 @@ func (m model) sidebar() []string {
 	if m.notice != "" && m.h > 4 {
 		out[m.h-2] = fit(noticeStyle.Render(m.notice), sidebarW)
 	}
-	out[m.h-1] = fit(dimStyle.Render("j/k enter  alt+s focus  q"), sidebarW)
+	out[m.h-1] = fit(dimStyle.Render("j/k enter  ^\\ focus  q"), sidebarW)
 	return out
 }
 
