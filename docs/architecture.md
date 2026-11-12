@@ -23,13 +23,13 @@ sidebar TUI.
 
 ## Roadmap
 
-| #   | Milestone                                                          | Status  |
-| --- | ------------------------------------------------------------------ | ------- |
-| 1   | Workspace TOML schema + `restore`                                  | Done    |
-| 2   | `capture` (live session to TOML, ssh detection, `autorun = false`) | Done    |
-| 3   | ssh config reader + `pick` popup + tmux bindings (`S` / `V`)       | Done    |
+| #   | Milestone                                                          | Status                           |
+| --- | ------------------------------------------------------------------ | -------------------------------- |
+| 1   | Workspace TOML schema + `restore`                                  | Done                             |
+| 2   | `capture` (live session to TOML, ssh detection, `autorun = false`) | Done                             |
+| 3   | ssh config reader + `pick` popup + tmux bindings (`S` / `V`)       | Done                             |
 | 4   | TUI shell: sidebar + embedded tmux + focus keys + socket config    | First slice done (`vantage tui`) |
-| 5   | Tree view, ssh add and edit                                        | Planned |
+| 5   | Tree view, ssh add and edit                                        | Planned                          |
 
 ## Untested risks for the TUI (milestone 4)
 
