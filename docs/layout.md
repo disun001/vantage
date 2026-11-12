@@ -9,7 +9,7 @@ internal/restore/   builds a live session from a Workspace
 internal/manage/    create, rename, delete workspaces (file and live session together)
 internal/capture/   reads a live session back into a Workspace (ps lookup for ssh/commands)
 internal/sshconfig/ list hosts (alias, address, user, port, jump) from ssh_config; guarded add and edit of Host blocks
-internal/hostuse/  what depends on an ssh alias (workspaces, live panes) before it is deleted; closes the panes
+internal/hostuse/  what depends on an ssh alias (workspaces, live panes) before it is deleted; closes the panes, strips saved ones
 internal/connections/ which ssh hosts are already open in live tmux panes
 internal/pick/      fuzzy menu (local or ssh) and the split it creates
 internal/embed/     runs a program in a PTY and mirrors it in a virtual screen

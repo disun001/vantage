@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -27,14 +28,16 @@ type HostStore interface {
 	Delete(alias string) error
 }
 
-// HostUsage finds what depends on a host before it is deleted and closes the
-// live panes connected to it. hostuse.Finder implements it.
+// HostUsage finds what depends on a host before it is deleted, closes the
+// live panes connected to it and removes its panes from saved workspaces. hostuse.Finder implements it.
 type HostUsage interface {
 	// Find reports the workspaces and open panes that use the alias. Partial
 	// results may come back with an error.
 	Find(alias string) (hostuse.Usage, error)
 	// Close kills the open panes of the usage.
 	Close(hostuse.Usage) error
+	// Strip removes the alias's panes from the saved workspaces.
+	Strip(alias string) error
 }
 
 // sidebarView is what the sidebar lists.
@@ -273,7 +276,7 @@ func (m model) startDelete(alias string) (tea.Model, tea.Cmd) {
 func (m model) onHostUsage(msg hostUsageMsg) model {
 	var warn []string
 	if n := len(msg.use.Workspaces); n > 0 {
-		warn = append(warn, "used by workspaces "+strings.Join(msg.use.Workspaces, ", ")+".")
+		warn = append(warn, "used by workspaces "+strings.Join(msg.use.Workspaces, ", ")+": their ssh panes will be removed.")
 	}
 	if n := len(msg.use.Panes); n > 0 {
 		warn = append(warn, fmt.Sprintf("%d open pane(s) will be closed.", n))
@@ -297,15 +300,22 @@ func (m model) onHostDelKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if err := s.Delete(alias); err != nil {
 			return hostSavedMsg{alias: alias, deleted: true, err: err}
 		}
-		var err error
+		var errs []error
 		if u != nil {
 			// Look again: panes may have come or gone since the question.
 			use, _ := u.Find(alias)
-			if cerr := u.Close(use); cerr != nil {
-				err = fmt.Errorf("host removed, but closing its panes failed: %w", cerr)
+			if err := u.Close(use); err != nil {
+				errs = append(errs, fmt.Errorf("closing its panes failed: %w", err))
+			}
+			if err := u.Strip(alias); err != nil {
+				errs = append(errs, fmt.Errorf("workspaces not fully updated: %w", err))
 			}
 		}
-		return hostSavedMsg{alias: alias, deleted: true, err: err}
+		if err := errors.Join(errs...); err != nil {
+			err = fmt.Errorf("host removed, but %w", err)
+			return hostSavedMsg{alias: alias, deleted: true, err: err}
+		}
+		return hostSavedMsg{alias: alias, deleted: true}
 	}
 }
 

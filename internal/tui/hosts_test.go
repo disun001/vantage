@@ -421,8 +421,15 @@ type fakeUse struct {
 	use       hostuse.Usage
 	findErr   error
 	closeErr  error
+	stripErr  error
 	closed    []string
+	stripped  []string
 	findCalls int
+}
+
+func (f *fakeUse) Strip(alias string) error {
+	f.stripped = append(f.stripped, alias)
+	return f.stripErr
 }
 
 func (f *fakeUse) Find(string) (hostuse.Usage, error) { f.findCalls++; return f.use, f.findErr }
@@ -456,7 +463,7 @@ func TestDeleteWarnsThenClosesPanes(t *testing.T) {
 	if m.hostDel != "web" {
 		t.Fatalf("hostDel = %q", m.hostDel)
 	}
-	for _, want := range []string{"proj, ops", "2 open pane"} {
+	for _, want := range []string{"proj, ops", "ssh panes will be removed", "2 open pane"} {
 		if !strings.Contains(m.notice, want) {
 			t.Errorf("warning %q lacks %q", m.notice, want)
 		}
@@ -472,6 +479,9 @@ func TestDeleteWarnsThenClosesPanes(t *testing.T) {
 	if !reflect.DeepEqual(f.calls, []string{"delete web"}) || !reflect.DeepEqual(u.closed, []string{"%3", "%7"}) {
 		t.Errorf("calls=%v closed=%v", f.calls, u.closed)
 	}
+	if !reflect.DeepEqual(u.stripped, []string{"web"}) {
+		t.Errorf("workspaces stripped for %v, want web", u.stripped)
+	}
 	if u.findCalls != 2 {
 		t.Errorf("usage must be looked up again at confirm time, got %d lookups", u.findCalls)
 	}
@@ -483,8 +493,8 @@ func TestDeleteWarningCancelClosesNothing(t *testing.T) {
 	m, cmd := press(m, "d")
 	m = settle(m, cmd)
 	m, cmd = press(m, "n")
-	if cmd != nil || m.notice != "" || m.hostDel != "" || len(f.calls) != 0 || len(u.closed) != 0 {
-		t.Errorf("cancel did something: notice=%q calls=%v closed=%v", m.notice, f.calls, u.closed)
+	if cmd != nil || m.notice != "" || m.hostDel != "" || len(f.calls) != 0 || len(u.closed) != 0 || len(u.stripped) != 0 {
+		t.Errorf("cancel did something: notice=%q calls=%v closed=%v stripped=%v", m.notice, f.calls, u.closed, u.stripped)
 	}
 }
 
@@ -505,13 +515,13 @@ func TestDeleteKeepsPanesWhenHostDeleteFails(t *testing.T) {
 	f.err = errors.New("read-only file")
 	m, cmd = press(m, "y")
 	m = settleAll(m, cmd)
-	if len(u.closed) != 0 || !strings.Contains(m.notice, "read-only file") {
-		t.Errorf("closed=%v notice=%q", u.closed, m.notice)
+	if len(u.closed) != 0 || len(u.stripped) != 0 || !strings.Contains(m.notice, "read-only file") {
+		t.Errorf("closed=%v stripped=%v notice=%q", u.closed, u.stripped, m.notice)
 	}
 }
 
 func TestDeleteReportsIncompleteCheckAndCloseFailure(t *testing.T) {
-	u := &fakeUse{findErr: errors.New("bad.toml: broken"), closeErr: errors.New("tmux gone")}
+	u := &fakeUse{findErr: errors.New("bad.toml: broken"), closeErr: errors.New("tmux gone"), stripErr: errors.New("solo: no windows")}
 	m, _ := usedHost(t, u)
 	m, cmd := press(m, "d")
 	m = settle(m, cmd)
@@ -520,7 +530,9 @@ func TestDeleteReportsIncompleteCheckAndCloseFailure(t *testing.T) {
 	}
 	m, cmd = press(m, "y")
 	m = settleAll(m, cmd)
-	if !strings.Contains(m.notice, "closing its panes failed") {
-		t.Errorf("notice = %q", m.notice)
+	for _, want := range []string{"closing its panes failed", "workspaces not fully updated: solo: no windows"} {
+		if !strings.Contains(m.notice, want) {
+			t.Errorf("notice %q lacks %q", m.notice, want)
+		}
 	}
 }

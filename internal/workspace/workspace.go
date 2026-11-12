@@ -66,8 +66,18 @@ func ValidSSHAlias(s string) bool { return aliasRe.MatchString(s) }
 // Load reads and validates a workspace file. If the file omits `name`, the
 // file's base name (without extension) is used.
 func Load(path string) (Workspace, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Workspace{}, fmt.Errorf("%s: %w", path, err)
+	}
+	return parse(string(data), path)
+}
+
+// parse is Load for file text. path only names the file in errors and
+// supplies the default workspace name.
+func parse(text, path string) (Workspace, error) {
 	var ws Workspace
-	md, err := toml.DecodeFile(path, &ws)
+	md, err := toml.Decode(text, &ws)
 	if err != nil {
 		return ws, fmt.Errorf("%s: %w", path, err)
 	}
