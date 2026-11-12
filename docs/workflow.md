@@ -17,14 +17,16 @@
 - Tests that need tmux use a throwaway socket (`vantage-test-<pid>-<nanos>`) and kill only that server in `t.Cleanup`. Copy `testClient` in `internal/restore/restore_test.go`.
 - They skip themselves if tmux is not installed.
 - Never run a test or script against the default server. `tmux.Client.KillServer` refuses an empty socket.
-- To try the CLI by hand without touching your sessions:
-  ```sh
-  export VANTAGE_CONFIG_DIR=$(mktemp -d)   # scratch workspaces
-  ./bin/vantage restore demo --socket scratch
-  tmux -L scratch attach        # look around
-  tmux -L scratch kill-server   # clean up
-  ```
 - Never put real `~/.ssh` contents in tests. Use fixtures.
+
+To try the CLI by hand without touching your sessions:
+
+```sh
+export VANTAGE_CONFIG_DIR=$(mktemp -d)   # scratch workspaces
+./bin/vantage restore demo --socket scratch
+tmux -L scratch attach        # look around
+tmux -L scratch kill-server   # clean up
+```
 
 ## Markdown
 

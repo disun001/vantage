@@ -1,6 +1,6 @@
 # Layout
 
-```
+```text
 cmd/vantage/        CLI: main.go dispatches; one file per subcommand
                     (list.go, restore.go); flags.go holds shared flag helpers
 internal/workspace/ workspace schema, load, validate, config dir lookup
