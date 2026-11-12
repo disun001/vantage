@@ -29,8 +29,8 @@ func (m model) View() string {
 	for i := range lines {
 		lines[i] = side[i] + div + right[i]
 	}
-	if m.form != nil {
-		lines = overlay(lines, m.formBox(), m.w)
+	if box := m.popup(); box != nil {
+		lines = overlay(lines, box, m.w)
 	}
 	return strings.Join(lines, "\n")
 }

@@ -81,8 +81,8 @@ type model struct {
 	hostCur string // alias under the cursor in the hosts view
 	hostTop int
 	form    *hostForm
-	hostDel string // alias awaiting a y/n answer
-	shown   bool   // a live session was auto-shown once; do not re-attach after a detach
+	hostDel *hostDelete // the delete question, while it is open
+	shown   bool        // a live session was auto-shown once; do not re-attach after a detach
 }
 
 // statusBar is the tmux status bar of the embedded client. The embedded

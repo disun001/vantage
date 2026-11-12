@@ -367,12 +367,12 @@ func TestDeleteHost(t *testing.T) {
 	f := twoHosts()
 	m := openHosts(t, f)
 	m, _ = press(m, "j", "d") // db
-	if m.hostDel != "db" || !strings.Contains(m.sidebar()[m.h-1], "delete db? y/n") {
-		t.Fatalf("hostDel=%q footer=%q", m.hostDel, m.sidebar()[m.h-1])
+	if delAlias(m) != "db" || !strings.Contains(popupText(m), "delete host") {
+		t.Fatalf("hostDel=%+v popup=%q", m.hostDel, popupText(m))
 	}
 	m, cmd := press(m, "n")
-	if m.hostDel != "" || cmd != nil || len(f.calls) != 0 {
-		t.Fatalf("any other key must cancel: %q calls=%v", m.hostDel, f.calls)
+	if m.hostDel != nil || cmd != nil || len(f.calls) != 0 {
+		t.Fatalf("any other key must cancel: %+v calls=%v", m.hostDel, f.calls)
 	}
 	m, cmd = press(m, "d", "y")
 	if cmd == nil {
@@ -411,7 +411,7 @@ func TestDeleteHostErrorAndMouse(t *testing.T) {
 
 func TestDeleteNothingWhenEmpty(t *testing.T) {
 	m := openHosts(t, &fakeHosts{})
-	if m, _ = press(m, "d"); m.hostDel != "" {
+	if m, _ = press(m, "d"); m.hostDel != nil {
 		t.Error("asked to delete from an empty list")
 	}
 }
@@ -456,24 +456,24 @@ func TestDeleteWarnsThenClosesPanes(t *testing.T) {
 	}}
 	m, f := usedHost(t, u)
 	m, cmd := press(m, "d")
-	if m.hostDel != "" || cmd == nil {
+	if m.hostDel != nil || cmd == nil {
 		t.Fatal("the question comes after the lookup")
 	}
 	m = settle(m, cmd)
-	if m.hostDel != "web" {
-		t.Fatalf("hostDel = %q", m.hostDel)
+	if delAlias(m) != "web" {
+		t.Fatalf("hostDel = %+v", m.hostDel)
 	}
-	for _, want := range []string{"proj, ops", "ssh panes will be removed", "2 open pane"} {
-		if !strings.Contains(m.notice, want) {
-			t.Errorf("warning %q lacks %q", m.notice, want)
+	for _, want := range []string{"web", "proj, ops", "ssh panes will be removed", "2 open pane"} {
+		if !strings.Contains(popupText(m), want) {
+			t.Errorf("popup %q lacks %q", popupText(m), want)
 		}
 	}
 	if len(f.calls) != 0 || len(u.closed) != 0 {
 		t.Fatal("nothing may happen before y")
 	}
 	m, cmd = press(m, "y")
-	if m.notice != "" {
-		t.Errorf("warning must clear: %q", m.notice)
+	if m.hostDel != nil || m.popup() != nil {
+		t.Errorf("the popup must close on y: %+v", m.hostDel)
 	}
 	m = settleAll(m, cmd)
 	if !reflect.DeepEqual(f.calls, []string{"delete web"}) || !reflect.DeepEqual(u.closed, []string{"%3", "%7"}) {
@@ -493,7 +493,7 @@ func TestDeleteWarningCancelClosesNothing(t *testing.T) {
 	m, cmd := press(m, "d")
 	m = settle(m, cmd)
 	m, cmd = press(m, "n")
-	if cmd != nil || m.notice != "" || m.hostDel != "" || len(f.calls) != 0 || len(u.closed) != 0 || len(u.stripped) != 0 {
+	if cmd != nil || m.notice != "" || m.hostDel != nil || len(f.calls) != 0 || len(u.closed) != 0 || len(u.stripped) != 0 {
 		t.Errorf("cancel did something: notice=%q calls=%v closed=%v stripped=%v", m.notice, f.calls, u.closed, u.stripped)
 	}
 }
@@ -502,8 +502,8 @@ func TestDeleteUnusedHostJustAsks(t *testing.T) {
 	m, _ := usedHost(t, &fakeUse{})
 	m, cmd := press(m, "d")
 	m = settle(m, cmd)
-	if m.hostDel != "web" || m.notice != "" {
-		t.Errorf("hostDel=%q notice=%q", m.hostDel, m.notice)
+	if delAlias(m) != "web" || strings.Contains(popupText(m), "Used by") || strings.Contains(popupText(m), "open pane") {
+		t.Errorf("hostDel=%+v popup=%q", m.hostDel, popupText(m))
 	}
 }
 
@@ -525,8 +525,8 @@ func TestDeleteReportsIncompleteCheckAndCloseFailure(t *testing.T) {
 	m, _ := usedHost(t, u)
 	m, cmd := press(m, "d")
 	m = settle(m, cmd)
-	if m.hostDel != "web" || !strings.Contains(m.notice, "could not check everything: bad.toml: broken") {
-		t.Fatalf("hostDel=%q notice=%q", m.hostDel, m.notice)
+	if delAlias(m) != "web" || !strings.Contains(popupText(m), "Could not check everything") || !strings.Contains(popupText(m), "bad.toml: broken") {
+		t.Fatalf("hostDel=%+v popup=%q", m.hostDel, popupText(m))
 	}
 	m, cmd = press(m, "y")
 	m = settleAll(m, cmd)
@@ -534,5 +534,41 @@ func TestDeleteReportsIncompleteCheckAndCloseFailure(t *testing.T) {
 		if !strings.Contains(m.notice, want) {
 			t.Errorf("notice %q lacks %q", m.notice, want)
 		}
+	}
+}
+
+func delAlias(m model) string {
+	if m.hostDel == nil {
+		return ""
+	}
+	return m.hostDel.alias
+}
+
+// popupText is the open pop-up as plain text.
+func popupText(m model) string { return ansi.Strip(strings.Join(m.popup(), "\n")) }
+
+func TestDeletePopupIsDrawnOverTheScreen(t *testing.T) {
+	u := &fakeUse{use: hostuse.Usage{Workspaces: []string{"proj"}, Panes: []tmux.PaneRef{{Pane: "%1"}}}}
+	m, _ := usedHost(t, u)
+	m.w, m.h = 80, 24
+	m, cmd := press(m, "d")
+	m = settle(m, cmd)
+	lines := strings.Split(m.View(), "\n")
+	if len(lines) != 24 {
+		t.Fatalf("height %d", len(lines))
+	}
+	all := ansi.Strip(strings.Join(lines, "\n"))
+	for _, want := range []string{"delete host", "Used by workspaces:", "proj", "1 open pane(s) will be closed", "y delete"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("screen lacks %q", want)
+		}
+	}
+	for i, l := range lines {
+		if w := ansi.StringWidth(l); w != 80 {
+			t.Errorf("line %d is %d cells wide", i, w)
+		}
+	}
+	if m.notice != "" {
+		t.Errorf("the warning belongs in the popup, not the sidebar notice: %q", m.notice)
 	}
 }

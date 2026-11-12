@@ -262,7 +262,7 @@ func (m model) startDelete(alias string) (tea.Model, tea.Cmd) {
 	m.notice = ""
 	u := m.cfg.HostUse
 	if u == nil {
-		m.hostDel = alias
+		m.hostDel = &hostDelete{alias: alias}
 		return m, nil
 	}
 	return m, func() tea.Msg {
@@ -271,27 +271,17 @@ func (m model) startDelete(alias string) (tea.Model, tea.Cmd) {
 	}
 }
 
-// onHostUsage asks the delete question, with a warning when something uses
+// onHostUsage opens the delete pop-up, with a warning when something uses
 // the host.
 func (m model) onHostUsage(msg hostUsageMsg) model {
-	var warn []string
-	if n := len(msg.use.Workspaces); n > 0 {
-		warn = append(warn, "used by workspaces "+strings.Join(msg.use.Workspaces, ", ")+": their ssh panes will be removed.")
-	}
-	if n := len(msg.use.Panes); n > 0 {
-		warn = append(warn, fmt.Sprintf("%d open pane(s) will be closed.", n))
-	}
-	if msg.err != nil {
-		warn = append(warn, "could not check everything: "+msg.err.Error())
-	}
-	m.hostDel, m.notice = msg.alias, ansi.Strip(strings.Join(warn, " "))
+	m.hostDel = &hostDelete{alias: msg.alias, use: msg.use, err: msg.err}
 	return m
 }
 
 // onHostDelKey answers the delete question: y deletes, anything else cancels.
 func (m model) onHostDelKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
-	alias := m.hostDel
-	m.hostDel, m.notice = "", ""
+	alias := m.hostDel.alias
+	m.hostDel, m.notice = nil, ""
 	if k.String() != "y" {
 		return m, nil
 	}
@@ -435,9 +425,6 @@ func (m model) hostsSidebar() []string {
 		out[m.h-1-len(note)+i] = fit(noticeStyle.Render(l), sidebarW)
 	}
 	out[m.h-1] = fit(dimStyle.Render("a e d H alt+s q"), sidebarW)
-	if m.hostDel != "" {
-		out[m.h-1] = fit(noticeStyle.Render("delete "+m.hostDel+"? y/n"), sidebarW)
-	}
 	return out
 }
 
@@ -469,17 +456,59 @@ func (m model) formBox() []string {
 	}
 	rows = append(rows, "")
 	if f.err != "" {
-		rows = append(rows, ansi.Wrap(noticeStyle.Render(f.err), inner, ""))
+		rows = append(rows, noticeStyle.Render(f.err))
 	}
 	rows = append(rows, dimStyle.Render("tab next · enter save · esc"))
+	return framed(rows, inner)
+}
+
+// framed wraps rows to inner cells and draws them in a rounded border.
+func framed(rows []string, inner int) []string {
 	var lines []string
 	for _, r := range rows {
-		for _, l := range strings.Split(r, "\n") {
+		for _, l := range strings.Split(ansi.Wrap(r, inner, ""), "\n") {
 			lines = append(lines, fit(l, inner))
 		}
 	}
 	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1).Render(strings.Join(lines, "\n"))
 	return strings.Split(box, "\n")
+}
+
+// hostDelete is the open delete question: the host and what depends on it.
+type hostDelete struct {
+	alias string
+	use   hostuse.Usage
+	err   error // the lookup failed, at least in part
+}
+
+// box draws the delete pop-up, with a warning when something uses the host.
+func (d hostDelete) box(w int) []string {
+	rows := []string{titleStyle.Render("delete host"), "", curStyle.Render(d.alias), ""}
+	if len(d.use.Workspaces) > 0 {
+		rows = append(rows,
+			noticeStyle.Render("Used by workspaces:"),
+			"  "+strings.Join(d.use.Workspaces, ", "),
+			"Their ssh panes will be removed.", "")
+	}
+	if n := len(d.use.Panes); n > 0 {
+		rows = append(rows, noticeStyle.Render(fmt.Sprintf("%d open pane(s) will be closed.", n)), "")
+	}
+	if d.err != nil {
+		rows = append(rows, noticeStyle.Render("Could not check everything:"), ansi.Strip(d.err.Error()), "")
+	}
+	rows = append(rows, dimStyle.Render("y delete · any other key cancels"))
+	return framed(rows, max(10, min(44, w-6)))
+}
+
+// popup is the pop-up to draw over the screen, if one is open.
+func (m model) popup() []string {
+	switch {
+	case m.form != nil:
+		return m.formBox()
+	case m.hostDel != nil:
+		return m.hostDel.box(m.w)
+	}
+	return nil
 }
 
 // overlay draws box over lines, centred.
