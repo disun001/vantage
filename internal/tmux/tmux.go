@@ -72,13 +72,29 @@ func (c Client) NewWindow(session, window, cwd string) (string, error) {
 // SplitWindow splits the target pane. dir is "h" (side by side) or "v"
 // (stacked). It returns the new pane's ID.
 func (c Client) SplitWindow(pane, dir, cwd string) (string, error) {
-	flag := "-h"
+	return c.split(pane, dirFlag(dir), cwd, "")
+}
+
+// SplitWindowRun is SplitWindow with a shell command run in the new pane
+// instead of an interactive shell. The caller must have validated command.
+func (c Client) SplitWindowRun(pane, dir, cwd, command string) (string, error) {
+	return c.split(pane, dirFlag(dir), cwd, command)
+}
+
+func dirFlag(dir string) string {
 	if dir == "v" {
-		flag = "-v"
+		return "-v"
 	}
+	return "-h"
+}
+
+func (c Client) split(pane, flag, cwd, command string) (string, error) {
 	args := []string{"split-window", flag, "-t", pane, "-P", "-F", "#{pane_id}"}
 	if cwd != "" {
 		args = append(args, "-c", cwd)
+	}
+	if command != "" {
+		args = append(args, command)
 	}
 	return c.run(args...)
 }

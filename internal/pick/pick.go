@@ -55,25 +55,29 @@ func parse(s string, hosts []string) (Choice, error) {
 	return Choice{}, fmt.Errorf("unknown choice %q", s)
 }
 
-// Split splits pane in direction dir ("h" side by side, "v" stacked) and, for
-// an ssh choice, types `ssh <alias>` into the new pane's shell. Typing into a
-// shell (not exec) keeps the pane alive after the connection ends, as in
-// restore. It returns the new pane's ID.
+// Split splits pane in direction dir ("h" side by side, "v" stacked). For an
+// ssh choice the new pane runs ssh directly, so nothing is typed or echoed and
+// it feels like opening on the remote host; when ssh ends it falls back to a
+// local shell instead of closing the pane. It returns the new pane's ID.
 func Split(c tmux.Client, pane, dir, cwd string, ch Choice) (string, error) {
 	if dir != "h" && dir != "v" {
 		return "", fmt.Errorf("split direction must be h or v, got %q", dir)
 	}
-	if ch.Alias != "" && !workspace.ValidSSHAlias(ch.Alias) {
+	if ch.Alias == "" {
+		id, err := c.SplitWindow(pane, dir, cwd)
+		if err != nil {
+			return "", fmt.Errorf("split: %w", err)
+		}
+		return id, nil
+	}
+	if !workspace.ValidSSHAlias(ch.Alias) {
 		return "", fmt.Errorf("invalid ssh alias %q", ch.Alias)
 	}
-	id, err := c.SplitWindow(pane, dir, cwd)
+	// The alias is validated above, so it is safe inside this shell command.
+	// ${SHELL:-sh} is expanded by the pane's shell, not by us.
+	id, err := c.SplitWindowRun(pane, dir, cwd, "ssh "+ch.Alias+`; exec "${SHELL:-sh}"`)
 	if err != nil {
 		return "", fmt.Errorf("split: %w", err)
-	}
-	if ch.Alias != "" {
-		if err := c.SendLine(id, "ssh "+ch.Alias); err != nil {
-			return id, fmt.Errorf("start ssh: %w", err)
-		}
 	}
 	return id, nil
 }
