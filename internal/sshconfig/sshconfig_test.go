@@ -33,9 +33,13 @@ func TestHosts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"web", "db", "staging.example.com"}
+	want := []Host{
+		{Alias: "web", User: "deploy"},
+		{Alias: "db", User: "deploy"},
+		{Alias: "staging.example.com", Port: "2222"},
+	}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("got %v, want %v", got, want)
+		t.Fatalf("got %+v, want %+v", got, want)
 	}
 }
 
@@ -53,12 +57,24 @@ func TestLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := Load(p)
-	if err != nil || !reflect.DeepEqual(got, []string{"alpha"}) {
-		t.Fatalf("got %v, %v", got, err)
+	if err != nil || !reflect.DeepEqual(got, []Host{{Alias: "alpha", HostName: "192.0.2.1"}}) {
+		t.Fatalf("got %+v, %v", got, err)
 	}
 	// Missing file means no hosts, not an error.
 	got, err = Load(filepath.Join(dir, "nope"))
 	if err != nil || got != nil {
 		t.Fatalf("missing: got %v, %v", got, err)
+	}
+}
+
+func TestHostsDetails(t *testing.T) {
+	cfg := "Host db\n  HostName 192.0.2.20\n  User admin\n  Port 2222\n  ProxyJump bastion\n  IdentityFile /secret/key\n\nHost *\n  User fallback\n"
+	got, err := Hosts(strings.NewReader(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Host{{Alias: "db", HostName: "192.0.2.20", User: "admin", Port: "2222", ProxyJump: "bastion"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v, want %+v", got, want)
 	}
 }

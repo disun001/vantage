@@ -7,7 +7,8 @@ internal/workspace/ workspace schema, load, validate, config dir lookup
 internal/tmux/      thin adapter over the tmux CLI (the only place that execs tmux)
 internal/restore/   builds a live session from a Workspace
 internal/capture/   reads a live session back into a Workspace (ps lookup for ssh/commands)
-internal/sshconfig/ read-only list of host aliases from ssh_config
+internal/sshconfig/ read-only list of hosts (alias, address, user, port, jump) from ssh_config
+internal/connections/ which ssh hosts are already open in live tmux panes
 internal/pick/      fuzzy menu (local or ssh) and the split it creates
 examples/tmux       tmux snippet binding prefix S / V to the picker
 examples/workspaces sample definitions (the only workspace files tracked)

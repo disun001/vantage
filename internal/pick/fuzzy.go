@@ -37,26 +37,27 @@ func score(pattern, s string) (int, bool) {
 	return total*10 - len(t), true
 }
 
-// filter returns the items matching pattern, best first. With an empty
-// pattern it returns them all in their original order.
-func filter(pattern string, items []string) []string {
+// filter returns the indexes of the items matching pattern, best first. With
+// an empty pattern it returns every index in the original order.
+func filter(pattern string, items []string) []int {
 	if pattern == "" {
-		return items
+		all := make([]int, len(items))
+		for i := range items {
+			all[i] = i
+		}
+		return all
 	}
-	type hit struct {
-		s     string
-		score int
-	}
+	type hit struct{ idx, score int }
 	var hits []hit
-	for _, it := range items {
+	for i, it := range items {
 		if sc, ok := score(pattern, it); ok {
-			hits = append(hits, hit{it, sc})
+			hits = append(hits, hit{i, sc})
 		}
 	}
 	sort.SliceStable(hits, func(i, j int) bool { return hits[i].score > hits[j].score })
-	out := make([]string, len(hits))
+	out := make([]int, len(hits))
 	for i, h := range hits {
-		out[i] = h.s
+		out[i] = h.idx
 	}
 	return out
 }

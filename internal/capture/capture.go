@@ -72,7 +72,7 @@ func classify(p tmux.PaneInfo, procs Lister) workspace.Pane {
 			line = found
 		}
 	}
-	if alias, ok := sshAlias(line); ok {
+	if alias, ok := SSHAlias(line); ok {
 		return workspace.Pane{SSH: alias}
 	}
 	// Anything else is remembered but never run without the user opting in.
@@ -94,10 +94,10 @@ func foreground(p tmux.PaneInfo, cmd string, procs Lister) (string, bool) {
 	return "", false
 }
 
-// sshAlias recognises exactly `ssh <alias>`. Anything with options, users or
+// SSHAlias recognises exactly `ssh <alias>`. Anything with options, users or
 // ports is not an alias and stays a plain (non-autorun) command, so capture
 // never rewrites a connection into something different.
-func sshAlias(line string) (string, bool) {
+func SSHAlias(line string) (string, bool) {
 	fields := strings.Fields(line)
 	if len(fields) != 2 || filepath.Base(fields[0]) != "ssh" {
 		return "", false

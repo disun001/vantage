@@ -2,9 +2,12 @@ package pick
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/disun001/vantage/internal/tmux"
 )
 
 func keys(m tea.Model, in ...string) menu {
@@ -28,7 +31,7 @@ func keys(m tea.Model, in ...string) menu {
 }
 
 func TestMenu(t *testing.T) {
-	hosts := []string{"web-prod", "db-prod", "web-staging"}
+	hosts := []Host{{Alias: "web-prod"}, {Alias: "db-prod", HostName: "192.0.2.20"}, {Alias: "web-staging"}}
 	tests := []struct {
 		name      string
 		keys      []string
@@ -53,7 +56,7 @@ func TestMenu(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := keys(newMenu(hosts), tt.keys...)
+			m := keys(newMenu(Context{Dir: "v"}, hosts), tt.keys...)
 			if m.cancelled != tt.cancelled {
 				t.Fatalf("cancelled = %v, want %v", m.cancelled, tt.cancelled)
 			}
@@ -68,13 +71,13 @@ func TestFilter(t *testing.T) {
 	items := []string{"local shell", "web-prod", "db-prod", "web-staging"}
 	tests := []struct {
 		pattern string
-		want    []string
+		want    []int
 	}{
-		{"", items},
-		{"prod", []string{"db-prod", "web-prod"}},
-		{"WS", []string{"web-staging"}},
+		{"", []int{0, 1, 2, 3}},
+		{"prod", []int{2, 1}}, // shorter match first
+		{"WS", []int{3}},
 		{"zzz", nil},
-		{"loc", []string{"local shell"}},
+		{"loc", []int{0}},
 	}
 	for _, tt := range tests {
 		got := filter(tt.pattern, items)
@@ -82,4 +85,39 @@ func TestFilter(t *testing.T) {
 			t.Errorf("filter(%q) = %v, want %v", tt.pattern, got, tt.want)
 		}
 	}
+}
+
+func TestView(t *testing.T) {
+	hosts := []Host{
+		{
+			Alias: "db-prod", HostName: "192.0.2.20", User: "admin", Port: "2222", ProxyJump: "bastion",
+			Open: []tmux.PaneRef{{Session: "infra", Window: 2, WindowName: "logs"}},
+		},
+		{Alias: "nas"},
+	}
+	m := keys(newMenu(Context{Dir: "h", CWD: "/work"}, hosts), "j")
+	v := m.View()
+	for _, want := range []string{"db-prod", "192.0.2.20", "admin", "2222", "bastion", "ssh db-prod", "connected in 1 pane", "infra:2", "logs", "●"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("view missing %q:\n%s", want, v)
+		}
+	}
+	m = keys(m, "j")
+	if v := m.View(); !strings.Contains(v, "not connected") {
+		t.Errorf("host without panes should say not connected:\n%s", v)
+	}
+	m = keys(newMenu(Context{Dir: "h", CWD: "/work"}, hosts))
+	if v := m.View(); !strings.Contains(v, "/work") || !strings.Contains(v, "side by side") {
+		t.Errorf("local detail missing cwd or direction:\n%s", v)
+	}
+	// Many open panes are summarised, and no match does not panic.
+	var open []tmux.PaneRef
+	for i := 0; i < 7; i++ {
+		open = append(open, tmux.PaneRef{Session: "s", Window: i})
+	}
+	m = keys(newMenu(Context{Dir: "v"}, []Host{{Alias: "x", Open: open}}), "j")
+	if v := m.View(); !strings.Contains(v, "+3 more") {
+		t.Errorf("want +3 more:\n%s", v)
+	}
+	_ = keys(newMenu(Context{Dir: "v"}, hosts), "/", "z", "z", "z").View()
 }

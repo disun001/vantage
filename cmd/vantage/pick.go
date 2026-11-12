@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/disun001/vantage/internal/capture"
+	"github.com/disun001/vantage/internal/connections"
 	"github.com/disun001/vantage/internal/pick"
 	"github.com/disun001/vantage/internal/sshconfig"
 	"github.com/disun001/vantage/internal/tmux"
@@ -49,18 +51,29 @@ func runPick(args []string, out io.Writer) error {
 		}
 		*sshPath = filepath.Join(home, ".ssh", "config")
 	}
-	hosts, err := sshconfig.Load(*sshPath)
+	cfgHosts, err := sshconfig.Load(*sshPath)
 	if err != nil {
 		return err
 	}
+	client := tmux.Client{Socket: *socket}
+	// The open-connection indicator is a nicety: if tmux or ps cannot answer,
+	// show the menu without it instead of failing the split.
+	open, _ := connections.Find(client, capture.PS)
+	hosts := make([]pick.Host, len(cfgHosts))
+	for i, h := range cfgHosts {
+		hosts[i] = pick.Host{
+			Alias: h.Alias, HostName: h.HostName, User: h.User, Port: h.Port,
+			ProxyJump: h.ProxyJump, Open: open[h.Alias],
+		}
+	}
 
-	choice, err := pick.Choose(os.Stdin, out, hosts)
+	choice, err := pick.Choose(os.Stdin, out, pick.Context{Dir: *split, CWD: *cwd}, hosts)
 	if errors.Is(err, pick.ErrCancelled) {
 		return nil // quitting the menu is not an error
 	}
 	if err != nil {
 		return err
 	}
-	_, err = pick.Split(tmux.Client{Socket: *socket}, *pane, *split, *cwd, choice)
+	_, err = pick.Split(client, *pane, *split, *cwd, choice)
 	return err
 }

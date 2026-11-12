@@ -184,3 +184,38 @@ func (c Client) ListSessionPanes(session string) ([]PaneInfo, error) {
 	}
 	return panes, nil
 }
+
+// PaneRef locates one live pane anywhere on the server.
+type PaneRef struct {
+	Session    string
+	Window     int
+	WindowName string
+	Pane       string // pane ID, e.g. %4
+	TTY        string
+}
+
+// ListAllPanes returns every pane of every session. WindowName is last in the
+// format so a "|" in it cannot shift the other fields.
+func (c Client) ListAllPanes() ([]PaneRef, error) {
+	const format = "#{session_name}|#{window_index}|#{pane_id}|#{pane_tty}|#{window_name}"
+	out, err := c.run("list-panes", "-a", "-F", format)
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return nil, nil
+	}
+	var refs []PaneRef
+	for _, line := range strings.Split(out, "\n") {
+		f := strings.SplitN(line, "|", 5)
+		if len(f) != 5 {
+			return nil, fmt.Errorf("unexpected list-panes line %q", line)
+		}
+		idx, err := strconv.Atoi(f[1])
+		if err != nil {
+			return nil, fmt.Errorf("bad window index in %q: %w", line, err)
+		}
+		refs = append(refs, PaneRef{Session: f[0], Window: idx, Pane: f[2], TTY: f[3], WindowName: f[4]})
+	}
+	return refs, nil
+}
