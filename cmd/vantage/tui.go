@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/disun001/vantage/internal/capture"
+	"github.com/disun001/vantage/internal/hostuse"
 	"github.com/disun001/vantage/internal/manage"
 	"github.com/disun001/vantage/internal/restore"
 	"github.com/disun001/vantage/internal/sshconfig"
@@ -35,10 +36,11 @@ func runTUI(args []string, _ io.Writer) error {
 	}
 	client := tmux.Client{Socket: *socket}
 	return tui.Run(tui.Config{
-		Client: client,
-		Saved:  workspace.List,
-		Manage: manage.Manager{Client: client, Procs: capture.PS},
-		SSH:    sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
+		Client:  client,
+		Saved:   workspace.List,
+		Manage:  manage.Manager{Client: client, Procs: capture.PS},
+		SSH:     sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
+		HostUse: hostuse.Finder{Client: client, Procs: capture.PS},
 		Restore: func(name string) error {
 			path, err := workspace.Resolve(name)
 			if err != nil {

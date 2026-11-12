@@ -11,7 +11,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/disun001/vantage/internal/hostuse"
 	"github.com/disun001/vantage/internal/sshconfig"
+	"github.com/disun001/vantage/internal/tmux"
 )
 
 // fakeHosts is an in-memory HostStore. Hosts named in shared cannot be edited.
@@ -88,9 +90,24 @@ func settle(m model, cmd tea.Cmd) model {
 // settleAll keeps feeding commands back until none is left, so a save is
 // followed by the reload it asks for.
 func settleAll(m model, cmd tea.Cmd) model {
-	for cmd != nil {
-		next, c := m.Update(cmd())
-		m, cmd = next.(model), c
+	queue := []tea.Cmd{cmd}
+	for len(queue) > 0 {
+		c := queue[0]
+		queue = queue[1:]
+		if c == nil {
+			continue
+		}
+		msg := c()
+		if b, ok := msg.(tea.BatchMsg); ok {
+			queue = append(queue, b...)
+			continue
+		}
+		if _, ok := msg.(rowsMsg); ok {
+			continue // the stub tmux has no sessions to list; not what these tests are about
+		}
+		next, more := m.Update(msg)
+		m = next.(model)
+		queue = append(queue, more)
 	}
 	return m
 }
@@ -396,5 +413,114 @@ func TestDeleteNothingWhenEmpty(t *testing.T) {
 	m := openHosts(t, &fakeHosts{})
 	if m, _ = press(m, "d"); m.hostDel != "" {
 		t.Error("asked to delete from an empty list")
+	}
+}
+
+// fakeUse reports a fixed usage and records what gets closed.
+type fakeUse struct {
+	use       hostuse.Usage
+	findErr   error
+	closeErr  error
+	closed    []string
+	findCalls int
+}
+
+func (f *fakeUse) Find(string) (hostuse.Usage, error) { f.findCalls++; return f.use, f.findErr }
+
+func (f *fakeUse) Close(u hostuse.Usage) error {
+	for _, p := range u.Panes {
+		f.closed = append(f.closed, p.Pane)
+	}
+	return f.closeErr
+}
+
+func usedHost(t *testing.T, u *fakeUse) (model, *fakeHosts) {
+	t.Helper()
+	f := twoHosts()
+	m := openHosts(t, f)
+	m.cfg.HostUse = u
+	return m, f
+}
+
+func TestDeleteWarnsThenClosesPanes(t *testing.T) {
+	u := &fakeUse{use: hostuse.Usage{
+		Workspaces: []string{"proj", "ops"},
+		Panes:      []tmux.PaneRef{{Pane: "%3"}, {Pane: "%7"}},
+	}}
+	m, f := usedHost(t, u)
+	m, cmd := press(m, "d")
+	if m.hostDel != "" || cmd == nil {
+		t.Fatal("the question comes after the lookup")
+	}
+	m = settle(m, cmd)
+	if m.hostDel != "web" {
+		t.Fatalf("hostDel = %q", m.hostDel)
+	}
+	for _, want := range []string{"proj, ops", "2 open pane"} {
+		if !strings.Contains(m.notice, want) {
+			t.Errorf("warning %q lacks %q", m.notice, want)
+		}
+	}
+	if len(f.calls) != 0 || len(u.closed) != 0 {
+		t.Fatal("nothing may happen before y")
+	}
+	m, cmd = press(m, "y")
+	if m.notice != "" {
+		t.Errorf("warning must clear: %q", m.notice)
+	}
+	m = settleAll(m, cmd)
+	if !reflect.DeepEqual(f.calls, []string{"delete web"}) || !reflect.DeepEqual(u.closed, []string{"%3", "%7"}) {
+		t.Errorf("calls=%v closed=%v", f.calls, u.closed)
+	}
+	if u.findCalls != 2 {
+		t.Errorf("usage must be looked up again at confirm time, got %d lookups", u.findCalls)
+	}
+}
+
+func TestDeleteWarningCancelClosesNothing(t *testing.T) {
+	u := &fakeUse{use: hostuse.Usage{Panes: []tmux.PaneRef{{Pane: "%1"}}}}
+	m, f := usedHost(t, u)
+	m, cmd := press(m, "d")
+	m = settle(m, cmd)
+	m, cmd = press(m, "n")
+	if cmd != nil || m.notice != "" || m.hostDel != "" || len(f.calls) != 0 || len(u.closed) != 0 {
+		t.Errorf("cancel did something: notice=%q calls=%v closed=%v", m.notice, f.calls, u.closed)
+	}
+}
+
+func TestDeleteUnusedHostJustAsks(t *testing.T) {
+	m, _ := usedHost(t, &fakeUse{})
+	m, cmd := press(m, "d")
+	m = settle(m, cmd)
+	if m.hostDel != "web" || m.notice != "" {
+		t.Errorf("hostDel=%q notice=%q", m.hostDel, m.notice)
+	}
+}
+
+func TestDeleteKeepsPanesWhenHostDeleteFails(t *testing.T) {
+	u := &fakeUse{use: hostuse.Usage{Panes: []tmux.PaneRef{{Pane: "%1"}}}}
+	m, f := usedHost(t, u)
+	m, cmd := press(m, "d")
+	m = settle(m, cmd)
+	f.err = errors.New("read-only file")
+	m, cmd = press(m, "y")
+	m = settleAll(m, cmd)
+	if len(u.closed) != 0 || !strings.Contains(m.notice, "read-only file") {
+		t.Errorf("closed=%v notice=%q", u.closed, m.notice)
+	}
+}
+
+func TestDeleteReportsIncompleteCheckAndCloseFailure(t *testing.T) {
+	u := &fakeUse{findErr: errors.New("bad.toml: broken"), closeErr: errors.New("tmux gone")}
+	m, _ := usedHost(t, u)
+	m, cmd := press(m, "d")
+	m = settle(m, cmd)
+	if m.hostDel != "web" || !strings.Contains(m.notice, "could not check everything: bad.toml: broken") {
+		t.Fatalf("hostDel=%q notice=%q", m.hostDel, m.notice)
+	}
+	m, cmd = press(m, "y")
+	m = settleAll(m, cmd)
+	if !strings.Contains(m.notice, "closing its panes failed") {
+		t.Errorf("notice = %q", m.notice)
 	}
 }

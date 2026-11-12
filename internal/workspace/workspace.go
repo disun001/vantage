@@ -3,6 +3,7 @@
 package workspace
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -195,4 +196,43 @@ func List() ([]string, error) {
 		}
 	}
 	return names, nil
+}
+
+// UsingSSH returns the names of saved workspaces with a pane that connects to
+// the ssh alias, sorted as List sorts them. Workspaces that cannot be read
+// are skipped and reported together in the error, so one broken file never
+// hides the others.
+func UsingSSH(alias string) ([]string, error) {
+	names, err := List()
+	if err != nil {
+		return nil, err
+	}
+	var used []string
+	var bad []error
+	for _, n := range names {
+		path, err := PathOf(n)
+		if err != nil {
+			continue // not a name we can address
+		}
+		ws, err := Load(path)
+		if err != nil {
+			bad = append(bad, err)
+			continue
+		}
+		if usesSSH(ws, alias) {
+			used = append(used, n)
+		}
+	}
+	return used, errors.Join(bad...)
+}
+
+func usesSSH(ws Workspace, alias string) bool {
+	for _, w := range ws.Windows {
+		for _, p := range w.Panes {
+			if p.SSH == alias {
+				return true
+			}
+		}
+	}
+	return false
 }

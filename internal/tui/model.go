@@ -32,6 +32,9 @@ type Config struct {
 	Manage Manager
 	// SSH lists, adds and edits ssh hosts. Nil turns the hosts view off.
 	SSH HostStore
+	// HostUse warns before a host that workspaces or open panes use is
+	// deleted, and closes those panes. Nil skips the check.
+	HostUse HostUsage
 }
 
 // Manager changes workspaces on behalf of the sidebar.
@@ -207,6 +210,8 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.onManage(msg)
 	case hostsMsg:
 		return m.onHosts(msg), nil
+	case hostUsageMsg:
+		return m.onHostUsage(msg), nil
 	case hostSavedMsg:
 		return m.onHostSaved(msg)
 	case edgeMsg:

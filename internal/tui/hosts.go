@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/disun001/vantage/internal/hostuse"
 	"github.com/disun001/vantage/internal/sshconfig"
 )
 
@@ -26,6 +27,16 @@ type HostStore interface {
 	Delete(alias string) error
 }
 
+// HostUsage finds what depends on a host before it is deleted and closes the
+// live panes connected to it. hostuse.Finder implements it.
+type HostUsage interface {
+	// Find reports the workspaces and open panes that use the alias. Partial
+	// results may come back with an error.
+	Find(alias string) (hostuse.Usage, error)
+	// Close kills the open panes of the usage.
+	Close(hostuse.Usage) error
+}
+
 // sidebarView is what the sidebar lists.
 type sidebarView int
 
@@ -38,6 +49,12 @@ type (
 	// hostsMsg carries a fresh host list.
 	hostsMsg struct {
 		hosts []sshconfig.Host
+		err   error
+	}
+	// hostUsageMsg carries what depends on a host that is about to go.
+	hostUsageMsg struct {
+		alias string
+		use   hostuse.Usage
 		err   error
 	}
 	// hostSavedMsg reports a finished add or edit.
@@ -224,7 +241,7 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 		return m.startEdit(), nil
 	case "d":
 		if len(m.hosts) > 0 {
-			m.hostDel, m.notice = m.hosts[m.hostPos()].Alias, ""
+			return m.startDelete(m.hosts[m.hostPos()].Alias)
 		}
 	case "H", "esc", "h", "left":
 		return m.toggleHosts()
@@ -236,16 +253,59 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// startDelete looks up what depends on the host, then asks. Without a usage
+// finder it asks straight away.
+func (m model) startDelete(alias string) (tea.Model, tea.Cmd) {
+	m.notice = ""
+	u := m.cfg.HostUse
+	if u == nil {
+		m.hostDel = alias
+		return m, nil
+	}
+	return m, func() tea.Msg {
+		use, err := u.Find(alias)
+		return hostUsageMsg{alias: alias, use: use, err: err}
+	}
+}
+
+// onHostUsage asks the delete question, with a warning when something uses
+// the host.
+func (m model) onHostUsage(msg hostUsageMsg) model {
+	var warn []string
+	if n := len(msg.use.Workspaces); n > 0 {
+		warn = append(warn, "used by workspaces "+strings.Join(msg.use.Workspaces, ", ")+".")
+	}
+	if n := len(msg.use.Panes); n > 0 {
+		warn = append(warn, fmt.Sprintf("%d open pane(s) will be closed.", n))
+	}
+	if msg.err != nil {
+		warn = append(warn, "could not check everything: "+msg.err.Error())
+	}
+	m.hostDel, m.notice = msg.alias, ansi.Strip(strings.Join(warn, " "))
+	return m
+}
+
 // onHostDelKey answers the delete question: y deletes, anything else cancels.
 func (m model) onHostDelKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	alias := m.hostDel
-	m.hostDel = ""
+	m.hostDel, m.notice = "", ""
 	if k.String() != "y" {
 		return m, nil
 	}
-	s := m.cfg.SSH
+	s, u := m.cfg.SSH, m.cfg.HostUse
 	return m, func() tea.Msg {
-		return hostSavedMsg{alias: alias, deleted: true, err: s.Delete(alias)}
+		if err := s.Delete(alias); err != nil {
+			return hostSavedMsg{alias: alias, deleted: true, err: err}
+		}
+		var err error
+		if u != nil {
+			// Look again: panes may have come or gone since the question.
+			use, _ := u.Find(alias)
+			if cerr := u.Close(use); cerr != nil {
+				err = fmt.Errorf("host removed, but closing its panes failed: %w", cerr)
+			}
+		}
+		return hostSavedMsg{alias: alias, deleted: true, err: err}
 	}
 }
 
@@ -330,6 +390,9 @@ func (m model) onHostSaved(msg hostSavedMsg) (tea.Model, tea.Cmd) {
 		m.notice, m.hostCur = "", m.neighbour(msg.alias)
 	default:
 		m.notice, m.hostCur = "", msg.alias
+	}
+	if msg.deleted {
+		return m, tea.Batch(m.loadHosts(), m.refresh()) // closed panes change the session list
 	}
 	return m, m.loadHosts()
 }

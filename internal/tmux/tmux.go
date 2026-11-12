@@ -9,9 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+var paneIDRe = regexp.MustCompile(`^%[0-9]+$`)
 
 // Client runs tmux commands against one server.
 type Client struct {
@@ -125,6 +128,19 @@ func (c Client) SendLine(pane, text string) error {
 func (c Client) KillSession(name string) error {
 	_, err := c.run("kill-session", "-t", "="+name)
 	return err
+}
+
+// KillPane closes one pane by id (%N). A pane that is already gone is not an
+// error: the goal, no such pane, holds. Closing the last pane of a window
+// closes the window, and the last window closes the session.
+func (c Client) KillPane(pane string) error {
+	if !paneIDRe.MatchString(pane) {
+		return fmt.Errorf("%q is not a tmux pane id", pane)
+	}
+	if _, err := c.run("kill-pane", "-t", pane); err != nil && !strings.Contains(err.Error(), "can't find pane") {
+		return err
+	}
+	return nil
 }
 
 // RenameSession gives the session called from a new name.
