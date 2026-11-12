@@ -131,19 +131,26 @@ func TestRenameConflictsLeaveEverythingAlone(t *testing.T) {
 	}
 }
 
-func TestDeleteKeepsLiveSession(t *testing.T) {
+func TestDeleteRemovesFileAndSession(t *testing.T) {
 	m := testManager(t)
-	if err := m.Create("keep"); err != nil {
+	if err := m.Create("gone"); err != nil {
 		t.Fatal(err)
 	}
-	if err := m.Delete("keep"); err != nil {
+	if err := m.Delete("gone"); err != nil {
 		t.Fatal(err)
 	}
-	if saved(t, "keep") || !m.Client.HasSession("keep") {
-		t.Fatal("file must go, session must stay")
+	if saved(t, "gone") || m.Client.HasSession("gone") {
+		t.Fatal("file and session must both go")
 	}
-	if err := m.Delete("keep"); err == nil {
+	if err := m.Delete("gone"); err == nil {
 		t.Error("deleting twice must fail")
+	}
+	// A session with no file is killed too.
+	if _, err := m.Client.NewSession("loose", "", t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Delete("loose"); err != nil || m.Client.HasSession("loose") {
+		t.Errorf("live-only delete: %v", err)
 	}
 	if err := m.Delete("../escape"); err == nil {
 		t.Error("a path must not be a workspace name")

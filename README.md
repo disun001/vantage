@@ -8,7 +8,7 @@ command, and browse them from a sidebar TUI.
 split picker (`vantage pick`, tmux snippet in `examples/tmux`), and `vantage tui` (also just `vantage`) work.
 The TUI shows sessions with their windows in a sidebar (`space` folds), embeds tmux (its own status bar is hidden),
 and supports the mouse. `M-s` toggles focus, `M-h` / `M-l` move between sidebar and tmux.
-Sidebar keys: `n` new workspace, `R` rename, `d` delete the saved file (a running session stays).
+Sidebar keys: `n` new workspace, `R` rename, `d` delete the workspace file and kill its session.
 Still to come: ssh add and edit (see [docs/architecture.md](docs/architecture.md)).
 
 ## Quick start

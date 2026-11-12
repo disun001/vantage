@@ -1,6 +1,6 @@
 // Package manage creates, renames and deletes workspaces. A workspace is a
 // saved TOML file; the tmux session of the same name, when it is running, is
-// kept in step. Deleting never touches a running session.
+// kept in step.
 package manage
 
 import (
@@ -103,5 +103,24 @@ func (m Manager) Rename(from, to string) error {
 	return nil
 }
 
-// Delete removes the saved workspace file. A running session stays.
-func (m Manager) Delete(name string) error { return workspace.Delete(name) }
+// Delete removes the saved workspace file and kills the live session,
+// whichever exist.
+func (m Manager) Delete(name string) error {
+	saved, err := workspace.Exists(name)
+	if err != nil {
+		return err
+	}
+	live := m.Client.HasSession(name)
+	if !saved && !live {
+		return fmt.Errorf("%q is neither saved nor running", name)
+	}
+	if saved {
+		if err := workspace.Delete(name); err != nil {
+			return err
+		}
+	}
+	if live {
+		return m.Client.KillSession(name)
+	}
+	return nil
+}

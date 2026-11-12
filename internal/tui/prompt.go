@@ -62,10 +62,6 @@ func (m model) startPrompt(kind promptKind) model {
 		return m
 	}
 	r := m.rows[it.Row]
-	if kind == promptDelete && !r.Saved {
-		m.notice = r.Name + " is not saved: nothing to delete"
-		return m
-	}
 	m.prompt, m.notice = &prompt{kind: kind, target: r.Name, text: r.Name}, ""
 	return m
 }
@@ -160,16 +156,19 @@ func (m model) renamed(from, to string) model {
 	return m
 }
 
-// afterDelete parks the cursor on a neighbour when the deleted workspace
-// leaves no row behind (it was not running).
+// afterDelete parks the cursor on a neighbour: the deleted workspace leaves
+// no row behind, and the session it showed is gone.
 func (m model) afterDelete(name string) model {
+	if m.current == name {
+		m.current = ""
+	}
 	items := m.items()
 	if len(items) == 0 {
 		return m
 	}
 	i := m.pos(items)
 	it := items[i]
-	if m.rows[it.Row].Name != name || m.rows[it.Row].Live {
+	if m.rows[it.Row].Name != name {
 		return m
 	}
 	for j := i + 1; j < len(items); j++ {

@@ -37,7 +37,7 @@ type Manager interface {
 	Create(name string) error
 	// Rename renames the saved workspace and the live session.
 	Rename(from, to string) error
-	// Delete removes the saved file only; a live session stays.
+	// Delete removes the saved file and kills the live session.
 	Delete(name string) error
 }
 

@@ -140,11 +140,12 @@ func TestRenameMovesCursorAndOpenState(t *testing.T) {
 func TestDeletePrompt(t *testing.T) {
 	f := &fakeManager{}
 	m := manageModel(f)
-	m.cur = key{"b", -1} // live, not saved
+	m.cur = key{"b", -1} // live, not saved: deletable too
 	m, _ = press(m, "d")
-	if m.prompt != nil || !strings.Contains(m.notice, "nothing to delete") {
-		t.Fatalf("prompt=%+v notice=%q", m.prompt, m.notice)
+	if m.prompt == nil || m.prompt.target != "b" {
+		t.Fatalf("prompt = %+v", m.prompt)
 	}
+	m, _ = press(m, "esc")
 	m.cur = key{"saved", -1}
 	m, _ = press(m, "d")
 	if m.prompt == nil || !strings.Contains(m.sidebar()[m.h-1], "delete saved? y/n") {
@@ -168,9 +169,9 @@ func TestDeleteParksCursorOnNeighbour(t *testing.T) {
 	if got := m.afterDelete("saved").cur; got != (key{"b", -1}) {
 		t.Errorf("cursor = %+v, want the line above", got)
 	}
-	m.cur = key{"a", -1} // a is live: its row stays, the cursor too
-	if got := m.afterDelete("a").cur; got != (key{"a", -1}) {
-		t.Errorf("cursor = %+v, want it to stay", got)
+	m.cur = key{"a", 2} // a window line of a live session: its whole row goes
+	if got := m.afterDelete("a"); got.cur != (key{"b", -1}) || got.current != "" {
+		t.Errorf("cursor = %+v current = %q, want b and no current", got.cur, got.current)
 	}
 }
 
@@ -239,11 +240,11 @@ func TestManageEndToEnd(t *testing.T) {
 	}
 
 	run("d", "y")
-	if live, saved := has("new"); !live || saved {
+	if live, saved := has("new"); live || saved {
 		t.Fatalf("after delete: live=%v saved=%v notice=%q", live, saved, d.m.notice)
 	}
-	if ok, _ := workspace.Exists("new"); ok {
-		t.Error("file still on disk")
+	if ok, _ := workspace.Exists("new"); ok || c.HasSession("new") {
+		t.Error("file or session still there")
 	}
 	if _, err := os.Stat(os.Getenv("VANTAGE_CONFIG_DIR")); err != nil {
 		t.Error(err)
