@@ -6,7 +6,7 @@ import (
 
 func (m model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	s := k.String()
-	if s == "alt+s" || s == "ctrl+\\" {
+	if s == "alt+s" {
 		if m.focus == focusTerm {
 			m.focus = focusSidebar
 		} else if m.term != nil {
