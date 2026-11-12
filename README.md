@@ -4,10 +4,12 @@ A terminal workspace manager built on tmux. Save tmux sessions as
 **workspaces** (windows, panes, directories, SSH hosts), restore them with one
 command, and browse them from a sidebar TUI.
 
-**Status:** milestone 4 in progress. The workspace format, `vantage restore`, `vantage capture`, the ssh
-split picker (`vantage pick`, tmux snippet in `examples/tmux`), and `vantage tui` (also just `vantage`: session sidebar with
-an embedded tmux; `M-s` toggles focus, `M-h` / `M-l` move between sidebar and tmux) work. Mouse works; scrollback is not verified (see
-[docs/architecture.md](docs/architecture.md)).
+**Status:** milestone 5 in progress. The workspace format, `vantage restore`, `vantage capture`, the ssh
+split picker (`vantage pick`, tmux snippet in `examples/tmux`), and `vantage tui` (also just `vantage`) work.
+The TUI shows sessions with their windows in a sidebar (`space` folds), embeds tmux (its own status bar is hidden),
+and supports the mouse. `M-s` toggles focus, `M-h` / `M-l` move between sidebar and tmux.
+Still to come: workspace create, rename and delete from the sidebar, and ssh add and edit
+(see [docs/architecture.md](docs/architecture.md)).
 
 ## Quick start
 

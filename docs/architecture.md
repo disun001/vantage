@@ -19,7 +19,9 @@ sidebar TUI.
 | SSH split        | `prefix S` / `V` open a `display-popup` picker (local or ssh host). `s` / `v` stay local                                                | Works inside and outside the TUI                                                                   |
 | Capture          | cwd and ssh detection. Other commands are saved as `cmd` with `autorun = false`                                                         | Nothing runs by surprise                                                                           |
 | Switching        | One embedded client, `tmux switch-client`                                                                                               | Simplest. tmux owns all state                                                                      |
-| Sidebar          | Name, live dot, window and pane counts, ssh badge. A tree view later                                                                    | Useful at a glance with one cheap query                                                            |
+| Sidebar          | Tree: sessions with their windows (current one marked `*`), live dot, pane counts. `space` folds. The cursor is tracked by name         | Replaces the inner tmux status bar, which is cropped from the embedded view                        |
+| Status bar       | Cropped from the embedded view, not turned off. The embedded screen is made taller by the bar's lines                                   | `set status off` would also change the user's other tmux clients                                   |
+| SSH edit         | Writes `~/.ssh/config` directly, no diff. Atomic write, backup, re-parse before the rename, touch only the edited `Host` block          | The user chose direct writes. A corrupted config is the risk, so the write is guarded in code      |
 
 ## Roadmap
 
@@ -29,18 +31,23 @@ sidebar TUI.
 | 2   | `capture` (live session to TOML, ssh detection, `autorun = false`) | Done                             |
 | 3   | ssh config reader + `pick` popup + tmux bindings (`S` / `V`)       | Done                             |
 | 4   | TUI shell: sidebar + embedded tmux + focus keys + socket config    | First slice done (`vantage tui`) |
-| 5   | Tree view, ssh add and edit                                        | Planned                          |
+| 5   | Tree view, ssh add and edit                                        | Tree view and status bar done    |
 
-## Untested risks for the TUI (milestone 4)
+## Notes on the TUI
 
-First slice (`vantage tui`) covers: session sidebar, embedded client,
-`switch-client`, restore of saved workspaces from the sidebar, `M-s` toggle,
-edge-aware `M-h`, key and paste passthrough, resize, mouse (sidebar click and
-wheel; clicks, drags and wheel over tmux are forwarded when tmux `mouse on`).
+Covered by tests: session and window tree, `switch-client`, `select-window`,
+restore of saved workspaces from the sidebar, `M-s` toggle, edge-aware `M-h`,
+key and paste passthrough, resize, mouse (sidebar click and wheel; clicks,
+drags and wheel over tmux are forwarded when tmux `mouse on`), detach and
+reattach, status bar cropping (bottom and top, any line count).
 
-Still untested or missing: scrollback, copy-mode, fast
-output, `M-h` is the only focus key into the sidebar (no `M-l` back yet), and
-the tmux status bar of the inner client is still drawn.
+Known limits:
+
+- The cursor in the embedded view is a reversed cell, because Bubble Tea
+  cannot place a real cursor.
+- Panes are shown as a count per window, not as tree rows.
+- The status bar change is noticed on the 2 s refresh, so toggling it in tmux
+  shows a short flicker of the wrong height.
 
 ## Safety
 

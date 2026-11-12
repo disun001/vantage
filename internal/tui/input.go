@@ -44,13 +44,17 @@ func (m model) onSidebarKey(s string) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Quit
 	case "j", "down":
-		m.cursor = min(m.cursor+1, max(0, len(m.rows)-1))
+		m = m.move(1)
 	case "k", "up":
-		m.cursor = max(m.cursor-1, 0)
+		m = m.move(-1)
 	case "g", "home":
-		m.cursor = 0
+		m = m.setPos(m.items(), 0)
 	case "G", "end":
-		m.cursor = max(0, len(m.rows)-1)
+		m = m.setPos(m.items(), len(m.items())-1)
+	case " ":
+		m = m.toggle(false)
+	case "h", "left":
+		m = m.toggle(true)
 	case "r":
 		return m, m.refresh()
 	case "l", "right", "tab", "alt+l":

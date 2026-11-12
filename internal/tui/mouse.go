@@ -8,6 +8,9 @@ import (
 // firstRowY is the screen line of the first sidebar row (see sidebar()).
 const firstRowY = 2
 
+// chevronW is the width of the fold arrow that starts a live session's line.
+const chevronW = 2
+
 // onMouse routes a mouse event by where it landed. Clicks pick the focus;
 // the sidebar handles its own clicks and wheel, and events over the tmux
 // region are translated to its coordinates and forwarded.
@@ -21,7 +24,11 @@ func (m model) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	if msg.Action == tea.MouseActionPress && m.focus != focusTerm {
 		m.focus = focusTerm
 	}
-	if ev, ok := toVT(msg, msg.X-sidebarW-1, msg.Y); ok {
+	y := msg.Y
+	if m.bar.top {
+		y += m.bar.lines // the cropped status bar sits above the visible rows
+	}
+	if ev, ok := toVT(msg, msg.X-sidebarW-1, y); ok {
 		m.term.Mouse(ev)
 	}
 	return m, nil
@@ -30,13 +37,17 @@ func (m model) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 func (m model) onSidebarMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.Button == tea.MouseButtonWheelUp:
-		m.cursor = max(m.cursor-1, 0)
+		m = m.move(-1)
 	case msg.Button == tea.MouseButtonWheelDown:
-		m.cursor = min(m.cursor+1, max(0, len(m.rows)-1))
+		m = m.move(1)
 	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
 		m.focus = focusSidebar
-		if i := msg.Y - firstRowY; i >= 0 && i < len(m.rows) {
-			m.cursor = i
+		items := m.items()
+		if i := msg.Y - firstRowY + m.top; msg.Y >= firstRowY && i < len(items) {
+			m = m.setPos(items, i)
+			if it := items[i]; msg.X < chevronW && it.Win < 0 && m.rows[it.Row].Live {
+				return m.toggle(false), nil // a click on the arrow only folds
+			}
 			return m, m.selectCmd()
 		}
 	}

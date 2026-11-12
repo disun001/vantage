@@ -15,6 +15,7 @@ import (
 const (
 	sidebarW  = 26 // columns, divider not included
 	tickEvery = 2 * time.Second
+	warmEvery = 150 * time.Millisecond // polling while a new client registers
 )
 
 // Config wires the TUI to the outside world. The funcs keep this package
@@ -46,21 +47,37 @@ type model struct {
 	hub     *hub
 	w, h    int
 	rows    []row
-	cursor  int
+	cur     key             // the line under the cursor, by name
+	top     int             // first visible item, for scrolling
+	open    map[string]bool // sessions the user opened or closed by hand
 	focus   focus
 	term    *embed.Term
 	tty     string // tty of the embedded tmux client, once known
+	bar     statusBar
 	current string // session the embedded client shows
 	notice  string
 	shown   bool // a live session was auto-shown once; do not re-attach after a detach
 }
 
+// statusBar is the tmux status bar of the embedded client. The embedded
+// screen is made that many lines taller and the bar is cropped from the view,
+// because the sidebar already lists the windows.
+type statusBar struct {
+	lines int
+	top   bool
+}
+
 type (
 	outputMsg struct{}
 	tickMsg   struct{}
+	warmMsg   struct{} // a client was just started: look for its tty soon
 	rowsMsg   struct {
-		rows []row
-		err  error
+		rows    []row
+		err     error
+		pid     int // client the tty and bar belong to
+		tty     string
+		bar     statusBar
+		haveBar bool
 	}
 	exitMsg  struct{ pid int }
 	readyMsg struct { // a session is live and can be shown
@@ -81,37 +98,77 @@ func tick() tea.Cmd {
 	return tea.Tick(tickEvery, func(time.Time) tea.Msg { return tickMsg{} })
 }
 
+func warm() tea.Cmd {
+	return tea.Tick(warmEvery, func(time.Time) tea.Msg { return warmMsg{} })
+}
+
 func (m model) refresh() tea.Cmd {
+	c, tty, pid := m.cfg.Client, m.tty, 0
+	if m.term != nil {
+		pid = m.term.PID()
+	}
+	saved := m.cfg.Saved
 	return func() tea.Msg {
-		live, err := m.cfg.Client.ListSessions()
+		live, err := c.ListSessions()
 		if err != nil {
 			return rowsMsg{err: err}
 		}
-		panes, _ := m.cfg.Client.ListAllPanes() // counts are cosmetic
-		var saved []string
-		if m.cfg.Saved != nil {
-			saved, _ = m.cfg.Saved()
+		wins, _ := c.ListWindows() // windows and counts are cosmetic
+		panes, _ := c.ListAllPanes()
+		var names []string
+		if saved != nil {
+			names, _ = saved()
 		}
-		return rowsMsg{rows: mergeRows(live, panes, saved)}
+		msg := rowsMsg{rows: mergeRows(live, wins, panes, names), pid: pid}
+		if tty == "" && pid != 0 {
+			tty, _ = c.ClientTTY(pid)
+		}
+		msg.tty = tty
+		if tty != "" {
+			if n, top, err := c.StatusBar(tty); err == nil {
+				msg.bar, msg.haveBar = statusBar{n, top}, true
+			}
+		}
+		return msg
 	}
 }
 
+// Update runs the message, then keeps the cursor on screen and starts the
+// short poll that finds a newly attached client.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	prev := m.term
+	next, cmd := m.update(msg)
+	nm, ok := next.(model)
+	if !ok {
+		return next, cmd
+	}
+	nm = nm.scrolled()
+	if nm.term != nil && nm.term != prev {
+		cmd = tea.Batch(cmd, warm())
+	}
+	return nm, cmd
+}
+
+func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
 		if m.term != nil {
-			m.term.Resize(m.termW(), m.h)
+			m.term.Resize(m.termW(), m.termH())
 		}
 	case outputMsg:
 		m.hub.dirty.Store(false)
 	case tickMsg:
 		return m, tea.Batch(m.refresh(), tick())
+	case warmMsg:
+		if m.term != nil && m.tty == "" {
+			return m, tea.Batch(m.refresh(), warm())
+		}
 	case rowsMsg:
 		return m.onRows(msg), nil
 	case exitMsg:
 		if m.term != nil && m.term.PID() == msg.pid {
-			m.term, m.tty, m.current = nil, "", ""
+			m.term, m.tty, m.current, m.bar = nil, "", "", statusBar{}
 			m.focus = focusSidebar
 			m.notice = "detached: enter reopens"
 		}
@@ -134,8 +191,14 @@ func (m model) onRows(msg rowsMsg) model {
 		return m
 	}
 	m.rows = msg.rows
-	if m.cursor >= len(m.rows) {
-		m.cursor = max(0, len(m.rows)-1)
+	if m.term != nil && m.term.PID() == msg.pid {
+		if msg.tty != "" {
+			m.tty = msg.tty
+		}
+		if msg.haveBar && msg.bar != m.bar {
+			m.bar = msg.bar
+			m.term.Resize(m.termW(), m.termH())
+		}
 	}
 	// First sight of live sessions: show one so the right side is not empty.
 	if !m.shown {
@@ -196,7 +259,7 @@ func (m model) attach(name string) (*embed.Term, error) {
 }
 
 func (m model) startTerm(cmd *exec.Cmd) (*embed.Term, error) {
-	cols, rows := m.termW(), m.h
+	cols, rows := m.termW(), m.termH()
 	if cols < 1 || rows < 1 {
 		return nil, fmt.Errorf("window too small")
 	}
@@ -212,6 +275,10 @@ func (m model) startTerm(cmd *exec.Cmd) (*embed.Term, error) {
 }
 
 func (m model) termW() int { return max(1, m.w-sidebarW-1) }
+
+// termH is the height of the embedded screen: the window plus the status bar
+// that view() crops away.
+func (m model) termH() int { return m.h + m.bar.lines }
 
 func (m model) onEdge(msg edgeMsg) model {
 	if msg.err != nil || msg.atLeft {
@@ -241,14 +308,25 @@ func (m model) edgeCmd() tea.Cmd {
 	}
 }
 
+// selectCmd opens the line under the cursor: it restores a saved workspace,
+// and for a window line also makes that window the session's current one.
 func (m model) selectCmd() tea.Cmd {
-	if m.cursor >= len(m.rows) {
+	it, ok := m.selected()
+	if !ok {
 		return nil
 	}
-	r, cfg := m.rows[m.cursor], m.cfg
+	r, cfg, window := m.rows[it.Row], m.cfg, -1
+	if it.Win >= 0 {
+		window = r.Wins[it.Win].Index
+	}
 	return func() tea.Msg {
 		if !r.Live && cfg.Restore != nil {
 			if err := cfg.Restore(r.Name); err != nil {
+				return readyMsg{name: r.Name, err: err}
+			}
+		}
+		if window >= 0 {
+			if err := cfg.Client.SelectWindow(r.Name, window); err != nil {
 				return readyMsg{name: r.Name, err: err}
 			}
 		}

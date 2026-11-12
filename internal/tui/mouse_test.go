@@ -12,12 +12,12 @@ func TestSidebarClickSelectsRow(t *testing.T) {
 	click := tea.MouseMsg{X: 3, Y: firstRowY + 2, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress}
 	got, cmd := m.onMouse(click)
 	gm := got.(model)
-	if gm.cursor != 2 || gm.focus != focusSidebar || cmd == nil {
-		t.Errorf("cursor=%d focus=%v cmd=%v", gm.cursor, gm.focus, cmd)
+	if gm.cur != (key{"c", -1}) || gm.focus != focusSidebar || cmd == nil {
+		t.Errorf("cur=%v focus=%v cmd=%v", gm.cur, gm.focus, cmd)
 	}
 
 	got, _ = gm.onMouse(tea.MouseMsg{X: 3, Y: 5, Button: tea.MouseButtonWheelUp})
-	if got.(model).cursor != 1 {
+	if got.(model).cur != (key{"b", -1}) {
 		t.Errorf("wheel up did not move the cursor")
 	}
 }
@@ -42,5 +42,30 @@ func TestToVT(t *testing.T) {
 		t.Error("wheel dropped")
 	} else if _, isW := ev.(uv.MouseWheelEvent); !isW {
 		t.Errorf("wheel became %T", ev)
+	}
+}
+
+func TestClickOnArrowFoldsWithoutOpening(t *testing.T) {
+	m := treeModel() // a is open: lines a, a:1, a:2, b, saved
+	got, cmd := m.onMouse(tea.MouseMsg{X: 0, Y: firstRowY, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	gm := got.(model)
+	if cmd != nil || len(gm.items()) != 3 {
+		t.Errorf("arrow click: cmd=%v items=%v", cmd, gm.items())
+	}
+	// Clicking a window line opens it.
+	got, cmd = m.onMouse(tea.MouseMsg{X: 5, Y: firstRowY + 2, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	if gm = got.(model); gm.cur != (key{"a", 2}) || cmd == nil {
+		t.Errorf("window click: cur=%v cmd=%v", gm.cur, cmd)
+	}
+}
+
+func TestClickAccountsForScroll(t *testing.T) {
+	m := model{w: 60, h: 8, top: 3}
+	for _, n := range []string{"a", "b", "c", "d", "e", "f", "g"} {
+		m.rows = append(m.rows, row{Name: n})
+	}
+	got, _ := m.onMouse(tea.MouseMsg{X: 3, Y: firstRowY, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	if got.(model).cur != (key{"d", -1}) {
+		t.Errorf("first visible line is d, got %v", got.(model).cur)
 	}
 }
