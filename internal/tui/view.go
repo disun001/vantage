@@ -133,7 +133,7 @@ func (m model) rowLine(r row) string {
 	if r.Name == m.current {
 		name = curStyle.Render(name)
 	}
-	return fit(arrow+dot+" "+name+" "+dimStyle.Render(meta), sidebarW)
+	return fit(arrow+" "+dot+" "+name+" "+dimStyle.Render(meta), sidebarW)
 }
 
 // winLine draws a window under its session. The session's current window is
@@ -152,7 +152,7 @@ func (m model) winLine(w win) string {
 	if w.Active {
 		label = curStyle.Render(label)
 	}
-	return fit("   "+label+" "+dimStyle.Render(meta), sidebarW)
+	return fit("    "+label+" "+dimStyle.Render(meta), sidebarW) // label lines up with the session name
 }
 
 // highlight marks the cursor line: reversed with focus, underlined without.
