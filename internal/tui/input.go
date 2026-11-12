@@ -49,6 +49,9 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.hostPick != nil {
 		return m.onHostPickKey(k)
 	}
+	if m.hostShut != nil {
+		return m.onHostShutKey(k)
+	}
 	s := k.String()
 	if s == "alt+s" {
 		if m.focus == focusTerm {

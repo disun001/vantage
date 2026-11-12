@@ -85,6 +85,7 @@ type model struct {
 	hostTop  int
 	form     *hostForm
 	hostDel  *hostDelete // the delete question, while it is open
+	hostShut *hostShut   // the close-all question, while it is open
 	hostPick *hostPick   // the choice of connected pane, while it is open
 	shown    bool        // a live session was auto-shown once; do not re-attach after a detach
 }

@@ -46,6 +46,10 @@ func (m model) updateHosts(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.onHostOpen(msg)
 	case hostGoMsg:
 		return m.onHostGo(msg)
+	case hostShutMsg:
+		return m.onHostShut(msg), nil
+	case hostClosedMsg:
+		return m.onHostClosed(msg)
 	case hostSavedMsg:
 		return m.onHostSaved(msg)
 	}

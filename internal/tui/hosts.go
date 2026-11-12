@@ -254,6 +254,8 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 		}
 	case "enter":
 		return m.openHost()
+	case "x":
+		return m.shutHost()
 	case "v":
 		return m.splitHost("h") // side by side, like vim's :vsplit
 	case "s":
@@ -479,7 +481,7 @@ func (m model) hostsSidebar() []string {
 	for i, l := range note {
 		out[m.h-1-len(note)+i] = fit(noticeStyle.Render(l), sidebarW)
 	}
-	out[m.h-1] = fit(dimStyle.Render("⏎ a e d v s H alt+s q"), sidebarW)
+	out[m.h-1] = fit(dimStyle.Render("⏎ a e d x v s H alt+s q"), sidebarW)
 	return out
 }
 
@@ -565,6 +567,8 @@ func (m model) popup() []string {
 		return m.hostDel.box(m.w)
 	case m.hostPick != nil:
 		return m.hostPick.box(m.w)
+	case m.hostShut != nil:
+		return m.hostShut.box(m.w)
 	}
 	return nil
 }
