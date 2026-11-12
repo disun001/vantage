@@ -26,7 +26,7 @@ sidebar TUI.
 | #   | Milestone                                                          | Status  |
 | --- | ------------------------------------------------------------------ | ------- |
 | 1   | Workspace TOML schema + `restore`                                  | Done    |
-| 2   | `capture` (live session to TOML, ssh detection, `autorun = false`) | Planned |
+| 2   | `capture` (live session to TOML, ssh detection, `autorun = false`) | Done    |
 | 3   | ssh config reader + `pick` popup + tmux bindings (`S` / `V`)       | Planned |
 | 4   | TUI shell: sidebar + embedded tmux + focus keys + socket config    | Planned |
 | 5   | Tree view, ssh add and edit                                        | Planned |

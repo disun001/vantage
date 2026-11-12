@@ -50,6 +50,16 @@ name = "db"
 - SSH panes open a normal shell, then type `ssh <alias>`, so the pane survives a dropped connection.
 - Commands without `autorun = true` are never run.
 
+## Capture semantics
+
+`vantage capture <session> [--name N] [--force] [--socket S]` writes `<config>/workspaces/<name>.toml` from a running session.
+
+- Windows keep their name and tmux layout string; panes keep their directory (home is written as `~`).
+- A pane whose foreground process is exactly `ssh <alias>` becomes `ssh = "<alias>"`.
+- Any other foreground command (including `ssh` with options or ports) is saved as `cmd` with `autorun = false`, so restore never runs it unless you edit the file.
+- Idle shells save nothing. An existing file is only replaced with `--force`.
+- Foreground detection uses `ps -t <tty>`. If it fails, only the command name is saved.
+
 ## Changing the schema
 
 Update `internal/workspace`, its tests, this file, and `examples/`. New fields
