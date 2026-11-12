@@ -1,0 +1,42 @@
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - errorlint # use %w and errors.Is/As (docs/go-conventions.md: Errors)
+    - gochecknoinits # no init() (Design)
+    - funlen # ~50 lines per function (Files and packages)
+    - misspell
+    - nolintlint # every //nolint must name a linter and say why
+    - unparam
+    - revive # exported identifiers have doc comments (Naming and style)
+  settings:
+    errcheck:
+      # Failed writes to stdout/stderr in a CLI are not actionable.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    funlen:
+      lines: 60
+      statements: 40
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+  exclusions:
+    rules:
+      # Long table-driven tests are fine.
+      - path: _test\.go
+        linters: [funlen]
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/disun001/vantage
