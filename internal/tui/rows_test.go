@@ -114,3 +114,34 @@ func TestScrollKeepsCursorVisible(t *testing.T) {
 		t.Errorf("top = %d, want 1", m.top)
 	}
 }
+
+func TestDescend(t *testing.T) {
+	m := treeModel() // cursor falls back to line a, which is open
+	step := func(m model) (model, bool) {
+		got, cmd := m.descend()
+		return got.(model), cmd != nil
+	}
+
+	m, selected := step(m) // open session: step into its first window
+	if m.cur != (key{"a", 1}) || selected {
+		t.Fatalf("open session: cur=%v selected=%v", m.cur, selected)
+	}
+	if _, selected = step(m); !selected {
+		t.Error("l on a window must open it")
+	}
+
+	m.cur = key{"a", -1}
+	m = m.toggle(false) // close it
+	if len(m.items()) != 3 {
+		t.Fatalf("setup: %v", m.items())
+	}
+	m, selected = step(m) // closed session: open the tree, nothing selected
+	if len(m.items()) != 5 || m.cur != (key{"a", -1}) || selected {
+		t.Errorf("closed session: items=%v cur=%v selected=%v", m.items(), m.cur, selected)
+	}
+
+	m.cur = key{"saved", -1} // nothing to open under a saved workspace
+	if got, selected := step(m); got.cur != m.cur || selected {
+		t.Errorf("saved: cur=%v selected=%v", got.cur, selected)
+	}
+}

@@ -57,12 +57,35 @@ func (m model) onSidebarKey(s string) (tea.Model, tea.Cmd) {
 		m = m.toggle(true)
 	case "r":
 		return m, m.refresh()
-	case "l", "right", "tab", "alt+l":
+	case "l", "right":
+		return m.descend()
+	case "tab", "alt+l":
 		if m.term != nil {
 			m.focus = focusTerm
 		}
 	case "enter":
 		return m, m.selectCmd()
+	}
+	return m, nil
+}
+
+// descend is l: it opens a closed session, steps into an open one, and opens
+// a window. Lines with no tree under them just focus tmux.
+func (m model) descend() (tea.Model, tea.Cmd) {
+	it, ok := m.selected()
+	if ok && it.Win >= 0 {
+		return m, m.selectCmd()
+	}
+	if ok {
+		if r := m.rows[it.Row]; r.Live && len(r.Wins) > 0 {
+			if !m.expanded(r) {
+				return m.toggle(false), nil
+			}
+			return m.move(1), nil
+		}
+	}
+	if m.term != nil {
+		m.focus = focusTerm
 	}
 	return m, nil
 }

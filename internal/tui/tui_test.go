@@ -75,7 +75,7 @@ func TestEmbeddedSession(t *testing.T) {
 	p.Send(tea.WindowSizeMsg{Width: 100, Height: 24})
 	waitFor(t, "sidebar row", func() bool { return strings.Contains(out.String(), "alpha") })
 
-	p.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")}) // focus the embedded shell
+	p.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l"), Alt: true}) // focus the embedded shell
 	for _, r := range "echo vt$((20+22))" {
 		p.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 	}
