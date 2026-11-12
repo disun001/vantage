@@ -1,49 +1,14 @@
 package pick
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/disun001/vantage/internal/tmux"
 )
-
-func TestChoose(t *testing.T) {
-	hosts := []string{"web", "db"}
-	tests := []struct {
-		in      string
-		want    string
-		wantErr bool
-	}{
-		{"\n", "", false},
-		{"", "", false},
-		{"0\n", "", false},
-		{"l\n", "", false},
-		{"1\n", "web", false},
-		{"2\n", "db", false},
-		{"db\n", "db", false},
-		{"3\n", "", true},
-		{"-1\n", "", true},
-		{"nope\n", "", true},
-		{"-oProxyCommand=x\n", "", true},
-	}
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%q", tt.in), func(t *testing.T) {
-			var out bytes.Buffer
-			got, err := Choose(strings.NewReader(tt.in), &out, hosts)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
-			}
-			if got.Alias != tt.want {
-				t.Fatalf("alias = %q, want %q", got.Alias, tt.want)
-			}
-		})
-	}
-}
 
 func testClient(t *testing.T) tmux.Client {
 	t.Helper()

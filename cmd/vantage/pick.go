@@ -55,6 +55,9 @@ func runPick(args []string, out io.Writer) error {
 	}
 
 	choice, err := pick.Choose(os.Stdin, out, hosts)
+	if errors.Is(err, pick.ErrCancelled) {
+		return nil // quitting the menu is not an error
+	}
 	if err != nil {
 		return err
 	}

@@ -40,6 +40,5 @@ Copy it next to your `tmux.conf` and add:
 source-file -q ~/.config/tmux/vantage.conf
 ```
 
-The popup runs `vantage pick --split h|v` (see `vantage help`). Type a number or
-an alias, or press Enter for a local shell. For a non-default socket add
+The popup runs `vantage pick --split h|v` (see `vantage help`). Move with `j`/`k`, press `/` to fuzzy-filter, Enter to choose (the first entry is a local shell), Esc to go back or cancel. For a non-default socket add
 `--socket NAME` or export `VANTAGE_SOCKET`.
