@@ -1,6 +1,7 @@
-// Package sshconfig lists the hosts in an ssh_config file. It is read-only and
-// exposes only what the picker displays (alias, address, user, port, jump
-// host). It never returns key paths or other option values.
+// Package sshconfig lists the hosts in an ssh_config file and adds or edits
+// them. Listing exposes only what the picker displays (alias, address, user,
+// port, jump host), never key paths or other option values. Writing touches
+// one Host block at a time and is guarded (see File).
 package sshconfig
 
 import (
