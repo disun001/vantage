@@ -1,0 +1,23 @@
+# Example workspace. Copy to ~/.config/vantage/workspaces/<name>.toml
+# The session name is `name` (defaults to the file name).
+name = "demo"
+root = "~"          # default cwd for panes; "~" expands to your home
+
+[[window]]
+name = "edit"
+layout = "main-vertical"   # tmux preset or a full layout string
+
+  [[window.pane]]
+  cwd = "."
+  cmd = "nvim"
+  autorun = false          # commands only run on restore when true
+
+  [[window.pane]]
+  cwd = "."
+  split = "h"              # "h" side by side (default), "v" stacked
+
+[[window]]
+name = "remote"
+
+  [[window.pane]]
+  ssh = "my-host"          # alias from ~/.ssh/config; runs `ssh my-host`
