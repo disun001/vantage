@@ -43,7 +43,8 @@ type HostUsage interface {
 	Strip(alias string) error
 	// Live returns the open panes running ssh to the alias.
 	Live(alias string) ([]tmux.PaneRef, error)
-	// Rename points the saved workspaces' panes for from at the alias to.
+	// Rename points the saved workspaces' panes and the open panes for from
+	// at the alias to.
 	Rename(from, to string) error
 }
 
@@ -429,7 +430,7 @@ func (m model) saveHost(f hostForm) tea.Cmd {
 		msg := hostSavedMsg{alias: h.Alias, renamed: f.from != h.Alias}
 		if msg.renamed && u != nil {
 			if err := u.Rename(f.from, h.Alias); err != nil {
-				msg.err = fmt.Errorf("host renamed, but workspaces not fully updated: %w", err)
+				msg.err = fmt.Errorf("host renamed, but %w", err)
 			}
 		}
 		return msg

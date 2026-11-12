@@ -5,6 +5,9 @@
 package hostuse
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/disun001/vantage/internal/capture"
 	"github.com/disun001/vantage/internal/connections"
 	"github.com/disun001/vantage/internal/tmux"
@@ -62,10 +65,47 @@ func (f Finder) Strip(alias string) error {
 }
 
 // Rename points the saved workspaces' panes for from at the alias to (see
-// workspace.RenameSSH). Live panes keep running; they are already connected.
+// workspace.RenameSSH) and tags the open panes running ssh to from, so they
+// are still found under the new alias: their process keeps saying `ssh from`.
+// Both steps run even if one fails.
 func (f Finder) Rename(from, to string) error {
-	_, err := workspace.RenameSSH(from, to)
-	return err
+	var errs []error
+	if _, err := workspace.RenameSSH(from, to); err != nil {
+		errs = append(errs, fmt.Errorf("workspaces not fully updated: %w", err))
+	}
+	if err := f.retag(from, to); err != nil {
+		errs = append(errs, fmt.Errorf("open panes not retagged: %w", err))
+	}
+	return errors.Join(errs...)
+}
+
+// retag records on each open pane of from that its host is called to now.
+// The tag keeps the alias the process really runs, so a chain of renames
+// still ends at it, and a rename back clears the tag.
+func (f Finder) retag(from, to string) error {
+	open, err := connections.Find(f.Client, f.Procs)
+	if err != nil {
+		if tmux.IsNoServer(err) {
+			return nil // no server, no panes
+		}
+		return err
+	}
+	var first error
+	for _, p := range connections.Lookup(open, from) {
+		orig := from
+		if o, _, ok := connections.ParseRenamed(p.Renamed); ok {
+			orig = o
+		}
+		if orig == to {
+			err = f.Client.ClearRenamedTag(p.Pane)
+		} else {
+			err = f.Client.SetRenamedTag(p.Pane, orig+">"+to)
+		}
+		if err != nil && first == nil {
+			first = err
+		}
+	}
+	return first
 }
 
 // Close kills the panes of u. It goes on after a failure and returns the

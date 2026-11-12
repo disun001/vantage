@@ -47,3 +47,33 @@ func TestLookup(t *testing.T) {
 		t.Fatalf("got %v, want nil", got)
 	}
 }
+
+func TestParseRenamed(t *testing.T) {
+	for tag, want := range map[string][2]string{"web>web2": {"web", "web2"}, "a.b>c@d": {"a.b", "c@d"}} {
+		if from, to, ok := ParseRenamed(tag); !ok || from != want[0] || to != want[1] {
+			t.Errorf("ParseRenamed(%q) = %q, %q, %v", tag, from, to, ok)
+		}
+	}
+	for _, bad := range []string{"", "web", ">x", "x>", "a>b>c"} {
+		if _, _, ok := ParseRenamed(bad); ok {
+			t.Errorf("ParseRenamed(%q) accepted", bad)
+		}
+	}
+}
+
+func TestFindFilesARenamedPaneUnderTheNewAlias(t *testing.T) {
+	panes := []tmux.PaneRef{
+		{Pane: "%0", TTY: "t0", Renamed: "web>web2"}, // ssh web, renamed since
+		{Pane: "%1", TTY: "t1"},                      // ssh web, a different (later) host of that name
+		{Pane: "%2", TTY: "t2", Renamed: "web>web2"}, // tag is stale: now ssh db
+		{Pane: "%3", TTY: "t3", Renamed: "junk"},
+	}
+	lister := func(tty string) ([]string, error) {
+		return map[string][]string{"t0": {"ssh web"}, "t1": {"ssh web"}, "t2": {"ssh db"}, "t3": {"ssh web"}}[tty], nil
+	}
+	got := find(panes, lister)
+	want := map[string][]tmux.PaneRef{"web2": {panes[0]}, "web": {panes[1], panes[3]}, "db": {panes[2]}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}

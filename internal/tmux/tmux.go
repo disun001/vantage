@@ -141,6 +141,46 @@ func (c Client) KillSession(name string) error {
 	return err
 }
 
+// RenamedOption is the pane option that records an ssh alias rename.
+const RenamedOption = "@vantage_renamed"
+
+var renamedTagRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._@%+-]*>[A-Za-z0-9][A-Za-z0-9._@%+-]*$`)
+
+// SetRenamedTag marks the pane as running ssh to the alias from, which has
+// since been renamed to the alias to. tag is "from>to".
+func (c Client) SetRenamedTag(pane, tag string) error {
+	if !paneIDRe.MatchString(pane) {
+		return fmt.Errorf("invalid pane id %q", pane)
+	}
+	if !renamedTagRe.MatchString(tag) {
+		return fmt.Errorf("invalid rename tag %q", tag)
+	}
+	_, err := c.run("set-option", "-p", "-t", pane, RenamedOption, tag)
+	return err
+}
+
+// ClearRenamedTag removes the pane's rename tag. A pane that is gone is fine.
+func (c Client) ClearRenamedTag(pane string) error {
+	if !paneIDRe.MatchString(pane) {
+		return fmt.Errorf("invalid pane id %q", pane)
+	}
+	out, err := c.run("set-option", "-p", "-u", "-t", pane, RenamedOption)
+	if err != nil && strings.Contains(out, "can't find pane") {
+		return nil
+	}
+	return err
+}
+
+// IsNoServer reports whether err says no tmux server is running.
+func IsNoServer(err error) bool {
+	if err == nil {
+		return false
+	}
+	m := err.Error()
+	return strings.Contains(m, "no server running") || strings.Contains(m, "No such file") ||
+		strings.Contains(m, "error connecting")
+}
+
 // KillPane closes one pane by id (%N). A pane that is already gone is not an
 // error: the goal, no such pane, holds. Closing the last pane of a window
 // closes the window, and the last window closes the session.
@@ -225,12 +265,15 @@ type PaneRef struct {
 	WindowName string
 	Pane       string // pane ID, e.g. %4
 	TTY        string
+	// Renamed is the pane's rename tag ("old>new", see SetRenamedTag), empty
+	// when it has none.
+	Renamed string
 }
 
 // ListAllPanes returns every pane of every session. WindowName is last in the
 // format so a "|" in it cannot shift the other fields.
 func (c Client) ListAllPanes() ([]PaneRef, error) {
-	const format = "#{session_name}|#{window_index}|#{pane_id}|#{pane_tty}|#{window_name}"
+	const format = "#{session_name}|#{window_index}|#{pane_id}|#{pane_tty}|#{" + RenamedOption + "}|#{window_name}"
 	out, err := c.run("list-panes", "-a", "-F", format)
 	if err != nil {
 		return nil, err
@@ -240,15 +283,15 @@ func (c Client) ListAllPanes() ([]PaneRef, error) {
 	}
 	var refs []PaneRef
 	for _, line := range strings.Split(out, "\n") {
-		f := strings.SplitN(line, "|", 5)
-		if len(f) != 5 {
+		f := strings.SplitN(line, "|", 6)
+		if len(f) != 6 {
 			return nil, fmt.Errorf("unexpected list-panes line %q", line)
 		}
 		idx, err := strconv.Atoi(f[1])
 		if err != nil {
 			return nil, fmt.Errorf("bad window index in %q: %w", line, err)
 		}
-		refs = append(refs, PaneRef{Session: f[0], Window: idx, Pane: f[2], TTY: f[3], WindowName: f[4]})
+		refs = append(refs, PaneRef{Session: f[0], Window: idx, Pane: f[2], TTY: f[3], Renamed: f[4], WindowName: f[5]})
 	}
 	return refs, nil
 }

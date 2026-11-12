@@ -106,3 +106,92 @@ func TestKillPaneRefusesOddIDs(t *testing.T) {
 		}
 	}
 }
+
+func TestRenameTagsOpenPanesSoTheyAreFoundUnderTheNewAlias(t *testing.T) {
+	// The first pane runs ssh to web; the second is a shell.
+	conn := map[string]bool{}
+	f, _ := testFinder(t, func(tty string) ([]string, error) {
+		if conn[tty] {
+			return []string{"ssh web"}, nil // the process never changes its name
+		}
+		return []string{"-zsh"}, nil
+	})
+	first, err := f.Client.NewSession("s", "w1", os.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Client.NewWindow("s", "w2", os.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	panes, _ := f.Client.ListAllPanes()
+	for _, p := range panes {
+		if p.Pane == first {
+			conn[p.TTY] = true
+		}
+	}
+	live := func(alias string) []string {
+		t.Helper()
+		ps, err := f.Live(alias)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var ids []string
+		for _, p := range ps {
+			ids = append(ids, p.Pane)
+		}
+		return ids
+	}
+	tag := func() string {
+		t.Helper()
+		ps, _ := f.Client.ListAllPanes()
+		for _, p := range ps {
+			if p.Pane == first {
+				return p.Renamed
+			}
+		}
+		return "?"
+	}
+
+	if err := f.Rename("web", "web2"); err != nil {
+		t.Fatal(err)
+	}
+	if got := live("web2"); !reflect.DeepEqual(got, []string{first}) || len(live("web")) != 0 || tag() != "web>web2" {
+		t.Errorf("after web>web2: web2=%v web=%v tag=%q", got, live("web"), tag())
+	}
+	if err := f.Rename("web2", "web3"); err != nil {
+		t.Fatal(err)
+	}
+	if got := live("web3"); !reflect.DeepEqual(got, []string{first}) || len(live("web2")) != 0 || tag() != "web>web3" {
+		t.Errorf("after web2>web3: web3=%v web2=%v tag=%q", got, live("web2"), tag())
+	}
+	if err := f.Rename("web3", "web"); err != nil {
+		t.Fatal(err)
+	}
+	if got := live("web"); !reflect.DeepEqual(got, []string{first}) || len(live("web3")) != 0 || tag() != "" {
+		t.Errorf("back to web: web=%v web3=%v tag=%q", got, live("web3"), tag())
+	}
+}
+
+func TestRenameWithoutAServerOrPanesIsFine(t *testing.T) {
+	f, _ := testFinder(t, func(string) ([]string, error) { return nil, nil })
+	if err := f.Rename("web", "web2"); err != nil {
+		t.Errorf("no server: %v", err)
+	}
+}
+
+func TestRenamedTagRefusesOddInput(t *testing.T) {
+	c := tmux.Client{Socket: "vantage-test-never-started"}
+	for _, bad := range []string{"", "web", "%1;x", "-t"} {
+		if err := c.SetRenamedTag(bad, "a>b"); err == nil {
+			t.Errorf("SetRenamedTag(%q, ...) accepted", bad)
+		}
+		if err := c.ClearRenamedTag(bad); err == nil {
+			t.Errorf("ClearRenamedTag(%q) accepted", bad)
+		}
+	}
+	for _, bad := range []string{"", "a", "a>", ">b", "a>b>c", "a b>c", "-a>b", "a>b;x"} {
+		if err := c.SetRenamedTag("%1", bad); err == nil {
+			t.Errorf("SetRenamedTag(%%1, %q) accepted", bad)
+		}
+	}
+}

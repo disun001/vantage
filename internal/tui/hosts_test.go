@@ -683,7 +683,7 @@ func TestRenameHostSaysWhenWorkspacesFail(t *testing.T) {
 	m = typed(m, "2")
 	m, cmd := press(m, "enter")
 	m = settleAll(m, cmd)
-	if !strings.Contains(m.notice, "host renamed, but workspaces not fully updated") || !strings.Contains(m.notice, "proj: locked") {
+	if !strings.Contains(m.notice, "host renamed, but") || !strings.Contains(m.notice, "proj: locked") {
 		t.Errorf("notice %q", m.notice)
 	}
 	if m.hostCur != "web2" {
