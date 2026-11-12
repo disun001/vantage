@@ -13,6 +13,8 @@ Sidebar keys: `n` new workspace, `R` rename, `d` delete the workspace file and k
 Changes go straight to `~/.ssh/config`, with a copy kept in `~/.ssh/config.vantage.bak`
 (see [docs/architecture.md](docs/architecture.md)).
 
+If a key does nothing, `VANTAGE_KEYLOG=/tmp/keys.log vantage` records each non-text key vantage receives and what it did to focus. Typed text is never logged.
+
 ## Quick start
 
 ```sh

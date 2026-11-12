@@ -572,3 +572,30 @@ func TestDeletePopupIsDrawnOverTheScreen(t *testing.T) {
 		t.Errorf("the warning belongs in the popup, not the sidebar notice: %q", m.notice)
 	}
 }
+
+func TestKeyLogRecordsKeysButNotText(t *testing.T) {
+	var buf strings.Builder
+	m := hostModel(nil)
+	m.cfg.KeyLog = &buf
+	m.term = nil
+	for _, k := range []tea.KeyMsg{
+		{Type: tea.KeyRunes, Runes: []rune("hunter2")}, // a typed password
+		{Type: tea.KeySpace},
+		{Type: tea.KeyRunes, Runes: []rune("s"), Alt: true},
+		{Type: tea.KeyEnter},
+	} {
+		next, _ := m.Update(k)
+		m = next.(model)
+	}
+	got := buf.String()
+	if strings.Contains(got, "hunter2") || strings.Contains(got, `" "`) {
+		t.Errorf("typed text leaked into the log:\n%s", got)
+	}
+	for _, want := range []string{`key="alt+s" focus=sidebar->sidebar`, `key="enter"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("log lacks %q:\n%s", want, got)
+		}
+	}
+	off := hostModel(nil) // a nil KeyLog must not panic
+	off.Update(tea.KeyMsg{Type: tea.KeyEnter})
+}

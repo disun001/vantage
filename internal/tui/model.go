@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"io"
 	"os/exec"
 	"sync/atomic"
 	"time"
@@ -35,6 +36,8 @@ type Config struct {
 	// HostUse warns before a host that workspaces or open panes use is
 	// deleted, and closes those panes. Nil skips the check.
 	HostUse HostUsage
+	// KeyLog, when set, gets one line per non-text key press (see logKey).
+	KeyLog io.Writer
 }
 
 // Manager changes workspaces on behalf of the sidebar.

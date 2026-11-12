@@ -1,10 +1,42 @@
 package tui
 
 import (
+	"fmt"
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// onKey routes a key and, when Config.KeyLog is set, records what it did.
 func (m model) onKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
+	before := m.focus
+	next, cmd := m.dispatchKey(k)
+	m.logKey(k, before, next)
+	return next, cmd
+}
+
+// logKey writes one line for a key that is not plain typing. Text keys are
+// left out on purpose: a password typed into an ssh pane must not reach a
+// log. It exists to show whether a key press reaches vantage at all.
+func (m model) logKey(k tea.KeyMsg, before focus, next tea.Model) {
+	w := m.cfg.KeyLog
+	if w == nil || (k.Type == tea.KeyRunes && !k.Alt) || k.Type == tea.KeySpace {
+		return
+	}
+	after := before
+	if nm, ok := next.(model); ok {
+		after = nm.focus
+	}
+	name := func(f focus) string {
+		if f == focusTerm {
+			return "tmux"
+		}
+		return "sidebar"
+	}
+	_, _ = fmt.Fprintf(w, "%s key=%q focus=%s->%s\n", time.Now().Format("15:04:05.000"), k.String(), name(before), name(after))
+}
+
+func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.prompt != nil {
 		return m.onPromptKey(k)
 	}
