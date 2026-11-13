@@ -194,8 +194,14 @@ func TestEnterOnAHostEndToEnd(t *testing.T) {
 	p.Send(tea.KeyMsg{Type: tea.KeyEsc}) // focus is in the terminal after the new window
 	p.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s"), Alt: true})
 	p.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	// The index depends on the user's base-index, so ask tmux for it.
+	idx, err := exec.Command("tmux", "-L", c.Socket, "display-message", "-p", "-t", target, "#{window_index}").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "beta|" + strings.TrimSpace(string(idx))
 	waitFor(t, "client on beta's second window", func() bool {
 		o, err := exec.Command("tmux", "-L", c.Socket, "list-clients", "-F", "#{client_session}|#{window_index}").Output()
-		return err == nil && strings.TrimSpace(string(o)) == "beta|2"
+		return err == nil && strings.TrimSpace(string(o)) == want
 	})
 }

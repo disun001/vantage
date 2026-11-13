@@ -66,8 +66,19 @@ func TestTreeShowsWindowsAndHidesStatusBar(t *testing.T) {
 	if got := len(d.m.term.Lines(false)); got != d.m.h+1 {
 		t.Errorf("embedded screen has %d lines, want window + bar = %d", got, d.m.h+1)
 	}
+	// The bar is on the edge row of the taller screen only once tmux has seen
+	// the new client height, so wait for that. The edge depends on the user's
+	// status-position (a top bar is on the first row from the start).
 	waitFor(t, "status text drawn", func() bool {
-		return strings.Contains(strings.Join(d.m.term.Lines(false), "\n"), "ZZBAR")
+		ls := d.m.term.Lines(false)
+		if len(ls) == 0 {
+			return false
+		}
+		edge := ls[len(ls)-1]
+		if d.m.bar.top {
+			edge = ls[0]
+		}
+		return strings.Contains(edge, "ZZBAR")
 	})
 	if v := d.m.View(); strings.Contains(v, "ZZBAR") {
 		t.Errorf("status bar not cropped from the view:\n%s", v)
