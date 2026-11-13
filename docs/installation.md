@@ -1,14 +1,44 @@
 # Installation
 
-## Build
+Vantage needs tmux 3.2 or newer. It works on macOS and Linux (including WSL).
+
+## Homebrew (recommended)
+
+```sh
+brew install disun001/tap/vantage
+```
+
+This installs tmux too. Update with `brew upgrade vantage`. To install it as part
+of a dotfiles setup, add this to your `Brewfile`:
+
+```ruby
+tap "disun001/tap"
+brew "vantage"
+```
+
+## Prebuilt binary
+
+Download the archive for your OS and CPU from the
+[releases page](https://github.com/disun001/vantage/releases), unpack it, and put
+`vantage` somewhere on your `PATH`.
+
+## go install
+
+```sh
+go install github.com/disun001/vantage/cmd/vantage@latest
+```
+
+Needs Go (version in `go.mod`). The binary lands in `$(go env GOPATH)/bin`,
+which must be on your `PATH`.
+
+## Build from source
 
 ```sh
 git clone https://github.com/disun001/vantage && cd vantage
 make build            # ./bin/vantage
-# or: go install github.com/disun001/vantage/cmd/vantage@latest
 ```
 
-Requires Go and tmux. Works on macOS and Linux/WSL.
+Check the result with `vantage version`.
 
 ## Config location
 

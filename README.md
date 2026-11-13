@@ -1,42 +1,84 @@
 # vantage
 
-A terminal workspace manager built on tmux. Save tmux sessions as
-**workspaces** (windows, panes, directories, SSH hosts), restore them with one
-command, and browse them from a sidebar TUI.
+A terminal workspace manager built on tmux. Save your tmux sessions as small
+text files, restore them with one command, and jump between sessions and ssh
+hosts from a sidebar.
 
-**Status:** milestone 5 done. The workspace format, `vantage restore`, `vantage capture`, the ssh
-split picker (`vantage pick`, tmux snippet in `examples/tmux`), and `vantage tui` (also just `vantage`) work.
-The TUI shows sessions with their windows in a sidebar (`space` folds), embeds tmux (its own status bar is hidden),
-and supports the mouse. `M-s` toggles focus, `M-h` / `M-l` move between sidebar and tmux.
-Sidebar keys: `n` new workspace and `R` rename (each asks for the name in a pop-up), `d` delete the workspace file and kill its session (confirmed in a pop-up).
-`H` switches the sidebar to your ssh hosts: `Enter` goes to the pane already connected to the host (a pop-up asks which when several are open) or opens ssh in a new window, `x` closes every open pane of the host after a `y`, `v` opens an ssh split beside the active pane and `s` one below it, `a` adds a host, `e` edits one in a pop-up (alias, host, user, port, jump; a new alias renames it, repoints other hosts' jumps and updates the saved workspaces), `d` deletes one after a `y` in a pop-up, warning there if workspaces or open panes use it (the open panes are closed and the saved workspaces lose those panes).
-Changes go straight to `~/.ssh/config`, with a copy kept in `~/.ssh/config.vantage.bak`
-(see [docs/architecture.md](docs/architecture.md)).
+## Why
 
-If a key does nothing, `VANTAGE_KEYLOG=/tmp/keys.log vantage` records each non-text key vantage receives and what it did to focus. Typed text is never logged.
+tmux keeps your terminal alive, but it forgets your layout after a reboot and
+gives you no overview of what is open. Vantage adds:
+
+- **Workspaces.** Windows, panes, directories and ssh hosts saved as one
+  readable TOML file per workspace. Restore it with `vantage restore`, or save a
+  running session with `vantage capture`.
+- **A sidebar.** Every session and its windows in one tree, next to a real tmux
+  client. Your tmux keys, panes and plugins keep working.
+- **ssh awareness.** Your `~/.ssh/config` hosts in the sidebar. See which are
+  connected, jump to an open pane, or open a new ssh split from a pop-up.
+
+## Install
+
+macOS and Linux (including WSL), with [Homebrew](https://brew.sh):
+
+```sh
+brew install disun001/tap/vantage
+```
+
+This also installs tmux. Other options (`go install`, prebuilt binaries, build
+from source) are in [docs/installation.md](docs/installation.md).
 
 ## Quick start
 
 ```sh
-make build                                   # ./bin/vantage
 mkdir -p ~/.config/vantage/workspaces
-cp examples/workspaces/demo.toml ~/.config/vantage/workspaces/
-./bin/vantage list
-./bin/vantage restore demo                   # creates the tmux session "demo"
+curl -o ~/.config/vantage/workspaces/demo.toml \
+  https://raw.githubusercontent.com/disun001/vantage/main/examples/workspaces/demo.toml
+
+vantage list              # demo
+vantage restore demo      # creates the tmux session "demo"
 tmux attach -t demo
 ```
 
-Requires tmux and Go (see `go.mod` for the version). Contributing also needs [golangci-lint v2](https://golangci-lint.run/welcome/install/) for `make check`.
+Or run `vantage` on its own to open the sidebar. Press `n` to create a
+workspace, `H` to see your ssh hosts, `M-s` to switch focus between the
+sidebar and tmux. The full key list is in [docs/usage.md](docs/usage.md).
+
+To save a session you already have running:
+
+```sh
+vantage capture mysession
+```
+
+## Safety
+
+- Editing an ssh host in the TUI changes `~/.ssh/config`. Vantage keeps a backup
+  (`config.vantage.bak`), writes atomically and refuses to write anything it
+  cannot parse back. Details in [docs/usage.md](docs/usage.md#safety).
+- Commands in a workspace never run on restore unless you set `autorun = true`.
+- Vantage makes no network connections. It only runs `tmux` and `ps`.
+
+## Requirements
+
+- tmux 3.2 or newer
+- macOS, Linux, or Windows through WSL. Native Windows is not supported.
 
 ## Docs
 
-| Doc                                                  | Read it for                                   |
-| ---------------------------------------------------- | --------------------------------------------- |
-| [AGENTS.md](AGENTS.md)                               | Hard rules. Read first                        |
-| [docs/installation.md](docs/installation.md)         | Install, config location, dotfile managers    |
-| [docs/workspace-format.md](docs/workspace-format.md) | TOML schema reference                         |
-| [docs/architecture.md](docs/architecture.md)         | Design decisions and their reasons, roadmap   |
-| [docs/layout.md](docs/layout.md)                     | Repo structure and where new code goes        |
-| [docs/go-conventions.md](docs/go-conventions.md)     | Go style, errors, testing, file/package rules |
-| [docs/workflow.md](docs/workflow.md)                 | Build, test, commit                           |
-| [docs/contributing.md](docs/contributing.md)         | How to contribute                             |
+| Doc                                                  | Read it for                                  |
+| ---------------------------------------------------- | -------------------------------------------- |
+| [docs/usage.md](docs/usage.md)                       | Commands, TUI keys, safety                   |
+| [docs/installation.md](docs/installation.md)         | Install options, config location, tmux setup |
+| [docs/workspace-format.md](docs/workspace-format.md) | TOML schema reference                        |
+| [docs/architecture.md](docs/architecture.md)         | Design decisions and their reasons           |
+
+## Contributing
+
+Bug reports and ideas are welcome as issues. For anything bigger than a small
+fix, please open an issue first so we can agree on the approach before you write
+code. See [docs/contributing.md](docs/contributing.md). Report security
+problems privately, as described in [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE)
