@@ -21,7 +21,7 @@ type command struct {
 }
 
 // commands is the single place subcommands are registered.
-var commands = []command{listCmd, restoreCmd, captureCmd, pickCmd, tuiCmd}
+var commands = []command{listCmd, restoreCmd, captureCmd, pickCmd, tuiCmd, versionCmd}
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -49,7 +49,7 @@ func run(args []string, out, errOut io.Writer) int {
 }
 
 // defaultToTUI makes a bare `vantage` (or `vantage --socket x`) start the TUI.
-// Help flags still print usage.
+// Help flags still print usage, and --version prints the version.
 func defaultToTUI(args []string) []string {
 	if len(args) == 0 {
 		return []string{"tui"}
@@ -57,6 +57,8 @@ func defaultToTUI(args []string) []string {
 	switch args[0] {
 	case "-h", "--help", "-help":
 		return args
+	case "--version":
+		return []string{"version"}
 	}
 	if strings.HasPrefix(args[0], "-") {
 		return append([]string{"tui"}, args...)

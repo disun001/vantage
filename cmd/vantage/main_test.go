@@ -60,6 +60,7 @@ func TestDefaultToTUI(t *testing.T) {
 		{[]string{"--help"}, []string{"--help"}},
 		{[]string{"list"}, []string{"list"}},
 		{[]string{"help"}, []string{"help"}},
+		{[]string{"--version"}, []string{"version"}},
 	} {
 		if got := defaultToTUI(tt.in); !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("%v: got %v, want %v", tt.in, got, tt.want)
