@@ -110,7 +110,7 @@ func (m model) sidebar() []string {
 	for i, l := range note {
 		out[m.h-1-len(note)+i] = fit(noticeStyle.Render(l), sidebarW)
 	}
-	out[m.h-1] = fit(hintStyle("space n R d H alt+s q"), sidebarW)
+	out[m.h-1] = fit(hintStyle("? keys"), sidebarW)
 	return out
 }
 

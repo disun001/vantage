@@ -87,6 +87,7 @@ type model struct {
 	hostDel  *hostDelete // the delete question, while it is open
 	hostShut *hostShut   // the close-all question, while it is open
 	hostPick *hostPick   // the choice of connected pane, while it is open
+	help     bool        // the key help pop-up is open
 	shown    bool        // a live session was auto-shown once; do not re-attach after a detach
 	mode     tmux.Mode   // PREFIX, COPY or SYNC of the embedded client, for the title pill
 }

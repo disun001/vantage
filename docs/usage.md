@@ -42,6 +42,10 @@ The title pill shows the tmux mode: `VANTAGE` when idle, `PREFIX`, `COPY`,
 
 ### Sidebar keys (workspaces)
 
+The sidebar footer shows only `? keys`. Press `?` in the sidebar for a pop-up
+listing every key of the current view, grouped and explained. `esc`, `?` or
+`q` closes it.
+
 | Key     | Does                                                                    |
 | ------- | ----------------------------------------------------------------------- |
 | `space` | Fold or unfold a session                                                |

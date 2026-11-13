@@ -242,6 +242,8 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 		m = m.moveHost(-len(m.hosts))
 	case "G", "end":
 		m = m.moveHost(len(m.hosts))
+	case "?":
+		m.help = true
 	case "r":
 		return m, m.loadHosts()
 	case "a":
@@ -477,7 +479,7 @@ func (m model) hostsSidebar() []string {
 	for i, l := range note {
 		out[m.h-1-len(note)+i] = fit(noticeStyle.Render(l), sidebarW)
 	}
-	out[m.h-1] = fit(hintStyle("⏎ a e d x v s H alt+s q"), sidebarW)
+	out[m.h-1] = fit(hintStyle("? keys"), sidebarW)
 	return out
 }
 
@@ -553,6 +555,8 @@ func (m model) popup() []string {
 		return m.hostPick.box(m.w)
 	case m.hostShut != nil:
 		return m.hostShut.box(m.w)
+	case m.help:
+		return m.helpBox()
 	}
 	return nil
 }

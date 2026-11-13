@@ -52,6 +52,9 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.hostShut != nil {
 		return m.onHostShutKey(k)
 	}
+	if m.help {
+		return m.onHelpKey(k)
+	}
 	s := k.String()
 	if s == "alt+s" {
 		if m.focus == focusTerm {
@@ -115,6 +118,8 @@ func (m model) onSidebarKey(s string) (tea.Model, tea.Cmd) {
 		m = m.startPrompt(promptDelete)
 	case "H":
 		return m.toggleHosts()
+	case "?":
+		m.help = true
 	case "l", "right":
 		return m.descend()
 	case "tab", "alt+l":
