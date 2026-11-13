@@ -20,21 +20,11 @@ type Manager struct {
 	Client tmux.Client
 	// Procs finds foreground commands for capture. May be nil.
 	Procs capture.Lister
-	// Chats maps a pane id to the id of the chat running in it, so saved
-	// workspaces keep their chat panes. May be nil.
-	Chats func() (map[string]string, error)
 }
 
-// capture reads a live session, including its chat panes.
+// capture reads a live session.
 func (m Manager) capture(session string) (workspace.Workspace, error) {
-	var chats map[string]string
-	if m.Chats != nil {
-		var err error
-		if chats, err = m.Chats(); err != nil {
-			return workspace.Workspace{}, fmt.Errorf("chats: %w", err)
-		}
-	}
-	return capture.SessionChats(m.Client, session, "", m.Procs, chats)
+	return capture.Session(m.Client, session, "", m.Procs)
 }
 
 func checkName(name string) error {

@@ -23,10 +23,6 @@ fmt: ## format code with gofumpt and goimports
 	@command -v $(GOLANGCI) >/dev/null || (echo "golangci-lint v2 not found: see Makefile header"; exit 1)
 	$(GOLANGCI) fmt ./...
 
-gen: ## regenerate sqlc code (internal/store/gen)
-	go tool sqlc generate
-
 check: lint ## lint + format check + vet + tests; must pass before committing
 	go vet ./...
 	go test ./...
-	@go tool sqlc generate && git diff --quiet -- internal/store/gen || (echo "sqlc output is stale: run make gen and commit"; exit 1)

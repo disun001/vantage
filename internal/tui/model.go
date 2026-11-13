@@ -38,9 +38,6 @@ type Config struct {
 	// HostUse warns before a host that workspaces or open panes use is
 	// deleted, and closes those panes. Nil skips the check.
 	HostUse HostUsage
-	// Chats returns the status of each chat, keyed by the tmux pane id it
-	// runs in. Nil or an error just means no chat markers.
-	Chats func() (map[string]string, error)
 	// KeyLog, when set, gets one line per non-text key press (see logKey).
 	KeyLog io.Writer
 }
@@ -167,7 +164,7 @@ func (m model) refresh() tea.Cmd {
 	if m.term != nil {
 		pid = m.term.PID()
 	}
-	saved, chatsFn := m.cfg.Saved, m.cfg.Chats
+	saved := m.cfg.Saved
 	return func() tea.Msg {
 		live, err := c.ListSessions()
 		if err != nil {
@@ -179,11 +176,7 @@ func (m model) refresh() tea.Cmd {
 		if saved != nil {
 			names, _ = saved()
 		}
-		var chats map[string]string
-		if chatsFn != nil {
-			chats, _ = chatsFn() // markers are cosmetic
-		}
-		msg := rowsMsg{rows: mergeRows(live, wins, panes, names, chats), pid: pid}
+		msg := rowsMsg{rows: mergeRows(live, wins, panes, names), pid: pid}
 		if tty == "" && pid != 0 {
 			tty, _ = c.ClientTTY(pid)
 		}

@@ -67,9 +67,7 @@ func runPick(args []string, out io.Writer) error {
 		}
 	}
 
-	// Without the binary path the chat row is simply hidden.
-	exe, _ := os.Executable()
-	choice, err := pick.Choose(os.Stdin, out, pick.Context{Dir: *split, CWD: *cwd, ChatExe: exe}, hosts)
+	choice, err := pick.Choose(os.Stdin, out, pick.Context{Dir: *split, CWD: *cwd}, hosts)
 	if errors.Is(err, pick.ErrCancelled) {
 		return nil // quitting the menu is not an error
 	}

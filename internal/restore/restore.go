@@ -20,13 +20,7 @@ type Result struct {
 // idempotent: if a session with the workspace's name already exists it is
 // left untouched. If creation fails part way, the half-built session is
 // removed so a retry starts clean.
-func Restore(c tmux.Client, ws workspace.Workspace) (Result, error) {
-	return WithChats(c, ws, nil)
-}
-
-// WithChats is Restore that also reopens chat panes. chatCmd turns a chat
-// id into the shell command for the pane; nil leaves chat panes as shells.
-func WithChats(c tmux.Client, ws workspace.Workspace, chatCmd func(id string) (string, error)) (res Result, err error) {
+func Restore(c tmux.Client, ws workspace.Workspace) (res Result, err error) {
 	if err := ws.Validate(); err != nil {
 		return res, err
 	}
@@ -54,7 +48,7 @@ func WithChats(c tmux.Client, ws workspace.Workspace, chatCmd func(id string) (s
 		}
 		res.Windows++
 		res.Panes++
-		if err = start(c, pane, first, chatCmd); err != nil {
+		if err = start(c, pane, first); err != nil {
 			return res, err
 		}
 
@@ -65,7 +59,7 @@ func WithChats(c tmux.Client, ws workspace.Workspace, chatCmd func(id string) (s
 				return res, err
 			}
 			res.Panes++
-			if err = start(c, prev, p, chatCmd); err != nil {
+			if err = start(c, prev, p); err != nil {
 				return res, err
 			}
 		}
@@ -79,14 +73,8 @@ func WithChats(c tmux.Client, ws workspace.Workspace, chatCmd func(id string) (s
 }
 
 // start runs what a pane asks for: an ssh connection, or an opted-in command.
-func start(c tmux.Client, pane string, p workspace.Pane, chatCmd func(string) (string, error)) error {
+func start(c tmux.Client, pane string, p workspace.Pane) error {
 	switch {
-	case p.Chat != "" && chatCmd != nil:
-		cmd, err := chatCmd(p.Chat)
-		if err != nil {
-			return err
-		}
-		return c.RespawnPane(pane, cmd)
 	case p.SSH != "":
 		return c.RespawnPane(pane, workspace.SSHCommand(p.SSH))
 	case p.Cmd != "" && p.Autorun:

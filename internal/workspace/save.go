@@ -16,7 +16,6 @@ type savePane struct {
 	CWD     string `toml:"cwd,omitempty"`
 	SSH     string `toml:"ssh,omitempty"`
 	Cmd     string `toml:"cmd,omitempty"`
-	Chat    string `toml:"chat,omitempty"`
 	Autorun *bool  `toml:"autorun,omitempty"`
 	Split   string `toml:"split,omitempty"`
 }
@@ -70,7 +69,7 @@ func toSave(ws Workspace) saveWorkspace {
 	for _, w := range ws.Windows {
 		sw := saveWindow{Name: w.Name, Layout: w.Layout}
 		for _, p := range w.Panes {
-			sp := savePane{CWD: p.CWD, SSH: p.SSH, Cmd: p.Cmd, Chat: p.Chat, Split: p.Split}
+			sp := savePane{CWD: p.CWD, SSH: p.SSH, Cmd: p.Cmd, Split: p.Split}
 			if p.Cmd != "" {
 				a := p.Autorun
 				sp.Autorun = &a

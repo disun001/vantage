@@ -16,9 +16,6 @@ internal/connections/ which ssh hosts are already open in live tmux panes
 internal/pick/      fuzzy menu (local or ssh) and the split it creates
 internal/embed/     runs a program in a PTY and mirrors it in a virtual screen
 internal/tui/       sidebar of sessions + embedded tmux client, focus keys
-internal/chat/      chat core: Provider interface, claude stream-json child, event mapping. No UI, no tmux
-internal/chatui/    Bubble Tea chat view run by `vantage chat`: transcript and multi-line input
-internal/store/     SQLite connection, goose migrations, sqlc queries. The only importer of the driver
 examples/tmux       tmux snippet binding prefix S / V to the picker
 examples/workspaces sample definitions (the only workspace files tracked)
 docs/               contributor docs
@@ -27,7 +24,6 @@ docs/               contributor docs
 ## Rules
 
 - **Dependencies point inward.** `cmd` -> `restore`/`capture`/`pick`/`tui` -> `workspace`, `tmux`, `sshconfig`, `embed`. `workspace` imports nothing from this repo. `tmux` imports nothing from this repo. `project` -> `git`, `workspace` (config dir, workspace files for the task link); `git` imports nothing from this repo.
-- **Chat dependencies.** `cmd` -> `chatui` -> `chat` -> `store`. `chat` imports no UI and no `tmux`. `store` imports nothing from this repo. `pick` and `tui` read chats only through `store`. See `chat.md` and `storage.md`.
 - **Only `internal/git` runs `git`.** Same reasoning: one place to validate and to fake.
 - **Only `internal/tmux` runs `tmux`.** Everything else calls its methods. This keeps the socket-safety rule in one place and makes mocking possible.
 - **Business logic does not live in `cmd`.** Command files parse flags, call a package, and print.

@@ -121,20 +121,3 @@ func TestView(t *testing.T) {
 	}
 	_ = keys(newMenu(Context{Dir: "v"}, hosts), "/", "z", "z", "z").View()
 }
-
-func TestMenuChatRow(t *testing.T) {
-	ctx := Context{Dir: "h", CWD: "/work", ChatExe: "/opt/bin/vantage"}
-	m := keys(newMenu(ctx, []Host{{Alias: "web"}}), "j", "enter")
-	if !m.choice.Chat || m.choice.Exe != ctx.ChatExe || m.choice.Alias != "" {
-		t.Fatalf("choice = %+v, want chat with exe", m.choice)
-	}
-	if !strings.Contains(m.View(), "Claude chat (local)") {
-		t.Error("view does not list the chat row")
-	}
-	if m := keys(newMenu(ctx, nil), "/", "a", "i", "enter"); !m.choice.Chat {
-		t.Error("filter 'ai' should reach the chat row")
-	}
-	if len(newMenu(Context{}, nil).items) != 1 {
-		t.Error("chat row must be hidden without ChatExe")
-	}
-}

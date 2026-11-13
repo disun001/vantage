@@ -8,8 +8,7 @@
 | `make test`  | Runs all tests                                      |
 | `make lint`  | golangci-lint plus a gofumpt/goimports format check |
 | `make fmt`   | Formats with gofumpt and goimports                  |
-| `make gen`   | Regenerates sqlc code in `internal/store/gen`       |
-| `make check` | lint, `go vet`, tests, sqlc drift. Must pass first  |
+| `make check` | lint, `go vet`, tests. Must pass first              |
 
 `lint`, `fmt`, and `check` need [golangci-lint v2](https://golangci-lint.run/welcome/install/) on your `PATH` (config in `.golangci.yml`).
 
@@ -28,13 +27,6 @@ export VANTAGE_CONFIG_DIR=$(mktemp -d)   # scratch workspaces
 tmux -L scratch attach        # look around
 tmux -L scratch kill-server   # clean up
 ```
-
-## Testing chat
-
-- Chat tests run against a fake `claude` that emits canned stream-json (`docs/chat.md`). They never call the real CLI, so `make check` uses no subscription.
-- One live test runs the real `claude -p`. It runs only with `VANTAGE_LIVE_CLAUDE=1`. Run it by hand before releases.
-- To try the UI without the subscription: `VANTAGE_CLAUDE=internal/chat/testdata/fake-claude.sh FAKE_CLAUDE_SCENARIO=tooluse VANTAGE_STATE_DIR=$(mktemp -d) ./bin/vantage chat new`.
-- Database tests set `VANTAGE_STATE_DIR` to a temp dir. Never use the real state dir.
 
 ## Markdown
 

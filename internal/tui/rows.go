@@ -12,7 +12,6 @@ type win struct {
 	Name   string
 	Panes  int
 	Active bool
-	Chat   string // status of the most urgent chat in the window, or ""
 }
 
 // row is one sidebar entry: a live session, a saved workspace that is not
@@ -24,24 +23,6 @@ type row struct {
 	Windows int
 	Panes   int
 	Wins    []win
-	Chat    string // most urgent chat status in the session, or ""
-}
-
-type winKey struct {
-	Session string
-	Index   int
-}
-
-// chatRank orders chat statuses by how much they need a look: a failed or
-// cut-off chat first, then a busy one, then an idle one.
-var chatRank = map[string]int{"error": 4, "interrupted": 3, "running": 2, "idle": 1}
-
-// moreUrgent returns the status that needs attention more.
-func moreUrgent(a, b string) string {
-	if chatRank[b] > chatRank[a] {
-		return b
-	}
-	return a
 }
 
 // item locates one visible sidebar line: the session line of rows[Row] when
@@ -57,18 +38,10 @@ type key struct {
 
 // mergeRows combines live sessions and saved workspace names. Live sessions
 // come first in tmux order, then saved-only workspaces sorted by name.
-// chats maps a live pane id to the status of the chat running in it.
-func mergeRows(live []tmux.Session, wins []tmux.Window, panes []tmux.PaneRef, saved []string, chats map[string]string) []row {
+func mergeRows(live []tmux.Session, wins []tmux.Window, panes []tmux.PaneRef, saved []string) []row {
 	count := map[string]int{}
-	winChat := map[winKey]string{}
-	sessChat := map[string]string{}
 	for _, p := range panes {
 		count[p.Session]++
-		if st, ok := chats[p.Pane]; ok {
-			k := winKey{p.Session, p.Window}
-			winChat[k] = moreUrgent(winChat[k], st)
-			sessChat[p.Session] = moreUrgent(sessChat[p.Session], st)
-		}
 	}
 	byID := map[string][]win{}
 	for _, w := range wins {
@@ -81,11 +54,7 @@ func mergeRows(live []tmux.Session, wins []tmux.Window, panes []tmux.PaneRef, sa
 		isSaved[n] = true
 	}
 	for _, s := range live {
-		ws := byID[s.ID]
-		for i := range ws {
-			ws[i].Chat = winChat[winKey{s.Name, ws[i].Index}]
-		}
-		rows = append(rows, row{Name: s.Name, Live: true, Saved: isSaved[s.Name], Windows: s.Windows, Panes: count[s.Name], Wins: ws, Chat: sessChat[s.Name]})
+		rows = append(rows, row{Name: s.Name, Live: true, Saved: isSaved[s.Name], Windows: s.Windows, Panes: count[s.Name], Wins: byID[s.ID]})
 		seen[s.Name] = true
 	}
 	var rest []string

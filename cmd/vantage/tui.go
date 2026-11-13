@@ -50,7 +50,7 @@ func runTUI(args []string, _ io.Writer) error {
 		if err != nil {
 			return err
 		}
-		_, err = restore.WithChats(client, ws, chatCommandFor)
+		_, err = restore.Restore(client, ws)
 		return err
 	}
 	if *start {
@@ -58,16 +58,10 @@ func runTUI(args []string, _ io.Writer) error {
 			return fmt.Errorf("start: %w", err)
 		}
 	}
-	chats, err := newChatStates(*socket)
-	if err != nil {
-		return err
-	}
-	defer chats.Close()
 	return tui.Run(tui.Config{
-		Chats:    chats.PaneStatuses,
 		Client:   client,
 		Saved:    workspace.List,
-		Manage:   manage.Manager{Client: client, Procs: capture.PS, Chats: chats.PaneChats},
+		Manage:   manage.Manager{Client: client, Procs: capture.PS},
 		Projects: projectStore{},
 		SSH:      sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
 		HostUse:  hostuse.Finder{Client: client, Procs: capture.PS},

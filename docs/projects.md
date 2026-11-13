@@ -44,7 +44,7 @@ Pristine bases: the user and agents work in task worktrees, not here.
 
 ## Tasks
 
-State is derived from disk and `git worktree list`. No database yet; task metadata (status, agent) joins the SQLite store when orchestration is designed.
+State is derived from disk and `git worktree list`. No database; task metadata (status, agent) would need a store, to be designed with orchestration.
 
 - `task list <project>`: task names and their repos.
 - `task new <project> <task> [--repo name[:base]]...`
@@ -95,7 +95,7 @@ A task's workspace is found by the `project` and `task` keys, not by file name, 
 ## Deferred
 
 - An opt-in project setting that adds a `claude` pane to new task workspaces (`autorun` rules apply, rule 3).
-- Orchestration and task metadata in SQLite.
+- Orchestration and task metadata (needs a store).
 - Adopting or copying existing local clones.
 - A default session for a project with no workspace.
 

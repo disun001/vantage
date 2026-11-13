@@ -62,28 +62,3 @@ func TestSplitLocalAndSSH(t *testing.T) {
 		t.Fatal("no pane id returned")
 	}
 }
-
-func TestChatCommand(t *testing.T) {
-	tests := []struct {
-		exe, want string
-		bad       bool
-	}{
-		{exe: "/opt/bin/vantage", want: "'/opt/bin/vantage' chat new"},
-		{exe: "/a b/it's", want: `'/a b/it'\''s' chat new`},
-		{exe: "vantage", bad: true},
-		{exe: "", bad: true},
-		{exe: "/x\n; rm -rf /", bad: true},
-	}
-	for _, tt := range tests {
-		got, err := chatCommand(tt.exe)
-		if (err != nil) != tt.bad || got != tt.want {
-			t.Errorf("chatCommand(%q) = %q, %v; want %q (bad=%v)", tt.exe, got, err, tt.want, tt.bad)
-		}
-	}
-}
-
-func TestSplitChatRejectsBadExe(t *testing.T) {
-	if _, err := Split(tmux.Client{Socket: "unused"}, "%0", "h", "", Choice{Chat: true, Exe: "relative"}); err == nil {
-		t.Error("relative exe accepted")
-	}
-}

@@ -22,7 +22,6 @@ Rules for anyone changing this code, human or AI coding agent. Agents read this 
 | Adding a package, deciding where code goes                              | `docs/layout.md`           |
 | Changing the TOML schema                                                | `docs/workspace-format.md` |
 | Touching tmux calls, TUI, keys, roadmap                                 | `docs/architecture.md`     |
-| Touching chat, the claude child, or the SQLite database                 | `docs/chat.md`, `docs/storage.md` |
 | Build, test, commit                                                     | `docs/workflow.md`         |
 
 ## Commands

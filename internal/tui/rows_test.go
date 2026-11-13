@@ -15,7 +15,7 @@ func TestMergeRows(t *testing.T) {
 		{SessionID: "$0", Index: 0, Name: "z", Panes: 1, Active: true},
 	}
 	panes := []tmux.PaneRef{{Session: "b"}, {Session: "b"}, {Session: "a"}}
-	got := mergeRows(live, wins, panes, []string{"z", "a", "c"}, nil)
+	got := mergeRows(live, wins, panes, []string{"z", "a", "c"})
 	want := []row{
 		{Name: "b", Live: true, Windows: 2, Panes: 2, Wins: []win{{Index: 1, Name: "x", Panes: 2, Active: true}, {Index: 2, Name: "y", Panes: 1, Active: false}}},
 		{Name: "a", Live: true, Saved: true, Windows: 1, Panes: 1, Wins: []win{{Index: 0, Name: "z", Panes: 1, Active: true}}},
@@ -143,27 +143,5 @@ func TestDescend(t *testing.T) {
 	m.cur = key{"saved", -1} // nothing to open under a saved workspace
 	if got, selected := step(m); got.cur != m.cur || selected {
 		t.Errorf("saved: cur=%v selected=%v", got.cur, selected)
-	}
-}
-
-func TestMergeRowsChatStatus(t *testing.T) {
-	live := []tmux.Session{{ID: "$1", Name: "a", Windows: 2}, {ID: "$2", Name: "b", Windows: 1}}
-	wins := []tmux.Window{{SessionID: "$1", Index: 0}, {SessionID: "$1", Index: 1}, {SessionID: "$2", Index: 0}}
-	panes := []tmux.PaneRef{
-		{Session: "a", Window: 0, Pane: "%1"},
-		{Session: "a", Window: 1, Pane: "%2"},
-		{Session: "a", Window: 1, Pane: "%3"},
-		{Session: "b", Window: 0, Pane: "%4"},
-	}
-	chats := map[string]string{"%1": "idle", "%2": "running", "%3": "error", "%9": "running"}
-	rows := mergeRows(live, wins, panes, nil, chats)
-	if rows[0].Wins[0].Chat != "idle" || rows[0].Wins[1].Chat != "error" {
-		t.Errorf("window chats = %q, %q; want idle, error", rows[0].Wins[0].Chat, rows[0].Wins[1].Chat)
-	}
-	if rows[0].Chat != "error" {
-		t.Errorf("session a chat = %q, want error", rows[0].Chat)
-	}
-	if rows[1].Chat != "" || rows[1].Wins[0].Chat != "" {
-		t.Errorf("session b has no chat, got %q", rows[1].Chat)
 	}
 }

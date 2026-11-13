@@ -32,16 +32,7 @@ func runCapture(args []string, out io.Writer) error {
 		return errors.New("capture needs exactly one session name")
 	}
 
-	chats, err := newChatStates(*socket)
-	if err != nil {
-		return err
-	}
-	defer chats.Close()
-	panes, err := chats.PaneChats()
-	if err != nil {
-		return fmt.Errorf("chats: %w", err)
-	}
-	ws, err := capture.SessionChats(tmux.Client{Socket: *socket}, pos[0], *name, capture.PS, panes)
+	ws, err := capture.Session(tmux.Client{Socket: *socket}, pos[0], *name, capture.PS)
 	if err != nil {
 		return err
 	}

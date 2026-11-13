@@ -43,7 +43,6 @@ name = "db"
 | `ssh`             | pane      | ssh config alias                      | Matches `[A-Za-z0-9][A-Za-z0-9._@%+-]*`. Cannot start with `-`. Not with `cmd` |
 | `cmd`             | pane      | Command to type into the pane's shell | Not with `ssh`                                                                 |
 | `autorun`         | pane      | Allow `cmd` to run on restore         | Default false. Needs `cmd`                                                     |
-| `chat`            | pane      | Chat id; restore reopens that chat    | 16 lowercase hex digits (`vantage chat list`). Not with `ssh` or `cmd`         |
 | `split`           | pane      | How it splits from the previous pane  | `h` (side by side, default) or `v` (stacked). Ignored on the first pane        |
 
 ## Project and task link
@@ -56,7 +55,6 @@ name = "db"
 - If creation fails part way, the half-built session is removed.
 - SSH panes open a normal shell, then type `ssh <alias>`, so the pane survives a dropped connection.
 - Commands without `autorun = true` are never run.
-- A `chat` pane runs `vantage chat <id>` and resumes that conversation. If the id is unknown (for example the database was wiped), the pane shows the error and waits for Enter.
 
 ## Capture semantics
 
@@ -66,7 +64,6 @@ name = "db"
 - Panes keep their directory (home is written as `~`).
 - A pane whose foreground process is exactly `ssh <alias>` becomes `ssh = "<alias>"`.
 - Any other foreground command (including `ssh` with options or ports) is saved as `cmd` with `autorun = false`, so restore never runs it unless you edit the file.
-- A pane running a chat (found through the chat database, matched by pane id on the same tmux server) becomes `chat = "<id>"`, never a `cmd`.
 - Idle shells save nothing. An existing file is only replaced with `--force`.
 - Foreground detection uses `ps -t <tty>`. If it fails, only the command name is saved.
 
