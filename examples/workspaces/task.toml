@@ -1,0 +1,11 @@
+# A task workspace: linked to task "fix-login" of the example project
+# "api-stack" (see examples/projects/). With no `root`, the link supplies it:
+# the task dir. `vantage task workspace api-stack fix-login` writes this.
+name = "api-stack-fix-login"
+project = "api-stack"
+task = "fix-login"
+
+[[window]]
+name = "fix-login"
+
+  [[window.pane]]

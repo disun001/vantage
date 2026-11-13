@@ -116,3 +116,46 @@ func TestDirPrecedence(t *testing.T) {
 		t.Errorf("override: %q", d)
 	}
 }
+
+func TestValidateProjectTask(t *testing.T) {
+	win := []Window{{Panes: []Pane{{}}}}
+	cases := []struct {
+		name string
+		ws   Workspace
+		want string
+	}{
+		{"none", Workspace{Name: "w", Windows: win}, ""},
+		{"project", Workspace{Name: "w", Project: "api", Windows: win}, ""},
+		{"project and task", Workspace{Name: "w", Project: "api", Task: "fix-1", Windows: win}, ""},
+		{"bad project", Workspace{Name: "w", Project: "a/b", Windows: win}, "invalid project"},
+		{"task without project", Workspace{Name: "w", Task: "t", Windows: win}, "invalid task"},
+		{"bad task", Workspace{Name: "w", Project: "api", Task: "../x", Windows: win}, "invalid task"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := c.ws.Validate()
+			switch {
+			case c.want == "" && err != nil:
+				t.Errorf("unexpected error: %v", err)
+			case c.want != "" && (err == nil || !strings.Contains(err.Error(), c.want)):
+				t.Errorf("want %q, got %v", c.want, err)
+			}
+		})
+	}
+}
+
+func TestSaveKeepsLinkOfReplacedFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "w.toml")
+	win := []Window{{Panes: []Pane{{}}}}
+	if err := Save(path, Workspace{Name: "w", Project: "api", Task: "t1", Windows: win}, false); err != nil {
+		t.Fatal(err)
+	}
+	// A capture knows nothing of projects.
+	if err := Save(path, Workspace{Name: "w", Windows: win}, true); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(path)
+	if err != nil || got.Project != "api" || got.Task != "t1" {
+		t.Errorf("link lost: %+v, %v", got, err)
+	}
+}

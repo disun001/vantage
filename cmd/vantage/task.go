@@ -12,12 +12,12 @@ import (
 
 var taskCmd = command{
 	name:    "task",
-	usage:   "task list|new|rm <project> ...",
+	usage:   "task list|new|rm|workspace <project> ...",
 	summary: "manage tasks (git worktrees across a project's repos)",
 	run:     runTask,
 }
 
-const taskUsage = "usage: vantage task list <project> | new <project> <task> [--repo name[:base]]... | rm <project> <task> [--force]"
+const taskUsage = "usage: vantage task list <project> | new <project> <task> [--repo name[:base]]... | rm <project> <task> [--force] | workspace <project> <task>"
 
 // taskArgs is a parsed `task` command line. Flags may appear anywhere.
 type taskArgs struct {
@@ -73,7 +73,7 @@ func runTask(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	want := map[string]int{"list": 1, "new": 2, "rm": 2}[sub]
+	want := map[string]int{"list": 1, "new": 2, "rm": 2, "workspace": 2}[sub]
 	if want == 0 {
 		return fmt.Errorf("unknown task command %q", sub)
 	}
@@ -93,8 +93,25 @@ func runTask(args []string, out io.Writer) error {
 		return taskList(root, p, out)
 	case "new":
 		return project.NewTask(root, p, git.Client{}, t.pos[1], t.repos, out)
+	case "workspace":
+		return taskWorkspace(root, p, t.pos[1], out)
 	}
 	return project.RemoveTask(root, p, git.Client{}, t.pos[1], t.force, out)
+}
+
+// taskWorkspace prints the name of the task's workspace, creating it if none
+// is linked.
+func taskWorkspace(root string, p project.Project, task string, out io.Writer) error {
+	name, created, err := project.EnsureTaskWorkspace(root, p, task)
+	if err != nil {
+		return err
+	}
+	if created {
+		fmt.Fprintf(out, "created workspace %s\n", name)
+		return nil
+	}
+	fmt.Fprintf(out, "workspace %s\n", name)
+	return nil
 }
 
 func taskList(root string, p project.Project, out io.Writer) error {

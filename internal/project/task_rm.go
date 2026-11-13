@@ -43,6 +43,7 @@ func RemoveTask(root string, p Project, g git.Client, task string, force bool, o
 	}
 	_ = os.Remove(p.TasksPath(root)) // only when empty
 	fmt.Fprintf(out, "removed task %s\n", task)
+	warnWorkspace(p.Name, task, out)
 	return nil
 }
 

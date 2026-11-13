@@ -15,8 +15,14 @@ import (
 
 // Workspace is one saved tmux session: windows, each with panes.
 type Workspace struct {
-	Name    string   `toml:"name"`
-	Root    string   `toml:"root"`
+	Name string `toml:"name"`
+	Root string `toml:"root"`
+	// Project links the workspace to a project (see internal/project), and
+	// Task to one of its tasks. When Root is empty the link supplies it: the
+	// project dir, or the task dir. Both are names, validated like workspace
+	// names. Task needs Project.
+	Project string   `toml:"project"`
+	Task    string   `toml:"task"`
 	Windows []Window `toml:"window"`
 }
 
@@ -125,6 +131,12 @@ func parse(text, path string) (Workspace, error) {
 func (w Workspace) Validate() error {
 	if !nameRe.MatchString(w.Name) {
 		return fmt.Errorf("invalid workspace name %q (use letters, digits, '-', '_')", w.Name)
+	}
+	if w.Project != "" && !nameRe.MatchString(w.Project) {
+		return fmt.Errorf("invalid project name %q", w.Project)
+	}
+	if w.Task != "" && (w.Project == "" || !nameRe.MatchString(w.Task)) {
+		return fmt.Errorf("invalid task %q (needs a project and a plain name)", w.Task)
 	}
 	if len(w.Windows) == 0 {
 		return fmt.Errorf("workspace %q has no windows", w.Name)

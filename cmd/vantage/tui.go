@@ -46,7 +46,7 @@ func runTUI(args []string, _ io.Writer) error {
 		if err != nil {
 			return err
 		}
-		ws, err := workspace.Load(path)
+		ws, err := loadWorkspace(path)
 		if err != nil {
 			return err
 		}

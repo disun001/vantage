@@ -1,6 +1,6 @@
 # Projects (design)
 
-Status: designed. Steps 1 (projects path, project file, `sync`, `status`), 2 (`update`) and 3 (tasks) are built; the rest is not. Build order at the end.
+Status: designed. Steps 1 (projects path, project file, `sync`, `status`), 2 (`update`), 3 (tasks) and 4 (workspace link) are built; the rest is not. Build order at the end.
 
 A **project** is a set of git repos managed together. A **task** is a unit of work that spans some of those repos, isolated in git worktrees. Vantage keeps the repos fresh and creates task worktrees; the user (and later, agents) work inside tasks.
 
@@ -53,7 +53,7 @@ State is derived from disk and `git worktree list`. No database yet; task metada
 - `task rm <project> <task> [--force]`
   - All or nothing: refuses if any repo has uncommitted, unpushed or unmerged work. `--force` overrides the check.
   - Removes the worktrees, then the task dir. Deletes a branch only when fully merged (`git branch -d`, never `-D`, even with `--force`). It judges against the main clone's HEAD, so run `project update` first; an unmerged branch is kept and reported.
-  - Warning about the task's workspace file comes with step 4.
+  - Warns if a workspace is still linked to the task. The file is never deleted automatically.
 
 ## Workspace link
 
@@ -64,7 +64,7 @@ Workspaces gain two optional keys:
 | `project` | Project name. `root` defaults to the project dir. Validated.            |
 | `task`    | Needs `project`. `root` defaults to the task dir. Validated.            |
 
-A task's workspace is found by the `project` and `task` keys, not by file name, so it can be renamed. When none exists, vantage creates one: a single window, one pane, `cwd` = task root, named `<project>-<task>`. The pane does not run `claude`; the user adds that.
+A task's workspace is found by the `project` and `task` keys, not by file name, so it can be renamed. `vantage task workspace <project> <task>` returns it, creating it when none exists (the TUI does the same in step 5): a single window, one pane, `cwd` = task root, named `<project>-<task>`. The pane does not run `claude`; the user adds that.
 
 ## TUI
 
@@ -84,7 +84,7 @@ A task's workspace is found by the `project` and `task` keys, not by file name, 
 1. Projects path, project TOML, `sync`, `status`. **Done.**
 2. `update`. **Done.**
 3. Tasks: `new`, `rm`, `copy` files. **Done.**
-4. Workspace `project` and `task` keys.
+4. Workspace `project` and `task` keys. **Done.**
 5. TUI projects view and details page.
 
 Each step updates its tests, this file, `docs/workspace-format.md` (step 4) and `examples/`.

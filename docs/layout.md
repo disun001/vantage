@@ -26,7 +26,7 @@ docs/               contributor docs
 
 ## Rules
 
-- **Dependencies point inward.** `cmd` -> `restore`/`capture`/`pick`/`tui` -> `workspace`, `tmux`, `sshconfig`, `embed`. `workspace` imports nothing from this repo. `tmux` imports nothing from this repo. `project` -> `git`, `workspace` (config dir only); `git` imports nothing from this repo.
+- **Dependencies point inward.** `cmd` -> `restore`/`capture`/`pick`/`tui` -> `workspace`, `tmux`, `sshconfig`, `embed`. `workspace` imports nothing from this repo. `tmux` imports nothing from this repo. `project` -> `git`, `workspace` (config dir, workspace files for the task link); `git` imports nothing from this repo.
 - **Chat dependencies.** `cmd` -> `chatui` -> `chat` -> `store`. `chat` imports no UI and no `tmux`. `store` imports nothing from this repo. `pick` and `tui` read chats only through `store`. See `chat.md` and `storage.md`.
 - **Only `internal/git` runs `git`.** Same reasoning: one place to validate and to fake.
 - **Only `internal/tmux` runs `tmux`.** Everything else calls its methods. This keeps the socket-safety rule in one place and makes mocking possible.
