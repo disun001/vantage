@@ -5,6 +5,8 @@ cmd/vantage/        CLI: main.go dispatches; one file per subcommand
                     (list.go, restore.go, capture.go, pick.go, tui.go); flags.go holds shared flag helpers
 internal/workspace/ workspace schema, load, validate, config dir lookup
 internal/tmux/      thin adapter over the tmux CLI (the only place that execs tmux)
+internal/git/       thin adapter over the git CLI (the only place that execs git)
+internal/project/   project schema, load, validate, projects dir, clone and status of main clones
 internal/restore/   builds a live session from a Workspace
 internal/manage/    create, rename, delete workspaces (file and live session together)
 internal/capture/   reads a live session back into a Workspace (ps lookup for ssh/commands)
@@ -24,8 +26,9 @@ docs/               contributor docs
 
 ## Rules
 
-- **Dependencies point inward.** `cmd` -> `restore`/`capture`/`pick`/`tui` -> `workspace`, `tmux`, `sshconfig`, `embed`. `workspace` imports nothing from this repo. `tmux` imports nothing from this repo.
+- **Dependencies point inward.** `cmd` -> `restore`/`capture`/`pick`/`tui` -> `workspace`, `tmux`, `sshconfig`, `embed`. `workspace` imports nothing from this repo. `tmux` imports nothing from this repo. `project` -> `git`, `workspace` (config dir only); `git` imports nothing from this repo.
 - **Chat dependencies.** `cmd` -> `chatui` -> `chat` -> `store`. `chat` imports no UI and no `tmux`. `store` imports nothing from this repo. `pick` and `tui` read chats only through `store`. See `chat.md` and `storage.md`.
+- **Only `internal/git` runs `git`.** Same reasoning: one place to validate and to fake.
 - **Only `internal/tmux` runs `tmux`.** Everything else calls its methods. This keeps the socket-safety rule in one place and makes mocking possible.
 - **Business logic does not live in `cmd`.** Command files parse flags, call a package, and print.
 - **New subcommand = one new file in `cmd/vantage/` + one entry in `commands` (`main.go`).**

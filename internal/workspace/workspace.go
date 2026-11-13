@@ -185,22 +185,31 @@ func expandHome(p string) string {
 	return p
 }
 
-// Dir returns the workspaces directory: $VANTAGE_CONFIG_DIR/workspaces,
-// else $XDG_CONFIG_HOME/vantage/workspaces, else ~/.config/vantage/workspaces.
-// (os.UserConfigDir is avoided on purpose: on macOS it points at
-// ~/Library/Application Support, which is not where dotfiles live.)
-func Dir() (string, error) {
+// ConfigDir returns vantage's config directory: $VANTAGE_CONFIG_DIR, else
+// $XDG_CONFIG_HOME/vantage, else ~/.config/vantage. (os.UserConfigDir is
+// avoided on purpose: on macOS it points at ~/Library/Application Support,
+// which is not where dotfiles live.)
+func ConfigDir() (string, error) {
 	if d := os.Getenv("VANTAGE_CONFIG_DIR"); d != "" {
-		return filepath.Join(d, "workspaces"), nil
+		return d, nil
 	}
 	if d := os.Getenv("XDG_CONFIG_HOME"); d != "" {
-		return filepath.Join(d, "vantage", "workspaces"), nil
+		return filepath.Join(d, "vantage"), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "vantage", "workspaces"), nil
+	return filepath.Join(home, ".config", "vantage"), nil
+}
+
+// Dir returns the workspaces directory, ConfigDir()/workspaces.
+func Dir() (string, error) {
+	c, err := ConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(c, "workspaces"), nil
 }
 
 // Resolve turns a CLI argument into a file path: an existing path is used

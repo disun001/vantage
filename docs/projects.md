@@ -1,6 +1,6 @@
 # Projects (design)
 
-Status: designed, not built. Agreed in a design session; build in the order at the end.
+Status: designed. Step 1 (projects path, project file, `sync`, `status`) is built; the rest is not. Build order at the end.
 
 A **project** is a set of git repos managed together. A **task** is a unit of work that spans some of those repos, isolated in git worktrees. Vantage keeps the repos fresh and creates task worktrees; the user (and later, agents) work inside tasks.
 
@@ -29,7 +29,7 @@ copy = [".env", ".env.local"] # untracked files copied into task worktrees
 url = "git@example.com:org/web.git"
 ```
 
-Unknown keys are an error. `url`, `dir`, `copy` entries and branch names are validated before they reach git (AGENTS.md rule 3). Vantage runs plain `git clone`; the user's own git auth applies, and vantage never reads `~/.ssh` (rule 2). Creating a project only clones; existing checkouts are not adopted.
+Unknown keys are an error. `url`, `dir`, `copy` entries and branch names are validated before they reach git (AGENTS.md rule 3). Vantage runs plain `git clone`; the user's own git auth applies, and vantage never reads `~/.ssh` (rule 2). Creating a project only clones; existing checkouts are not adopted. For now a project is created by writing the file by hand (see `examples/projects/`); a TUI form comes with step 5. `vantage project list` shows defined projects.
 
 ## Main clones
 
@@ -78,7 +78,7 @@ A task's workspace is found by the `project` and `task` keys, not by file name, 
 
 ## Build order
 
-1. Projects path, project TOML, `sync`, `status`.
+1. Projects path, project TOML, `sync`, `status`. **Done.**
 2. `update`.
 3. Tasks: `new`, `rm`, `copy` files.
 4. Workspace `project` and `task` keys.
