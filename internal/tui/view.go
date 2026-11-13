@@ -23,7 +23,11 @@ func (m model) View() string {
 	}
 	side := m.sidebar()
 	right := m.right()
-	frame := paint(mocSurf1, "")
+	edge := borderIdle
+	if m.focus == focusTerm {
+		edge = borderActive
+	}
+	frame := paint(edge, "")
 	bar := frame.Render
 	lines := make([]string, m.h)
 	rule := strings.Repeat("─", m.termW())

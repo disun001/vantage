@@ -99,3 +99,10 @@ func (l *lineBuf) padBg(w int, bg string) {
 }
 
 func (l *lineBuf) String() string { return l.sb.String() }
+
+// Border colors, shared by the frame around the embedded view and the tmux
+// pane borders so both read as one set.
+const (
+	borderIdle   = mocOverlay
+	borderActive = mocMauve
+)
