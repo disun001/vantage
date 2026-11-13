@@ -33,6 +33,7 @@ Focus keys (everything else goes straight to tmux):
 | ------------- | ------------------------------------- |
 | `M-s`         | Toggle focus between sidebar and tmux |
 | `M-h` / `M-l` | Move between sidebar and tmux         |
+| `M-/`         | Open the key help, from either side   |
 
 The mouse works: click and scroll in the sidebar, and clicks, drags and wheel
 over tmux are forwarded when tmux has `mouse on`.
@@ -42,7 +43,7 @@ The title pill shows the tmux mode: `VANTAGE` when idle, `PREFIX`, `COPY`,
 
 ### Sidebar keys (workspaces)
 
-The sidebar footer shows only `? keys`. Press `?` in the sidebar for a pop-up
+The sidebar footer shows only `? keys`. Press `?` in the sidebar (or `M-/` anywhere) for a pop-up
 listing every key of the current view, grouped and explained. `esc`, `?` or
 `q` closes it.
 

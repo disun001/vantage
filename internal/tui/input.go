@@ -56,6 +56,10 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.onHelpKey(k)
 	}
 	s := k.String()
+	if s == "alt+/" || s == "alt+?" { // help from either side, like alt+s
+		m.help = true
+		return m, nil
+	}
 	if s == "alt+s" {
 		if m.focus == focusTerm {
 			m.focus = focusSidebar

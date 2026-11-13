@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -79,4 +80,19 @@ func TestFooterOnlyHintsHelp(t *testing.T) {
 	if side := ansi.Strip(strings.Join(m.sidebar(), "\n")); !strings.Contains(side, "? keys") || strings.Contains(side, "alt+s q") {
 		t.Errorf("sidebar = %q", side)
 	}
+}
+
+func TestHelpOpensFromTmuxFocus(t *testing.T) {
+	for _, k := range []string{"alt+/", "alt+?"} {
+		m := treeModel()
+		m.focus = focusTerm
+		next, _ := m.Update(altKey(k))
+		if !next.(model).help {
+			t.Errorf("%s must open help while tmux has focus", k)
+		}
+	}
+}
+
+func altKey(s string) tea.KeyMsg {
+	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s[len("alt+"):]), Alt: true}
 }
