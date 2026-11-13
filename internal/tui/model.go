@@ -28,8 +28,8 @@ type Config struct {
 	Saved func() ([]string, error)
 	// Restore creates the session for a saved workspace if it is not live.
 	Restore func(name string) error
-	// Manage creates, renames and deletes workspaces. Nil turns the n, R
-	// and d keys off.
+	// Manage creates, renames and deletes workspaces. Nil turns the n, R,
+	// d and K keys off.
 	Manage Manager
 	// SSH lists, adds and edits ssh hosts. Nil turns the hosts view off.
 	SSH HostStore
@@ -48,6 +48,8 @@ type Manager interface {
 	Rename(from, to string) error
 	// Delete removes the saved file and kills the live session.
 	Delete(name string) error
+	// Stop kills the live session and keeps the saved file.
+	Stop(name string) error
 }
 
 type focus int
@@ -112,7 +114,7 @@ type (
 		bar     statusBar
 		haveBar bool
 	}
-	manageMsg struct { // a workspace create, rename or delete finished
+	manageMsg struct { // a workspace create, rename, delete or stop finished
 		op       promptKind
 		from, to string
 		err      error

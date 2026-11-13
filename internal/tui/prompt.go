@@ -14,10 +14,11 @@ const (
 	promptNew promptKind = iota
 	promptRename
 	promptDelete
+	promptStop
 )
 
 // prompt is the open question about a workspace: its name for new and
-// rename, a yes for delete. It shows as a pop-up and owns every key while open.
+// rename, a yes for delete and stop. It shows as a pop-up and owns every key while open.
 type prompt struct {
 	kind   promptKind
 	target string // session or workspace the prompt acts on
@@ -65,6 +66,20 @@ func (m model) deleteBox() []string {
 	return framed(rows, max(10, min(44, m.w-6)))
 }
 
+// stopBox is the pop-up that asks before a session is killed. The saved file
+// stays, so the workspace can be restored later.
+func (m model) stopBox() []string {
+	name := m.prompt.target
+	rows := []string{dangerTitle("stop session"), "", curStyle.Render(name), ""}
+	for _, r := range m.rows {
+		if r.Name == name && r.Live {
+			rows = append(rows, noticeStyle.Render(fmt.Sprintf("Kills the running session (%d windows, %d panes).", r.Windows, r.Panes)), "Keeps the saved file.")
+		}
+	}
+	rows = append(rows, "", dimStyle.Render("y stop · any other key cancels"))
+	return framed(rows, max(10, min(44, m.w-6)))
+}
+
 // startPrompt opens a prompt for the line under the cursor, or says why not.
 func (m model) startPrompt(kind promptKind) model {
 	if m.cfg.Manage == nil {
@@ -79,6 +94,10 @@ func (m model) startPrompt(kind promptKind) model {
 		return m
 	}
 	r := m.rows[it.Row]
+	if kind == promptStop && (!r.Live || !r.Saved) {
+		m.notice = "stop needs a saved, running workspace"
+		return m
+	}
 	m.prompt, m.notice = &prompt{kind: kind, target: r.Name, text: r.Name}, ""
 	return m
 }
@@ -86,7 +105,7 @@ func (m model) startPrompt(kind promptKind) model {
 func (m model) onPromptKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	p := *m.prompt
 	m.prompt = &p
-	if p.kind == promptDelete {
+	if p.kind == promptDelete || p.kind == promptStop {
 		m.prompt = nil
 		if k.String() == "y" {
 			return m, m.manageCmd(p)
@@ -128,6 +147,8 @@ func (m model) manageCmd(p prompt) tea.Cmd {
 			msg.err = mg.Rename(p.target, name)
 		case promptDelete:
 			msg.err = mg.Delete(p.target)
+		case promptStop:
+			msg.err = mg.Stop(p.target)
 		}
 		return msg
 	}
@@ -148,6 +169,10 @@ func (m model) onManage(msg manageMsg) (tea.Model, tea.Cmd) {
 		m = m.renamed(msg.from, msg.to)
 	case promptDelete:
 		m = m.afterDelete(msg.from)
+	case promptStop:
+		if m.current == msg.from {
+			m.current = ""
+		}
 	}
 	return m, m.refresh()
 }

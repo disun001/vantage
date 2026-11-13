@@ -103,6 +103,22 @@ func (m Manager) Rename(from, to string) error {
 	return nil
 }
 
+// Stop kills the live session of a saved workspace and keeps the file. An
+// unsaved session is refused: killing it would lose it for good.
+func (m Manager) Stop(name string) error {
+	saved, err := workspace.Exists(name)
+	if err != nil {
+		return err
+	}
+	if !m.Client.HasSession(name) {
+		return fmt.Errorf("%q is not running", name)
+	}
+	if !saved {
+		return fmt.Errorf("%q is not saved; delete it instead", name)
+	}
+	return m.Client.KillSession(name)
+}
+
 // Delete removes the saved workspace file and kills the live session,
 // whichever exist.
 func (m Manager) Delete(name string) error {

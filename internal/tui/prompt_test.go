@@ -26,6 +26,7 @@ func (f *fakeManager) Rename(a, b string) error {
 	return f.err
 }
 
+func (f *fakeManager) Stop(n string) error   { f.calls = append(f.calls, "stop "+n); return f.err }
 func (f *fakeManager) Delete(n string) error { f.calls = append(f.calls, "delete "+n); return f.err }
 
 func keyMsg(s string) tea.KeyMsg {
@@ -320,5 +321,32 @@ func TestNewAndRenamePromptsArePopups(t *testing.T) {
 		if !strings.Contains(box, want) {
 			t.Errorf("rename pop-up lacks %q:\n%s", want, box)
 		}
+	}
+}
+
+func TestStopPrompt(t *testing.T) {
+	f := &fakeManager{}
+	m := manageModel(f)
+	for _, name := range []string{"b", "saved"} { // live-only and saved-only: nothing to stop
+		m.cur = key{name, -1}
+		m, _ = press(m, "K")
+		if m.prompt != nil || m.notice == "" {
+			t.Fatalf("%s: prompt=%+v notice=%q", name, m.prompt, m.notice)
+		}
+	}
+	m.cur = key{"a", -1} // live and saved
+	m, _ = press(m, "K")
+	if m.prompt == nil || !strings.Contains(popupText(m), "stop session") || !strings.Contains(popupText(m), "Keeps the saved file.") {
+		t.Fatalf("no confirm: %+v", m.prompt)
+	}
+	m, cmd := press(m, "x")
+	if m.prompt != nil || cmd != nil || len(f.calls) != 0 {
+		t.Fatal("a key other than y must cancel")
+	}
+	m, _ = press(m, "K")
+	_, cmd = press(m, "y")
+	cmd()
+	if len(f.calls) != 1 || f.calls[0] != "stop a" {
+		t.Fatalf("calls = %v", f.calls)
 	}
 }

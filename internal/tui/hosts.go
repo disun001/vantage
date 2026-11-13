@@ -546,6 +546,8 @@ func (m model) popup() []string {
 	switch {
 	case m.prompt != nil && m.prompt.kind == promptDelete:
 		return m.deleteBox()
+	case m.prompt != nil && m.prompt.kind == promptStop:
+		return m.stopBox()
 	case m.prompt != nil:
 		return m.promptBox()
 	case m.form != nil:

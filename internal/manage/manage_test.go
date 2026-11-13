@@ -156,3 +156,25 @@ func TestDeleteRemovesFileAndSession(t *testing.T) {
 		t.Error("a path must not be a workspace name")
 	}
 }
+
+func TestStopKillsSessionKeepsFile(t *testing.T) {
+	m := testManager(t)
+	if err := m.Create("park"); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Stop("park"); err != nil {
+		t.Fatal(err)
+	}
+	if m.Client.HasSession("park") || !saved(t, "park") {
+		t.Fatal("session must go, file must stay")
+	}
+	if err := m.Stop("park"); err == nil {
+		t.Error("stopping a stopped workspace must fail")
+	}
+	if _, err := m.Client.NewSession("loose", "", t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Stop("loose"); err == nil || !m.Client.HasSession("loose") {
+		t.Error("an unsaved session must be refused and left running")
+	}
+}

@@ -68,6 +68,7 @@ func (m model) helpGroups() []helpGroup {
 		{"Workspaces", []bind{
 			{"n", "new"},
 			{"R", "rename"},
+			{"K", "stop session, keep file"},
 			{"d", "delete"},
 		}},
 		focusGroup,

@@ -120,6 +120,8 @@ func (m model) onSidebarKey(s string) (tea.Model, tea.Cmd) {
 		m = m.startPrompt(promptRename)
 	case "d":
 		m = m.startPrompt(promptDelete)
+	case "K":
+		m = m.startPrompt(promptStop)
 	case "H":
 		return m.toggleHosts()
 	case "?":
