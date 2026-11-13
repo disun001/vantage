@@ -1,5 +1,9 @@
 # Contributing
 
+Issues are welcome. For anything beyond a small fix, open an issue first so we
+agree on the approach before you write code. Report security problems privately
+(see [SECURITY.md](../SECURITY.md)).
+
 1. Read `AGENTS.md` (the hard rules), `go-conventions.md` (how we write Go here), and skim `architecture.md` (what is decided and what is planned).
 2. Setup: install Go (version in `go.mod`), tmux, and [golangci-lint v2](https://golangci-lint.run/welcome/install/), then `make check`.
 3. Pick work from the roadmap in `architecture.md`, or open an issue first for anything that changes a decision there.
