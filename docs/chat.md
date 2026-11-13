@@ -1,6 +1,6 @@
 # Chat
 
-Status: **slice 3 built** (`internal/chat`, `internal/store`, `internal/chatui`, `vantage chat`). Slices are at the bottom.
+Status: **slice 3 built** (+ `[[chat]]` save and restore) (`internal/chat`, `internal/store`, `internal/chatui`, `vantage chat`). Slices are at the bottom.
 
 Native AI chat inside vantage. Claude only at first. A chat is a Bubble Tea
 program (`vantage chat`) that runs in a normal tmux pane and drives the
@@ -76,6 +76,13 @@ per turn) and `rate_limit_event`. The `session` event text is
   rendered as markdown. The header shows model, auth, the latest turn's context
   size and total output tokens.
 - Text appears per whole message, not per token (see Events).
+
+## Saving chats in workspaces
+
+`vantage capture` and the sidebar's `S` (save all) write `chat = "<id>"` for a
+pane that runs a chat; restore runs `vantage chat <id>` there. Only the pointer
+goes in the TOML. The transcript stays in SQLite, so restoring on a machine
+without the database shows an error in the pane. See `workspace-format.md`.
 
 ## Sidebar markers
 

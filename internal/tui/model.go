@@ -55,6 +55,9 @@ type Manager interface {
 	Delete(name string) error
 	// Stop kills the live session and keeps the saved file.
 	Stop(name string) error
+	// SaveAll captures every live session over its workspace file and
+	// returns how many were saved.
+	SaveAll() (int, error)
 }
 
 type focus int
@@ -85,6 +88,7 @@ type model struct {
 	bar      statusBar
 	current  string // session the embedded client shows
 	notice   string
+	okNotice string // a notice equal to this is good news, drawn dim
 	prompt   *prompt
 	view     sidebarView
 	hosts    []sshconfig.Host
@@ -122,6 +126,7 @@ type (
 	manageMsg struct { // a workspace create, rename, delete or stop finished
 		op       promptKind
 		from, to string
+		saved    int // promptSaveAll: files written
 		err      error
 	}
 	exitMsg  struct{ pid int }

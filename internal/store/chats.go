@@ -97,7 +97,7 @@ func (s *Store) SetPane(ctx context.Context, id, session, pane, socket string) e
 
 // PaneState is the status of the chat living in one tmux pane.
 type PaneState struct {
-	Pane, Status string
+	ID, Pane, Status string
 }
 
 // PaneStates returns the status of every chat whose pane is on the given
@@ -109,7 +109,7 @@ func (s *Store) PaneStates(ctx context.Context, socket string) ([]PaneState, err
 	}
 	out := make([]PaneState, len(rows))
 	for i, r := range rows {
-		out[i] = PaneState{Pane: r.PaneID.String, Status: r.Status}
+		out[i] = PaneState{ID: r.ID, Pane: r.PaneID.String, Status: r.Status}
 	}
 	return out, nil
 }

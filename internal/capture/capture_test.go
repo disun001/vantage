@@ -49,7 +49,7 @@ func TestBuildGroupsWindowsAndContractsHome(t *testing.T) {
 		{Window: 0, WindowName: "code", Layout: "L1", CWD: "/home/me", Command: "zsh"},
 		{Window: 1, WindowName: "logs", Layout: "L2", CWD: "/var/log", Command: "zsh"},
 	}
-	ws, err := build("demo", "/home/me", panes, nil)
+	ws, err := build("demo", "/home/me", panes, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestBuildGroupsWindowsAndContractsHome(t *testing.T) {
 }
 
 func TestBuildRejectsBadName(t *testing.T) {
-	_, err := build("bad name", "/h", []tmux.PaneInfo{{Command: "zsh"}}, nil)
+	_, err := build("bad name", "/h", []tmux.PaneInfo{{Command: "zsh"}}, nil, nil)
 	if err == nil {
 		t.Fatal("want error for invalid name")
 	}
@@ -87,5 +87,21 @@ func TestContractHome(t *testing.T) {
 		if got := contractHome(tt.path, tt.home); got != tt.want {
 			t.Errorf("contractHome(%q,%q) = %q, want %q", tt.path, tt.home, got, tt.want)
 		}
+	}
+}
+
+func TestBuildSavesChatPanes(t *testing.T) {
+	const id = "0123456789abcdef"
+	panes := []tmux.PaneInfo{
+		{Window: 0, WindowName: "w", CWD: "/h", Command: "vantage", Pane: "%1"}, // not a user command
+		{Window: 0, WindowName: "w", CWD: "/h", Command: "zsh", Pane: "%2"},
+	}
+	ws, err := build("demo", "/h", panes, nil, map[string]string{"%1": id, "%7": "ffffffffffffffff"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := ws.Windows[0].Panes
+	if p[0].Chat != id || p[0].Cmd != "" || p[1].Chat != "" {
+		t.Errorf("panes = %+v", p)
 	}
 }

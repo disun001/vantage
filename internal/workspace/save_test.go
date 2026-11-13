@@ -76,3 +76,67 @@ func TestSaveRejectsInvalid(t *testing.T) {
 		t.Error("invalid workspace must not create a file")
 	}
 }
+
+func TestChatPaneRoundTripAndValidation(t *testing.T) {
+	const id = "0123456789abcdef"
+	ws := Workspace{Name: "demo", Windows: []Window{{Name: "w", Panes: []Pane{{Chat: id}, {CWD: "~"}}}}}
+	path := filepath.Join(t.TempDir(), "demo.toml")
+	if err := Save(path, ws, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Windows[0].Panes[0].Chat != id {
+		t.Errorf("chat id lost: %+v", got.Windows[0].Panes[0])
+	}
+	for name, p := range map[string]Pane{
+		"short id":     {Chat: "abc"},
+		"upper case":   {Chat: "0123456789ABCDEF"},
+		"injection":    {Chat: "0123456789abcde; rm -rf"},
+		"with ssh":     {Chat: id, SSH: "prod"},
+		"with command": {Chat: id, Cmd: "ls"},
+	} {
+		bad := Workspace{Name: "demo", Windows: []Window{{Panes: []Pane{p}}}}
+		if bad.Validate() == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+}
+
+func TestChatCommand(t *testing.T) {
+	const id = "0123456789abcdef"
+	got, err := ChatCommand("/opt/it's/vantage", id)
+	if err != nil || !strings.HasPrefix(got, `'/opt/it'\''s/vantage' chat `+id+`;`) {
+		t.Errorf("ChatCommand = %q, %v", got, err)
+	}
+	for _, c := range [][2]string{{"vantage", id}, {"/x\n", id}, {"/x", "nope"}, {"/x", id + ";"}} {
+		if _, err := ChatCommand(c[0], c[1]); err == nil {
+			t.Errorf("ChatCommand(%q, %q) accepted", c[0], c[1])
+		}
+	}
+}
+
+func TestSaveBackupKeepsOldFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "demo.toml")
+	if err := SaveBackup(path, sample()); err != nil { // no file yet: no backup
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path + BackupSuffix); err == nil {
+		t.Fatal("backup made for a new file")
+	}
+	if err := os.WriteFile(path, []byte("# my notes\nname = \"demo\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveBackup(path, sample()); err != nil {
+		t.Fatal(err)
+	}
+	old, err := os.ReadFile(path + BackupSuffix)
+	if err != nil || !strings.Contains(string(old), "# my notes") {
+		t.Fatalf("backup = %q, %v", old, err)
+	}
+	if now, _ := os.ReadFile(path); strings.Contains(string(now), "my notes") {
+		t.Error("file not replaced")
+	}
+}

@@ -103,10 +103,11 @@ func (q *Queries) ListChats(ctx context.Context) ([]Chat, error) {
 }
 
 const listSocketPanes = `-- name: ListSocketPanes :many
-SELECT pane_id, status FROM chats WHERE tmux_socket = ? AND pane_id IS NOT NULL
+SELECT id, pane_id, status FROM chats WHERE tmux_socket = ? AND pane_id IS NOT NULL
 `
 
 type ListSocketPanesRow struct {
+	ID     string
 	PaneID sql.NullString
 	Status string
 }
@@ -120,7 +121,7 @@ func (q *Queries) ListSocketPanes(ctx context.Context, tmuxSocket sql.NullString
 	var items []ListSocketPanesRow
 	for rows.Next() {
 		var i ListSocketPanesRow
-		if err := rows.Scan(&i.PaneID, &i.Status); err != nil {
+		if err := rows.Scan(&i.ID, &i.PaneID, &i.Status); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

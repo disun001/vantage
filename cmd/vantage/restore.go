@@ -38,7 +38,7 @@ func runRestore(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	res, err := restore.Restore(tmux.Client{Socket: *socket}, ws)
+	res, err := restore.WithChats(tmux.Client{Socket: *socket}, ws, chatCommandFor)
 	if err != nil {
 		return err
 	}

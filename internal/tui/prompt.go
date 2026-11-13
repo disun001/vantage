@@ -6,6 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/disun001/vantage/internal/workspace"
 )
 
 type promptKind int
@@ -16,6 +18,7 @@ const (
 	promptDelete
 	promptStop
 	promptRenameWin
+	promptSaveAll
 )
 
 // prompt is the open question about a workspace: its name for new and
@@ -87,12 +90,35 @@ func (m model) stopBox() []string {
 	return framed(rows, max(10, min(44, m.w-6)))
 }
 
+// saveAllBox asks before every live session overwrites its workspace file.
+func (m model) saveAllBox() []string {
+	live := 0
+	for _, r := range m.rows {
+		if r.Live {
+			live++
+		}
+	}
+	rows := []string{
+		dangerTitle("save all sessions"), "",
+		fmt.Sprintf("Captures %d live session(s) over their", live),
+		"workspace files. Saved comments and",
+		"autorun lines are replaced; the old file",
+		"is kept as name.toml" + workspace.BackupSuffix + ".", "",
+		dimStyle.Render("y save · any other key cancels"),
+	}
+	return framed(rows, max(10, min(44, m.w-6)))
+}
+
 // startPrompt opens a prompt for the line under the cursor, or says why not.
 func (m model) startPrompt(kind promptKind) model {
 	if m.cfg.Manage == nil {
 		return m
 	}
 	if kind == promptNew {
+		m.prompt, m.notice = &prompt{kind: kind}, ""
+		return m
+	}
+	if kind == promptSaveAll {
 		m.prompt, m.notice = &prompt{kind: kind}, ""
 		return m
 	}
@@ -117,7 +143,7 @@ func (m model) startPrompt(kind promptKind) model {
 func (m model) onPromptKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	p := *m.prompt
 	m.prompt = &p
-	if p.kind == promptDelete || p.kind == promptStop {
+	if p.kind == promptDelete || p.kind == promptStop || p.kind == promptSaveAll {
 		m.prompt = nil
 		if k.String() == "y" {
 			return m, m.manageCmd(p)
@@ -163,6 +189,8 @@ func (m model) manageCmd(p prompt) tea.Cmd {
 			msg.err = mg.Delete(p.target)
 		case promptStop:
 			msg.err = mg.Stop(p.target)
+		case promptSaveAll:
+			msg.saved, msg.err = mg.SaveAll()
 		}
 		return msg
 	}
@@ -172,10 +200,16 @@ func (m model) manageCmd(p prompt) tea.Cmd {
 func (m model) onManage(msg manageMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		m.notice = ansi.Strip(msg.err.Error())
+		if msg.op == promptSaveAll {
+			m.notice = fmt.Sprintf("saved %d, failed: %s", msg.saved, m.notice)
+		}
 		return m, m.refresh()
 	}
 	m.notice = ""
 	switch msg.op {
+	case promptSaveAll:
+		m.notice = fmt.Sprintf("saved %d workspace(s)", msg.saved)
+		m.okNotice = m.notice
 	case promptNew:
 		m.cur = key{msg.to, -1}
 		return m.onReady(readyMsg{name: msg.to})

@@ -230,3 +230,53 @@ func TestRenameWindowUpdatesSavedFile(t *testing.T) {
 		t.Errorf("live name = %q", wins[0].Name)
 	}
 }
+
+func TestSaveAllReplacesFilesWithBackup(t *testing.T) {
+	m := testManager(t)
+	for _, n := range []string{"one", "two"} {
+		if _, err := m.Client.NewSession(n, "", t.TempDir()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	path, err := workspace.PathOf("one")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("# hand edited\nname = \"one\"\n[[window]]\n[[window.pane]]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	n, err := m.SaveAll()
+	if err != nil || n != 2 {
+		t.Fatalf("SaveAll = %d, %v; want 2, nil", n, err)
+	}
+	if !saved(t, "one") || !saved(t, "two") {
+		t.Fatal("want both files")
+	}
+	bak, err := os.ReadFile(path + workspace.BackupSuffix)
+	if err != nil || !strings.Contains(string(bak), "hand edited") {
+		t.Fatalf("backup = %q, %v", bak, err)
+	}
+	if now, _ := os.ReadFile(path); strings.Contains(string(now), "hand edited") {
+		t.Error("file was not replaced")
+	}
+}
+
+func TestSaveAllKeepsGoingAfterABadName(t *testing.T) {
+	m := testManager(t)
+	if _, err := m.Client.NewSession("good", "", t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.Client.NewSession("has space", "", t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	n, err := m.SaveAll()
+	if n != 1 || err == nil || !strings.Contains(err.Error(), "has space") {
+		t.Fatalf("SaveAll = %d, %v; want 1 saved and an error naming the bad session", n, err)
+	}
+	if !saved(t, "good") {
+		t.Error("good was not saved")
+	}
+}

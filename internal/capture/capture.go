@@ -22,6 +22,12 @@ type Lister func(tty string) ([]string, error)
 // called name (defaults to the session name). procs may be nil, in which case
 // non-shell panes keep only the command name.
 func Session(c tmux.Client, session, name string, procs Lister) (workspace.Workspace, error) {
+	return SessionChats(c, session, name, procs, nil)
+}
+
+// SessionChats is Session that also records chats: chats maps a pane id to
+// the id of the chat running in it, and such a pane is saved as `chat = id`.
+func SessionChats(c tmux.Client, session, name string, procs Lister, chats map[string]string) (workspace.Workspace, error) {
 	if !c.HasSession(session) {
 		return workspace.Workspace{}, fmt.Errorf("no tmux session %q", session)
 	}
@@ -33,10 +39,10 @@ func Session(c tmux.Client, session, name string, procs Lister) (workspace.Works
 		name = session
 	}
 	home, _ := os.UserHomeDir()
-	return build(name, home, panes, procs)
+	return build(name, home, panes, procs, chats)
 }
 
-func build(name, home string, panes []tmux.PaneInfo, procs Lister) (workspace.Workspace, error) {
+func build(name, home string, panes []tmux.PaneInfo, procs Lister, chats map[string]string) (workspace.Workspace, error) {
 	ws := workspace.Workspace{Name: name}
 	lastWindow := -1
 	for _, p := range panes {
@@ -46,6 +52,9 @@ func build(name, home string, panes []tmux.PaneInfo, procs Lister) (workspace.Wo
 		}
 		w := &ws.Windows[len(ws.Windows)-1]
 		pane := classify(p, procs)
+		if id := chats[p.Pane]; id != "" {
+			pane = workspace.Pane{Chat: id} // the chat pane runs vantage itself, not a user command
+		}
 		pane.CWD = contractHome(p.CWD, home)
 		w.Panes = append(w.Panes, pane)
 	}

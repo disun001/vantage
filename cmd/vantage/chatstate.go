@@ -26,8 +26,9 @@ func newChatStates(socket string) (*chatStates, error) {
 	return &chatStates{dir: dir, socket: socket}, nil
 }
 
-// PaneStatuses maps pane id to chat status for this tmux server.
-func (c *chatStates) PaneStatuses() (map[string]string, error) {
+// states reads the chats of this tmux server. Without a database file there
+// are none.
+func (c *chatStates) states() ([]store.PaneState, error) {
 	if c.st == nil {
 		if !store.Exists(c.dir) {
 			return nil, nil
@@ -42,13 +43,27 @@ func (c *chatStates) PaneStatuses() (map[string]string, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	states, err := c.st.PaneStates(ctx, c.socket)
+	return c.st.PaneStates(ctx, c.socket)
+}
+
+// PaneStatuses maps pane id to chat status for this tmux server.
+func (c *chatStates) PaneStatuses() (map[string]string, error) {
+	return c.byPane(func(s store.PaneState) string { return s.Status })
+}
+
+// PaneChats maps pane id to chat id for this tmux server, for capture.
+func (c *chatStates) PaneChats() (map[string]string, error) {
+	return c.byPane(func(s store.PaneState) string { return s.ID })
+}
+
+func (c *chatStates) byPane(val func(store.PaneState) string) (map[string]string, error) {
+	states, err := c.states()
 	if err != nil {
 		return nil, err
 	}
 	out := make(map[string]string, len(states))
 	for _, s := range states {
-		out[s.Pane] = s.Status
+		out[s.Pane] = val(s)
 	}
 	return out, nil
 }

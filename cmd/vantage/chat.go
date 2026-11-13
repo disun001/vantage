@@ -10,13 +10,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/disun001/vantage/internal/chat"
 	"github.com/disun001/vantage/internal/chatui"
 	"github.com/disun001/vantage/internal/store"
+	"github.com/disun001/vantage/internal/workspace"
 )
 
 var chatCmd = command{
@@ -25,10 +25,6 @@ var chatCmd = command{
 	summary: "claude chat in this pane (new starts one, <id> resumes it)",
 	run:     runChat,
 }
-
-// chatIDRe is what newChatID generates. Ids reach a command line and a
-// database key, so nothing else is accepted.
-var chatIDRe = regexp.MustCompile(`^[0-9a-f]{16}$`)
 
 func runChat(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("chat", flag.ContinueOnError)
@@ -61,7 +57,7 @@ func runChat(args []string, out io.Writer) error {
 		if id, err = createChat(ctx, st, *cwd); err != nil {
 			return err
 		}
-	} else if !chatIDRe.MatchString(id) {
+	} else if !workspace.ValidChatID(id) {
 		return fmt.Errorf("%q is not a chat id (see vantage chat list)", id)
 	}
 	provider := chat.Claude{Exe: os.Getenv("VANTAGE_CLAUDE"), Env: os.Environ(), AllowAPIKey: *allowKey}
@@ -135,4 +131,14 @@ func listChats(ctx context.Context, st *store.Store, out io.Writer) error {
 		fmt.Fprintf(out, "%s  %-11s %s\n", c.ID, c.Status, c.Cwd)
 	}
 	return nil
+}
+
+// chatCommandFor is the pane command that reopens chat id with this binary,
+// used by restore.
+func chatCommandFor(id string) (string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("vantage path: %w", err)
+	}
+	return workspace.ChatCommand(exe, id)
 }

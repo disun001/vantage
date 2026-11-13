@@ -16,6 +16,7 @@ type savePane struct {
 	CWD     string `toml:"cwd,omitempty"`
 	SSH     string `toml:"ssh,omitempty"`
 	Cmd     string `toml:"cmd,omitempty"`
+	Chat    string `toml:"chat,omitempty"`
 	Autorun *bool  `toml:"autorun,omitempty"`
 	Split   string `toml:"split,omitempty"`
 }
@@ -66,7 +67,7 @@ func toSave(ws Workspace) saveWorkspace {
 	for _, w := range ws.Windows {
 		sw := saveWindow{Name: w.Name, Layout: w.Layout}
 		for _, p := range w.Panes {
-			sp := savePane{CWD: p.CWD, SSH: p.SSH, Cmd: p.Cmd, Split: p.Split}
+			sp := savePane{CWD: p.CWD, SSH: p.SSH, Cmd: p.Cmd, Chat: p.Chat, Split: p.Split}
 			if p.Cmd != "" {
 				a := p.Autorun
 				sp.Autorun = &a
@@ -76,4 +77,23 @@ func toSave(ws Workspace) saveWorkspace {
 		out.Windows = append(out.Windows, sw)
 	}
 	return out
+}
+
+// SaveBackup is Save with overwrite, for replacing a file the user may have
+// edited: the old file is first copied to path + BackupSuffix, so comments and
+// opted-in `autorun` lines can be recovered. A missing file needs no backup.
+func SaveBackup(path string, ws Workspace) error {
+	if err := ws.Validate(); err != nil {
+		return err
+	}
+	old, err := os.ReadFile(path)
+	switch {
+	case err == nil:
+		if err := os.WriteFile(path+BackupSuffix, old, 0o600); err != nil {
+			return fmt.Errorf("backup %s: %w", path, err)
+		}
+	case !errors.Is(err, os.ErrNotExist):
+		return err
+	}
+	return Save(path, ws, true)
 }

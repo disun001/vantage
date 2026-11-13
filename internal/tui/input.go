@@ -93,6 +93,11 @@ func (m model) toTerm(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// promptKeys maps the workspace keys to the question each one opens.
+var promptKeys = map[string]promptKind{
+	"n": promptNew, "R": promptRename, "d": promptDelete, "K": promptStop, "S": promptSaveAll,
+}
+
 func (m model) onSidebarKey(s string) (tea.Model, tea.Cmd) {
 	switch s {
 	case "ctrl+c", "q":
@@ -114,14 +119,8 @@ func (m model) onSidebarKey(s string) (tea.Model, tea.Cmd) {
 		m = m.toggle(true)
 	case "r":
 		return m, m.refresh()
-	case "n":
-		m = m.startPrompt(promptNew)
-	case "R":
-		m = m.startPrompt(promptRename)
-	case "d":
-		m = m.startPrompt(promptDelete)
-	case "K":
-		m = m.startPrompt(promptStop)
+	case "n", "R", "d", "K", "S":
+		m = m.startPrompt(promptKeys[s])
 	case "H":
 		return m.toggleHosts()
 	case "?":

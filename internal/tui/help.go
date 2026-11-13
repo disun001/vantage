@@ -70,6 +70,7 @@ func (m model) helpGroups() []helpGroup {
 			{"R", "rename session / window"},
 			{"K", "stop session, keep file"},
 			{"d", "delete"},
+			{"S", "save all live sessions"},
 		}},
 		focusGroup,
 		{"App", []bind{

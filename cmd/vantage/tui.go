@@ -50,7 +50,7 @@ func runTUI(args []string, _ io.Writer) error {
 		if err != nil {
 			return err
 		}
-		_, err = restore.Restore(client, ws)
+		_, err = restore.WithChats(client, ws, chatCommandFor)
 		return err
 	}
 	if *start {
@@ -67,7 +67,7 @@ func runTUI(args []string, _ io.Writer) error {
 		Chats:   chats.PaneStatuses,
 		Client:  client,
 		Saved:   workspace.List,
-		Manage:  manage.Manager{Client: client, Procs: capture.PS},
+		Manage:  manage.Manager{Client: client, Procs: capture.PS, Chats: chats.PaneChats},
 		SSH:     sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
 		HostUse: hostuse.Finder{Client: client, Procs: capture.PS},
 		KeyLog:  keyLog,

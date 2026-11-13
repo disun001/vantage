@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/disun001/vantage/internal/store"
+	"github.com/disun001/vantage/internal/workspace"
 )
 
 func TestChatRejectsBadArgs(t *testing.T) {
@@ -31,8 +32,8 @@ func TestChatList(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = st.Close()
-	if !chatIDRe.MatchString(id) {
-		t.Fatalf("id %q does not match chatIDRe", id)
+	if !workspace.ValidChatID(id) {
+		t.Fatalf("id %q is not a valid chat id", id)
 	}
 	var out bytes.Buffer
 	if err := runChat([]string{"list"}, &out); err != nil {

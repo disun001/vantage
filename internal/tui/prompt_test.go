@@ -31,6 +31,11 @@ func (f *fakeManager) RenameWindow(s string, i int, n string) error {
 	f.calls = append(f.calls, fmt.Sprintf("renamewin %s %d %s", s, i, n))
 	return f.err
 }
+
+func (f *fakeManager) SaveAll() (int, error) {
+	f.calls = append(f.calls, "saveall")
+	return 2, f.err
+}
 func (f *fakeManager) Stop(n string) error   { f.calls = append(f.calls, "stop "+n); return f.err }
 func (f *fakeManager) Delete(n string) error { f.calls = append(f.calls, "delete "+n); return f.err }
 
@@ -374,5 +379,37 @@ func TestRenameWindowPrompt(t *testing.T) {
 	cmd()
 	if len(f.calls) != 1 || f.calls[0] != "renamewin a 2 vimx" {
 		t.Fatalf("calls = %v", f.calls)
+	}
+}
+
+func TestSaveAllPrompt(t *testing.T) {
+	f := &fakeManager{}
+	m, _ := press(manageModel(f), "S")
+	if m.prompt == nil || m.prompt.kind != promptSaveAll || !strings.Contains(popupText(m), "save all sessions") {
+		t.Fatalf("no confirm: %+v", m.prompt)
+	}
+	m, cmd := press(m, "x") // anything but y cancels
+	if m.prompt != nil || cmd != nil || len(f.calls) != 0 {
+		t.Fatal("a key other than y must cancel")
+	}
+	m, _ = press(m, "S")
+	m, cmd = press(m, "y")
+	msg := cmd()
+	if len(f.calls) != 1 || f.calls[0] != "saveall" {
+		t.Fatalf("calls = %v", f.calls)
+	}
+	next, _ := m.Update(msg)
+	m = next.(model)
+	if m.notice != "saved 2 workspace(s)" || m.notice != m.okNotice {
+		t.Errorf("notice = %q", m.notice)
+	}
+}
+
+func TestSaveAllFailureIsReported(t *testing.T) {
+	m := manageModel(&fakeManager{})
+	next, _ := m.Update(manageMsg{op: promptSaveAll, saved: 1, err: errors.New("x: bad")})
+	got := next.(model)
+	if !strings.Contains(got.notice, "saved 1, failed: x: bad") || got.notice == got.okNotice {
+		t.Errorf("notice = %q", got.notice)
 	}
 }

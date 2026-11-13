@@ -18,4 +18,4 @@ UPDATE chats SET provider_session = ?, updated_at = ? WHERE id = ?;
 UPDATE chats SET pane_id = ?, session_name = ?, tmux_socket = ?, updated_at = ? WHERE id = ?;
 
 -- name: ListSocketPanes :many
-SELECT pane_id, status FROM chats WHERE tmux_socket = ? AND pane_id IS NOT NULL;
+SELECT id, pane_id, status FROM chats WHERE tmux_socket = ? AND pane_id IS NOT NULL;

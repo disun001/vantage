@@ -39,6 +39,9 @@ type Pane struct {
 	// Autorun must be true for Cmd to run on restore. Off by default so
 	// nothing runs by surprise.
 	Autorun bool `toml:"autorun"`
+	// Chat is a chat id (see `vantage chat list`). Restore reopens that chat
+	// in the pane. Not with ssh or cmd.
+	Chat string `toml:"chat"`
 	// Split is how this pane is split from the previous one: "h" (side by
 	// side) or "v" (stacked). Ignored for the first pane. Default "h".
 	Split string `toml:"split"`
@@ -50,7 +53,28 @@ var (
 	nameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 	// ssh aliases must not look like options, and must be one token.
 	aliasRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._@%+-]*$`)
+	// chat ids are what `vantage chat new` generates: 16 lowercase hex digits.
+	// They reach a shell command, so nothing else is accepted.
+	chatIDRe = regexp.MustCompile(`^[0-9a-f]{16}$`)
 )
+
+// ValidChatID reports whether s is a well-formed chat id.
+func ValidChatID(s string) bool { return chatIDRe.MatchString(s) }
+
+// ChatCommand is the shell command a pane runs to reopen chat id with the
+// vantage binary at exe. If the chat cannot open (unknown id), it waits for
+// Enter first, or the error would vanish with the pane. exe must be an
+// absolute path without control characters, and id must pass ValidChatID.
+func ChatCommand(exe, id string) (string, error) {
+	if !filepath.IsAbs(exe) || strings.ContainsAny(exe, "\x00\n\r") {
+		return "", fmt.Errorf("invalid vantage path %q", exe)
+	}
+	if !ValidChatID(id) {
+		return "", fmt.Errorf("invalid chat id %q", id)
+	}
+	q := "'" + strings.ReplaceAll(exe, "'", `'\''`) + "'"
+	return q + " chat " + id + `; rc=$?; if [ $rc -ne 0 ]; then echo; echo "chat failed, press Enter"; read _; fi; exit $rc`, nil
+}
 
 // SSHCommand is the shell command a pane runs to connect to alias. The pane
 // closes when ssh ends, like a local shell. Exit status 255 means ssh itself
@@ -121,6 +145,12 @@ func (w Workspace) Validate() error {
 			}
 			if p.SSH != "" && !aliasRe.MatchString(p.SSH) {
 				return fmt.Errorf("%s: invalid ssh alias %q", where, p.SSH)
+			}
+			if p.Chat != "" && (p.SSH != "" || p.Cmd != "") {
+				return fmt.Errorf("%s: chat cannot be combined with ssh or cmd", where)
+			}
+			if p.Chat != "" && !ValidChatID(p.Chat) {
+				return fmt.Errorf("%s: invalid chat id %q", where, p.Chat)
 			}
 			if p.Autorun && p.Cmd == "" {
 				return fmt.Errorf("%s: autorun needs cmd", where)

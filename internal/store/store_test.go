@@ -133,7 +133,7 @@ func TestPaneStates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0] != (PaneState{Pane: "%1", Status: StatusRunning}) {
+	if len(got) != 1 || got[0] != (PaneState{ID: "a", Pane: "%1", Status: StatusRunning}) {
 		t.Fatalf("PaneStates = %+v, want only chat a", got)
 	}
 }

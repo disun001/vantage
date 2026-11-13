@@ -4,6 +4,7 @@
 package manage
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -19,6 +20,21 @@ type Manager struct {
 	Client tmux.Client
 	// Procs finds foreground commands for capture. May be nil.
 	Procs capture.Lister
+	// Chats maps a pane id to the id of the chat running in it, so saved
+	// workspaces keep their chat panes. May be nil.
+	Chats func() (map[string]string, error)
+}
+
+// capture reads a live session, including its chat panes.
+func (m Manager) capture(session string) (workspace.Workspace, error) {
+	var chats map[string]string
+	if m.Chats != nil {
+		var err error
+		if chats, err = m.Chats(); err != nil {
+			return workspace.Workspace{}, fmt.Errorf("chats: %w", err)
+		}
+	}
+	return capture.SessionChats(m.Client, session, "", m.Procs, chats)
 }
 
 func checkName(name string) error {
@@ -58,7 +74,7 @@ func (m Manager) Create(name string) error {
 	if _, err := m.Client.NewSession(name, "", home); err != nil {
 		return err
 	}
-	ws, err := capture.Session(m.Client, name, "", m.Procs)
+	ws, err := m.capture(name)
 	if err == nil {
 		err = workspace.Save(path, ws, false)
 	}
@@ -198,4 +214,40 @@ func (m Manager) Delete(name string) error {
 		return m.Client.KillSession(name)
 	}
 	return nil
+}
+
+// SaveAll captures every running session and replaces its workspace file (a
+// new file is created when there is none). Replaced files are first copied to
+// name.toml + workspace.BackupSuffix. One session failing does not stop the
+// rest; the failures come back joined. It returns how many were saved.
+func (m Manager) SaveAll() (int, error) {
+	sessions, err := m.Client.ListSessions()
+	if err != nil {
+		return 0, err
+	}
+	var errs []error
+	saved := 0
+	for _, s := range sessions {
+		if err := m.saveOne(s.Name); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", s.Name, err))
+			continue
+		}
+		saved++
+	}
+	return saved, errors.Join(errs...)
+}
+
+func (m Manager) saveOne(name string) error {
+	if err := checkName(name); err != nil {
+		return err
+	}
+	ws, err := m.capture(name)
+	if err != nil {
+		return err
+	}
+	path, err := workspace.PathOf(name)
+	if err != nil {
+		return err
+	}
+	return workspace.SaveBackup(path, ws)
 }
