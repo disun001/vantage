@@ -55,6 +55,11 @@ listing every key of the current view, grouped and explained. `esc`, `?` or
 | `K`     | Stop: kill the session, keep the workspace file, after a `y` in a pop-up |
 | `d`     | Delete the workspace file and kill its session, after a `y` in a pop-up |
 | `H`     | Switch the sidebar to your ssh hosts                                    |
+| `P`     | Switch the sidebar to projects (details and tasks on the right)         |
+
+### Projects view (after `P`)
+
+Keys and forms are listed in [projects.md](projects.md#tui).
 
 ### Sidebar keys (ssh hosts, after `H`)
 

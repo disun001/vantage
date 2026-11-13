@@ -53,6 +53,7 @@ type sidebarView int
 const (
 	viewSessions sidebarView = iota
 	viewHosts
+	viewProjects
 )
 
 type (
@@ -554,6 +555,10 @@ func (m model) popup() []string {
 		return m.promptBox()
 	case m.form != nil:
 		return m.formBox()
+	case m.tform != nil:
+		return m.taskFormBox()
+	case m.pform != nil:
+		return m.projFormBox()
 	case m.hostDel != nil:
 		return m.hostDel.box(m.w)
 	case m.hostPick != nil:

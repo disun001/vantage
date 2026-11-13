@@ -41,7 +41,7 @@ tmux attach -t demo
 ```
 
 Or run `vantage` on its own to open the sidebar. Press `n` to create a
-workspace, `H` to see your ssh hosts, `M-s` to switch focus between the
+workspace, `H` to see your ssh hosts, `P` for projects and tasks, `M-s` to switch focus between the
 sidebar and tmux. The full key list is in [docs/usage.md](docs/usage.md).
 
 To save a session you already have running:

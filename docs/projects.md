@@ -1,6 +1,6 @@
 # Projects (design)
 
-Status: designed. Steps 1 (projects path, project file, `sync`, `status`), 2 (`update`), 3 (tasks) and 4 (workspace link) are built; the rest is not. Build order at the end.
+Status: built. Steps 1 (projects path, project file, `sync`, `status`), All five build steps are done. Build order at the end.
 
 A **project** is a set of git repos managed together. A **task** is a unit of work that spans some of those repos, isolated in git worktrees. Vantage keeps the repos fresh and creates task worktrees; the user (and later, agents) work inside tasks.
 
@@ -68,9 +68,29 @@ A task's workspace is found by the `project` and `task` keys, not by file name, 
 
 ## TUI
 
-- A projects view in the sidebar, swapped in like the hosts view (`H`). Key to be chosen.
-- With a project selected, the right pane shows the project details instead of the embedded tmux: repo status, task list, add task (the same form as `task new`).
-- Selecting or creating a task returns to the workspaces sidebar on that task's workspace: opened if it exists, created if not. If its session is live, focus it.
+`P` in the workspaces sidebar swaps it for the projects list (like `H` for hosts). The right pane shows the details of the project under the cursor instead of tmux: each repo's branch, sync state, dirty flag and warnings, then the task list. Details load in the background; the TUI never blocks on git.
+
+| Key (projects list) | Does                                                              |
+| ------------------- | ----------------------------------------------------------------- |
+| `j` `k` `g` `G`     | Move; the details follow                                          |
+| `⏎` `l` `tab`       | Step into the task list (when there are tasks)                    |
+| `n`                 | New task form                                                     |
+| `a`                 | Add project form                                                  |
+| `r`                 | Refresh                                                           |
+| `P` `esc` `h`       | Back to workspaces                                                |
+
+| Key (task list) | Does                                    |
+| --------------- | --------------------------------------- |
+| `j` `k` `g` `G` | Move                                    |
+| `⏎`             | Open the task's workspace               |
+| `esc` `h`       | Back to the projects list               |
+
+- **New task form:** the task name, then one line per repo with `[x]` include (`space` toggles) and a base branch (type it; empty means the repo's default). `enter` creates the task, then opens its workspace.
+- **Add project form:** name, a `flat` toggle (`space`), and per repo `url`, `dir` and `copy` (comma-separated globs). `ctrl+a` adds a repo, `ctrl+x` drops the focused one. `enter` writes the project file and clones the repos. If cloning fails the project stays defined; finish with `vantage project sync`.
+- **Opening a task** (from the list, or right after `new`) returns to the workspaces sidebar on that task's workspace: found by its `project` and `task` keys, created when none exists, its session started if it is not live, then shown with focus.
+- A failure (a taken branch, a bad URL) stays on the details page as a notice.
+- `alt+s` and mouse clicks on the details page do nothing: there is no tmux to focus.
+- Not in the TUI: `task rm`, `update`, `sync` and editing a project. Use the CLI.
 
 ## Deferred
 
@@ -85,6 +105,6 @@ A task's workspace is found by the `project` and `task` keys, not by file name, 
 2. `update`. **Done.**
 3. Tasks: `new`, `rm`, `copy` files. **Done.**
 4. Workspace `project` and `task` keys. **Done.**
-5. TUI projects view and details page.
+5. TUI projects view and details page. **Done.**
 
 Each step updates its tests, this file, `docs/workspace-format.md` (step 4) and `examples/`.

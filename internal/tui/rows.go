@@ -181,6 +181,9 @@ func (m model) scrolled() model {
 	if m.view == viewHosts {
 		return m.hostScrolled()
 	}
+	if m.view == viewProjects {
+		return m.projScrolled()
+	}
 	items := m.items()
 	c, p := m.listCap(), m.pos(items)
 	if p < m.top {

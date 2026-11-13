@@ -140,3 +140,50 @@ func (p Project) RepoPath(root string, r Repo) string {
 	}
 	return filepath.Join(p.Path(root), r.DirName())
 }
+
+// saveProject mirrors Project for writing: empty optional keys are omitted so
+// the file reads like one written by hand.
+type saveProject struct {
+	Name  string     `toml:"name"`
+	Flat  bool       `toml:"flat,omitempty"`
+	Repos []saveRepo `toml:"repo"`
+}
+
+type saveRepo struct {
+	URL  string   `toml:"url"`
+	Dir  string   `toml:"dir,omitempty"`
+	Copy []string `toml:"copy,omitempty"`
+}
+
+// Save validates p and writes its definition file. It never replaces an
+// existing project.
+func Save(p Project) (err error) {
+	if err := p.Validate(); err != nil {
+		return err
+	}
+	file, err := PathOf(p.Name)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		return fmt.Errorf("project %q already exists", p.Name)
+	}
+	if err != nil {
+		return err
+	}
+	// A failed Close can mean lost data, so it is part of the result.
+	defer func() {
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+	}()
+	out := saveProject{Name: p.Name, Flat: p.Flat}
+	for _, r := range p.Repos {
+		out.Repos = append(out.Repos, saveRepo(r))
+	}
+	return toml.NewEncoder(f).Encode(out)
+}

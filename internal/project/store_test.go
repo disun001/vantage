@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -85,5 +86,33 @@ func TestLoadAndList(t *testing.T) {
 		if _, err := Load(bad); err == nil {
 			t.Errorf("Load(%q) must be rejected", bad)
 		}
+	}
+}
+
+func TestSaveRoundTrip(t *testing.T) {
+	t.Setenv("VANTAGE_CONFIG_DIR", t.TempDir())
+	in := Project{Name: "stack", Repos: []Repo{
+		{URL: "https://example.invalid/org/api.git", Copy: []string{".env"}},
+		{URL: "https://example.invalid/org/web.git", Dir: "frontend"},
+	}}
+	if err := Save(in); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load("stack")
+	if err != nil || len(got.Repos) != 2 || got.Repos[0].Copy[0] != ".env" || got.Repos[1].Dir != "frontend" || got.Flat {
+		t.Fatalf("round trip: %+v, %v", got, err)
+	}
+	if err := Save(in); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("second save must refuse, got %v", err)
+	}
+	flat := Project{Name: "solo", Flat: true, Repos: []Repo{{URL: "https://example.invalid/a.git"}}}
+	if err := Save(flat); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := Load("solo"); err != nil || !got.Flat {
+		t.Errorf("flat lost: %+v, %v", got, err)
+	}
+	if err := Save(Project{Name: "bad name", Repos: in.Repos}); err == nil {
+		t.Error("invalid project must not be written")
 	}
 }

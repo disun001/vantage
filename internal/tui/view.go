@@ -24,7 +24,7 @@ func (m model) View() string {
 	side := m.sidebar()
 	right := m.right()
 	edge := borderIdle
-	if m.focus == focusTerm {
+	if m.focus == focusTerm || (m.view == viewProjects && m.projFocus) {
 		edge = borderActive
 	}
 	frame := paint(edge, "")
@@ -58,6 +58,9 @@ func fit(s string, w int) string {
 }
 
 func (m model) right() []string {
+	if m.view == viewProjects {
+		return m.projectDetails()
+	}
 	w := m.termW()
 	out := make([]string, m.innerH())
 	if m.term == nil {
@@ -89,6 +92,9 @@ func (m model) right() []string {
 func (m model) sidebar() []string {
 	if m.view == viewHosts {
 		return m.hostsSidebar()
+	}
+	if m.view == viewProjects {
+		return m.projectsSidebar()
 	}
 	out := make([]string, m.h)
 	for i := range out {

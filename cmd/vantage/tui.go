@@ -64,14 +64,15 @@ func runTUI(args []string, _ io.Writer) error {
 	}
 	defer chats.Close()
 	return tui.Run(tui.Config{
-		Chats:   chats.PaneStatuses,
-		Client:  client,
-		Saved:   workspace.List,
-		Manage:  manage.Manager{Client: client, Procs: capture.PS, Chats: chats.PaneChats},
-		SSH:     sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
-		HostUse: hostuse.Finder{Client: client, Procs: capture.PS},
-		KeyLog:  keyLog,
-		Restore: restoreByName,
+		Chats:    chats.PaneStatuses,
+		Client:   client,
+		Saved:    workspace.List,
+		Manage:   manage.Manager{Client: client, Procs: capture.PS, Chats: chats.PaneChats},
+		Projects: projectStore{},
+		SSH:      sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
+		HostUse:  hostuse.Finder{Client: client, Procs: capture.PS},
+		KeyLog:   keyLog,
+		Restore:  restoreByName,
 	})
 }
 

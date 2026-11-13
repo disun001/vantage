@@ -43,6 +43,12 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.form != nil {
 		return m.onFormKey(k)
 	}
+	if m.tform != nil {
+		return m.onTaskFormKey(k)
+	}
+	if m.pform != nil {
+		return m.onProjFormKey(k)
+	}
 	if m.hostDel != nil {
 		return m.onHostDelKey(k)
 	}
@@ -60,7 +66,7 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.help = true
 		return m, nil
 	}
-	if s == "alt+s" {
+	if s == "alt+s" && m.view != viewProjects { // the details page has no tmux to focus
 		if m.focus == focusTerm {
 			m.focus = focusSidebar
 		} else if m.term != nil {
@@ -73,6 +79,9 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.view == viewHosts {
 		return m.onHostKey(s)
+	}
+	if m.view == viewProjects {
+		return m.onProjectKey(s)
 	}
 	return m.onSidebarKey(s)
 }
@@ -123,6 +132,8 @@ func (m model) onSidebarKey(s string) (tea.Model, tea.Cmd) {
 		m = m.startPrompt(promptKeys[s])
 	case "H":
 		return m.toggleHosts()
+	case "P":
+		return m.toggleProjects()
 	case "?":
 		m.help = true
 	case "l", "right":

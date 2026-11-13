@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/disun001/vantage/internal/tui"
 )
 
 func TestProjectCommand(t *testing.T) {
@@ -86,5 +88,47 @@ func TestParseTaskArgs(t *testing.T) {
 		if _, err := parseTaskArgs(bad); err == nil {
 			t.Errorf("%v should fail", bad)
 		}
+	}
+}
+
+func TestProjectStore(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	src := t.TempDir()
+	for _, args := range [][]string{{"init", "-q", "-b", "main"}, {"commit", "-q", "--allow-empty", "-m", "init"}} {
+		cmd := exec.Command("git", append([]string{"-c", "user.name=t", "-c", "user.email=t@example.invalid"}, args...)...)
+		cmd.Dir = src
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v\n%s", err, out)
+		}
+	}
+	t.Setenv("VANTAGE_CONFIG_DIR", t.TempDir())
+	t.Setenv("VANTAGE_PROJECTS_DIR", t.TempDir())
+
+	s := projectStore{}
+	if err := s.Create(tui.ProjectDef{Name: "demo", Repos: []tui.RepoDef{{URL: src, Dir: "api", Copy: []string{".env"}}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Create(tui.ProjectDef{Name: "demo", Repos: []tui.RepoDef{{URL: src}}}); err == nil {
+		t.Error("creating an existing project must fail")
+	}
+	if err := s.NewTask("demo", "t1", []tui.TaskPick{{Repo: "api"}}); err != nil {
+		t.Fatal(err)
+	}
+	ws, err := s.Workspace("demo", "t1")
+	if err != nil || ws != "demo-t1" {
+		t.Fatalf("workspace = %q, %v", ws, err)
+	}
+	info, err := s.Detail("demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Name != "demo" || len(info.Repos) != 1 || !info.Repos[0].Cloned || info.Repos[0].Branch != "main" ||
+		len(info.Tasks) != 1 || info.Tasks[0].Name != "t1" || info.Tasks[0].Repos[0] != "api" {
+		t.Errorf("detail = %+v", info)
+	}
+	if names, _ := s.List(); len(names) != 1 || names[0] != "demo" {
+		t.Errorf("list = %v", names)
 	}
 }

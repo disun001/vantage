@@ -15,13 +15,13 @@ const chevronW = 2
 // the sidebar handles its own clicks and wheel, and events over the tmux
 // region are translated to its coordinates and forwarded.
 func (m model) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	if m.prompt != nil || m.form != nil || m.hostDel != nil || m.hostPick != nil || m.hostShut != nil || m.help { // a prompt owns the input until it is answered
+	if m.prompt != nil || m.form != nil || m.tform != nil || m.pform != nil || m.hostDel != nil || m.hostPick != nil || m.hostShut != nil || m.help { // a prompt owns the input until it is answered
 		return m, nil
 	}
 	if msg.X < sidebarW {
 		return m.onSidebarMouse(msg)
 	}
-	if msg.X == sidebarW || m.term == nil { // divider, or nothing to forward to
+	if msg.X == sidebarW || m.term == nil || m.view == viewProjects { // divider, nothing to forward to, or the details page
 		return m, nil
 	}
 	if msg.Action == tea.MouseActionPress && m.focus != focusTerm {
@@ -44,6 +44,9 @@ func (m model) onSidebarMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	if m.view == viewHosts {
 		return m.onHostMouse(msg), nil
 	}
+	if m.view == viewProjects {
+		return m.onProjectMouse(msg)
+	}
 	switch {
 	case msg.Button == tea.MouseButtonWheelUp:
 		m = m.move(-1)
@@ -58,6 +61,22 @@ func (m model) onSidebarMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 				return m.toggle(false), nil // a click on the arrow only folds
 			}
 			return m, m.selectCmd()
+		}
+	}
+	return m, nil
+}
+
+// onProjectMouse selects projects: the wheel moves the cursor, a click picks one.
+func (m model) onProjectMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case msg.Button == tea.MouseButtonWheelUp:
+		return m.moveProj(-1)
+	case msg.Button == tea.MouseButtonWheelDown:
+		return m.moveProj(1)
+	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
+		m.focus, m.projFocus = focusSidebar, false
+		if i := msg.Y - firstRowY + m.projTop; msg.Y >= firstRowY && i < len(m.projects) {
+			return m.moveProj(i - m.projPos())
 		}
 	}
 	return m, nil

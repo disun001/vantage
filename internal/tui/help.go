@@ -33,28 +33,11 @@ var (
 // helpGroups is what the pop-up lists for the view on screen. The sidebar
 // footer shows only "? keys", so this is where each key is explained.
 func (m model) helpGroups() []helpGroup {
-	if m.view == viewHosts {
-		return []helpGroup{
-			moveGroup,
-			{"Connect", []bind{
-				{"⏎", "go to pane / open ssh"},
-				{"v", "ssh split beside"},
-				{"s", "ssh split below"},
-				{"x", "close host's panes"},
-			}},
-			{"Hosts", []bind{
-				{"a", "add"},
-				{"e", "edit"},
-				{"d", "delete"},
-				{"r", "refresh"},
-			}},
-			focusGroup,
-			{"App", []bind{
-				{"H/esc", "back to workspaces"},
-				{"?", "this help"},
-				{"q", "quit"},
-			}},
-		}
+	switch m.view {
+	case viewProjects:
+		return projectHelp()
+	case viewHosts:
+		return hostHelp()
 	}
 	return []helpGroup{
 		moveGroup,
@@ -75,6 +58,7 @@ func (m model) helpGroups() []helpGroup {
 		focusGroup,
 		{"App", []bind{
 			{"H", "ssh hosts"},
+			{"P", "projects and tasks"},
 			{"?", "this help"},
 			{"q", "quit"},
 		}},
@@ -169,4 +153,46 @@ func (m model) onHelpKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.help = false
 	}
 	return m, nil
+}
+
+func projectHelp() []helpGroup {
+	return []helpGroup{
+		moveGroup,
+		{"Projects", []bind{
+			{"a", "add project"},
+			{"n", "new task"},
+			{"⏎", "open task (list: step in)"},
+			{"h/esc", "step out / back"},
+			{"r", "refresh"},
+		}},
+		{"App", []bind{
+			{"P", "back to workspaces"},
+			{"?", "this help"},
+			{"q", "quit"},
+		}},
+	}
+}
+
+func hostHelp() []helpGroup {
+	return []helpGroup{
+		moveGroup,
+		{"Connect", []bind{
+			{"⏎", "go to pane / open ssh"},
+			{"v", "ssh split beside"},
+			{"s", "ssh split below"},
+			{"x", "close host's panes"},
+		}},
+		{"Hosts", []bind{
+			{"a", "add"},
+			{"e", "edit"},
+			{"d", "delete"},
+			{"r", "refresh"},
+		}},
+		focusGroup,
+		{"App", []bind{
+			{"H/esc", "back to workspaces"},
+			{"?", "this help"},
+			{"q", "quit"},
+		}},
+	}
 }
