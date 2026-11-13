@@ -143,15 +143,15 @@ func (m model) rowLine(r row, selected bool) string {
 	l.add(mocOverlay, "", false, arrow+" ")
 	l.add(dotFG, "", false, dot)
 	if r.Name == m.current {
-		// The pill's left pad sits in the gap after the dot, so the name
-		// still starts in the same column as the other sessions.
-		l.add(mocBase, mocMauve, true, " "+ansi.Truncate(r.Name, nameW-1, "…")+" ")
+		// A plain gap after the dot keeps the pill from touching it.
+		l.add(mocText, "", false, " ")
+		l.add(mocBase, mocMauve, true, " "+ansi.Truncate(r.Name, nameW-2, "…")+" ")
 	} else {
 		fg := mocText
 		if !r.Live {
 			fg = mocSub
 		}
-		l.add(fg, "", false, " "+ansi.Truncate(r.Name, nameW, "…"))
+		l.add(fg, "", false, "  "+ansi.Truncate(r.Name, nameW-1, "…"))
 	}
 	if meta != "" {
 		l.padTo(sidebarW - len(meta) - 1)
