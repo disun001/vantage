@@ -561,6 +561,8 @@ func (m model) popup() []string {
 		return m.taskFormBox()
 	case m.pform != nil:
 		return m.projFormBox()
+	case m.projDel != nil:
+		return m.projDel.box(m.w)
 	case m.hostDel != nil:
 		return m.hostDel.box(m.w)
 	case m.hostPick != nil:

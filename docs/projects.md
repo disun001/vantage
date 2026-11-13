@@ -39,6 +39,7 @@ Unknown keys are an error. `url`, `dir`, `copy` entries and branch names are val
 Pristine bases: the user and agents work in task worktrees, not here.
 
 - `project sync`: clone repos that are missing.
+- `project rm <name> [--force]`: remove every task, the main clones and the project file. Refuses if a task or clone has uncommitted or unpushed work (tasks: also unmerged); `--force` skips that. Workspace files are kept.
 - `project status`: per repo, branch, ahead/behind, dirty, worktree count. Warns when a main clone is dirty or off its default branch. Never blocks or resets.
 - `project update`: `git fetch` everywhere, then fast-forward (`merge --ff-only`) only clones that are clean, on their default branch, with an upstream and not diverged. Others are reported as skipped.
 
@@ -90,7 +91,8 @@ A task's workspace is found by the `project` and `task` keys, not by file name, 
 - **Opening a task** (from the list, or right after `new`) returns to the workspaces sidebar on that task's workspace: found by its `project` and `task` keys, created when none exists, its session started if it is not live, then shown with focus.
 - A failure (a taken branch, a bad URL) stays on the details page as a notice.
 - `alt+s` and mouse clicks on the details page do nothing: there is no tmux to focus.
-- Not in the TUI: `task rm`, `update`, `sync` and editing a project. Use the CLI.
+- **Delete:** `d` on the project list deletes the project, `d` on the task list deletes the task. `y` is the safe delete (refuses if work would be lost, the reason shows in the notice), `f` forces.
+- Not in the TUI: `update`, `sync` and editing a project. Use the CLI.
 
 ## Deferred
 

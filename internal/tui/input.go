@@ -49,6 +49,9 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.pform != nil {
 		return m.onProjFormKey(k)
 	}
+	if m.projDel != nil {
+		return m.onProjDelKey(k)
+	}
 	if m.hostDel != nil {
 		return m.onHostDelKey(k)
 	}

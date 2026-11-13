@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/disun001/vantage/internal/git"
@@ -12,16 +13,19 @@ import (
 
 var projectCmd = command{
 	name:    "project",
-	usage:   "project list|sync|status|update [name]",
+	usage:   "project list|sync|status|update|rm [name]",
 	summary: "manage projects (sets of git repos)",
 	run:     runProject,
 }
 
 func runProject(args []string, out io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: vantage project list|sync|status|update [name]")
+		return errors.New("usage: vantage project list|sync|status|update|rm [name]")
 	}
 	sub, rest := args[0], args[1:]
+	if sub == "rm" {
+		return runProjectRm(rest, out)
+	}
 	if sub == "list" {
 		return projectList(out)
 	}
@@ -46,6 +50,30 @@ func runProject(args []string, out io.Writer) error {
 		return project.Update(root, p, git.Client{}, out)
 	}
 	return printStatus(out, project.Check(root, p, git.Client{}))
+}
+
+// runProjectRm handles `project rm <name> [--force]`.
+func runProjectRm(args []string, out io.Writer) error {
+	const usage = "usage: vantage project rm <name> [--force]"
+	force, names := false, []string{}
+	for _, a := range args {
+		switch {
+		case a == "--force":
+			force = true
+		case strings.HasPrefix(a, "-"):
+			return fmt.Errorf("unknown flag %q", a)
+		default:
+			names = append(names, a)
+		}
+	}
+	if len(names) != 1 {
+		return errors.New(usage)
+	}
+	p, root, err := loadProject(names[0])
+	if err != nil {
+		return err
+	}
+	return project.Remove(root, p, git.Client{}, force, out)
 }
 
 func projectList(out io.Writer) error {

@@ -19,6 +19,11 @@ type ProjectStore interface {
 	Create(ProjectDef) error
 	// NewTask creates a task's worktrees in the picked repos.
 	NewTask(project, task string, repos []TaskPick) error
+	// Remove deletes a project with its tasks and clones. Without force it
+	// refuses when work would be lost.
+	Remove(name string, force bool) error
+	// RemoveTask deletes a task's worktrees, with the same refusal.
+	RemoveTask(project, task string, force bool) error
 	// Workspace returns the name of the task's workspace, creating the
 	// workspace when none is linked to the task.
 	Workspace(project, task string) (string, error)
@@ -74,6 +79,10 @@ type (
 	projCreatedMsg struct { // a project add finished
 		name string
 		err  error
+	}
+	projRemovedMsg struct { // a project or task delete finished
+		project, task string // task is empty for a project
+		err           error
 	}
 	taskOpenMsg struct { // a task was created or picked: its workspace is ready
 		workspace string
@@ -176,6 +185,9 @@ func (m model) onProjDetail(msg projDetailMsg) model {
 	}
 	m.projInfo = &msg.info
 	m.taskCur = max(0, min(m.taskCur, len(msg.info.Tasks)-1))
+	if len(msg.info.Tasks) == 0 {
+		m.projFocus = false // the last task was deleted
+	}
 	return m
 }
 
@@ -228,6 +240,8 @@ func (m model) onProjectKey(s string) (tea.Model, tea.Cmd) {
 		}
 	case "a":
 		m.pform, m.notice = newProjForm(), ""
+	case "d":
+		return m.startProjDel(""), nil
 	case "P", "esc", "h", "left":
 		return m.toggleProjects()
 	}
@@ -246,6 +260,8 @@ func (m model) onTaskKey(s string) (tea.Model, tea.Cmd) {
 		m.taskCur = 0
 	case "G", "end":
 		m.taskCur = n - 1
+	case "d":
+		return m.startProjDel(m.projInfo.Tasks[m.taskCur].Name), nil
 	case "enter", "l", "right":
 		return m.openTask(m.projInfo.Tasks[m.taskCur].Name)
 	case "esc", "h", "left", "tab":
@@ -321,6 +337,9 @@ func (m model) updateProjects(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return next, cmd, true
 	case taskOpenMsg:
 		next, cmd := m.onTaskOpen(msg)
+		return next, cmd, true
+	case projRemovedMsg:
+		next, cmd := m.onProjRemoved(msg)
 		return next, cmd, true
 	}
 	return m, nil, false

@@ -161,12 +161,14 @@ func projectHelp() []helpGroup {
 		{"Projects", []bind{
 			{"a", "add project"},
 			{"n", "new task"},
+			{"d", "delete project (list) or task"},
 			{"⏎", "open task (list: step in)"},
 			{"h/esc", "step out / back"},
 			{"r", "refresh"},
 		}},
 		{"App", []bind{
 			{"P", "back to workspaces"},
+			{"H", "ssh hosts"},
 			{"?", "this help"},
 			{"q", "quit"},
 		}},

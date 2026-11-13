@@ -80,6 +80,22 @@ func (s projectStore) NewTask(name, task string, picks []tui.TaskPick) error {
 	return project.NewTask(root, p, s.git, task, repos, io.Discard)
 }
 
+func (s projectStore) Remove(name string, force bool) error {
+	p, root, err := loadProject(name)
+	if err != nil {
+		return err
+	}
+	return project.Remove(root, p, s.git, force, io.Discard)
+}
+
+func (s projectStore) RemoveTask(name, task string, force bool) error {
+	p, root, err := loadProject(name)
+	if err != nil {
+		return err
+	}
+	return project.RemoveTask(root, p, s.git, task, force, io.Discard)
+}
+
 func (projectStore) Workspace(name, task string) (string, error) {
 	p, root, err := loadProject(name)
 	if err != nil {

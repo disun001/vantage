@@ -41,6 +41,16 @@ func (f *fakeProjects) NewTask(p, task string, picks []TaskPick) error {
 	return f.err
 }
 
+func (f *fakeProjects) Remove(name string, force bool) error {
+	f.calls = append(f.calls, fmt.Sprintf("rm %s %v", name, force))
+	return f.err
+}
+
+func (f *fakeProjects) RemoveTask(p, task string, force bool) error {
+	f.calls = append(f.calls, fmt.Sprintf("rmtask %s %s %v", p, task, force))
+	return f.err
+}
+
 func (f *fakeProjects) Workspace(p, task string) (string, error) {
 	f.calls = append(f.calls, "workspace "+p+" "+task)
 	return p + "-" + task, nil
@@ -321,5 +331,51 @@ func TestProjectsViewRendersWholeScreen(t *testing.T) {
 	m, _ = press(m, "esc", "a")
 	if !strings.Contains(ansiText(m.View()), "add project") {
 		t.Error("the project form must draw over the details page")
+	}
+}
+
+func TestProjectDeleteAsksThenRemoves(t *testing.T) {
+	f := &fakeProjects{infos: stackInfos()}
+	m := openProjects(t, f, new([]string))
+	m, _ = press(m, "d")
+	if m.projDel == nil || !strings.Contains(ansiText(strings.Join(m.projDel.box(80), "\n")), "2 task(s)") {
+		t.Fatal("d must open the delete question")
+	}
+	m, cmd := press(m, "x") // any other key cancels
+	if m.projDel != nil || cmd != nil || len(f.calls) != 0 {
+		t.Fatalf("cancel removed something: %v", f.calls)
+	}
+	m, _ = press(m, "d")
+	_, cmd = press(m, "f")
+	settleAll(m, cmd)
+	if got := strings.Join(f.calls, "|"); got != "rm api-stack true" {
+		t.Errorf("calls = %q", got)
+	}
+}
+
+func TestTaskDeleteFromTaskList(t *testing.T) {
+	f := &fakeProjects{infos: stackInfos()}
+	m := openProjects(t, f, new([]string))
+	m, _ = press(m, "l")
+	m, _ = press(m, "j")
+	m, _ = press(m, "d")
+	if m.projDel == nil || m.projDel.task != "other" {
+		t.Fatalf("projDel = %+v", m.projDel)
+	}
+	m, cmd := press(m, "y")
+	settleAll(m, cmd)
+	if got := strings.Join(f.calls, "|"); got != "rmtask api-stack other false" {
+		t.Errorf("calls = %q", got)
+	}
+}
+
+func TestProjectDeleteRefusalShownOnOneLine(t *testing.T) {
+	f := &fakeProjects{infos: stackInfos(), err: errors.New("has work\n  api: dirty")}
+	m := openProjects(t, f, new([]string))
+	m, _ = press(m, "d")
+	m, cmd := press(m, "y")
+	m = settleAll(m, cmd)
+	if m.notice != "has work api: dirty" {
+		t.Errorf("notice = %q", m.notice)
 	}
 }

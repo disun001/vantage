@@ -103,11 +103,12 @@ type model struct {
 	projInfo  *ProjectInfo // its details, once loaded
 	projFocus bool         // keys go to the task list on the details page
 	taskCur   int
-	tform     *taskForm // the add-task pop-up
-	pform     *projForm // the add-project pop-up
-	help      bool      // the key help pop-up is open
-	shown     bool      // a live session was auto-shown once; do not re-attach after a detach
-	mode      tmux.Mode // PREFIX, COPY or SYNC of the embedded client, for the title pill
+	tform     *taskForm   // the add-task pop-up
+	pform     *projForm   // the add-project pop-up
+	projDel   *projDelete // the delete question, while it is open
+	help      bool        // the key help pop-up is open
+	shown     bool        // a live session was auto-shown once; do not re-attach after a detach
+	mode      tmux.Mode   // PREFIX, COPY or SYNC of the embedded client, for the title pill
 }
 
 // statusBar is the tmux status bar of the embedded client. The embedded
@@ -241,7 +242,7 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.onReady(msg)
 	case manageMsg:
 		return m.onManage(msg)
-	case projectsMsg, projDetailMsg, projCreatedMsg, taskOpenMsg:
+	case projectsMsg, projDetailMsg, projCreatedMsg, taskOpenMsg, projRemovedMsg:
 		next, cmd, _ := m.updateProjects(msg)
 		return next, cmd
 	case edgeMsg:
