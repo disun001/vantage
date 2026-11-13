@@ -17,12 +17,10 @@ import (
 type Workspace struct {
 	Name string `toml:"name"`
 	Root string `toml:"root"`
-	// Project links the workspace to a project (see internal/project), and
-	// Task to one of its tasks. When Root is empty the link supplies it: the
-	// project dir, or the task dir. Both are names, validated like workspace
-	// names. Task needs Project.
+	// Project links the workspace to a project (see internal/project). When
+	// Root is empty the link supplies it: the project dir. It is a name,
+	// validated like workspace names.
 	Project string   `toml:"project"`
-	Task    string   `toml:"task"`
 	Windows []Window `toml:"window"`
 }
 
@@ -110,9 +108,6 @@ func (w Workspace) Validate() error {
 	}
 	if w.Project != "" && !nameRe.MatchString(w.Project) {
 		return fmt.Errorf("invalid project name %q", w.Project)
-	}
-	if w.Task != "" && (w.Project == "" || !nameRe.MatchString(w.Task)) {
-		return fmt.Errorf("invalid task %q (needs a project and a plain name)", w.Task)
 	}
 	if len(w.Windows) == 0 {
 		return fmt.Errorf("workspace %q has no windows", w.Name)

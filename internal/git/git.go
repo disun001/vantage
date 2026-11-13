@@ -28,8 +28,6 @@ type Status struct {
 	Ahead, Behind int
 	// Dirty means uncommitted changes or untracked files.
 	Dirty bool
-	// Worktrees counts linked worktrees, not the main one.
-	Worktrees int
 }
 
 func (c Client) bin() string {
@@ -104,10 +102,5 @@ func (c Client) Status(dir string) (Status, error) {
 		return st, err
 	}
 	st.Dirty = porcelain != ""
-	wt, err := c.run(dir, "worktree", "list", "--porcelain")
-	if err != nil {
-		return st, err
-	}
-	st.Worktrees = strings.Count("\n"+wt, "\nworktree ") - 1
 	return st, nil
 }

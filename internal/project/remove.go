@@ -11,9 +11,9 @@ import (
 	"github.com/disun001/vantage/internal/git"
 )
 
-// Remove deletes a project: every task (worktrees and dir), the main clones
-// and the definition file. Without force it first refuses if any task or
-// clone has work that would be lost, and nothing is touched. The definition
+// Remove deletes a project: the clones and the definition file. Without force
+// it first refuses if any clone has work that would be lost, and nothing is
+// touched. The definition
 // file goes last, so a failure part way can be retried. Workspace files are
 // never deleted: they may hold edits.
 func Remove(root string, p Project, g git.Client, force bool, out io.Writer) error {
@@ -24,19 +24,10 @@ func Remove(root string, p Project, g git.Client, force bool, out io.Writer) err
 	if err != nil {
 		return err
 	}
-	tasks, err := ListTasks(root, p)
-	if err != nil {
-		return err
-	}
 	if !force {
-		if problems := projectProblems(root, p, g, tasks); len(problems) > 0 {
+		if problems := projectProblems(root, p, g); len(problems) > 0 {
 			return fmt.Errorf("project %q has work that would be lost (use --force):\n  %s",
 				p.Name, strings.Join(problems, "\n  "))
-		}
-	}
-	for _, t := range tasks {
-		if err := RemoveTask(root, p, g, t, force, out); err != nil {
-			return fmt.Errorf("task %s: %w", t, err)
 		}
 	}
 	if err := removeClones(root, p, out); err != nil {
@@ -46,20 +37,12 @@ func Remove(root string, p Project, g git.Client, force bool, out io.Writer) err
 		return err
 	}
 	fmt.Fprintf(out, "removed project %s\n", p.Name)
-	for _, t := range tasks {
-		warnWorkspace(p.Name, t, out)
-	}
 	return nil
 }
 
 // projectProblems lists the work that removing the project would lose.
-func projectProblems(root string, p Project, g git.Client, tasks []string) []string {
+func projectProblems(root string, p Project, g git.Client) []string {
 	var out []string
-	for _, t := range tasks {
-		for _, pr := range taskProblems(root, p, g, t, TaskRepos(root, p, t)) {
-			out = append(out, "task "+t+" "+pr)
-		}
-	}
 	for _, r := range p.Repos {
 		dir := p.RepoPath(root, r)
 		if ok, _ := isClone(dir); !ok {

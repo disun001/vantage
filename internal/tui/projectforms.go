@@ -37,23 +37,23 @@ func fieldLine(label, text string, focus bool, labelW, inner int) string {
 	return fit(dimStyle.Render(fit(label, labelW))+text, inner)
 }
 
-// projForm is the add-project pop-up: name, flat, and one block of url, dir
-// and copy per repo.
+// projForm is the add-project pop-up: name, flat, and one block of url and
+// dir per repo.
 type projForm struct {
 	name  string
 	flat  bool
 	repos []projFormRepo
-	focus int // 0 name, 1 flat, then three per repo
+	focus int // 0 name, 1 flat, then two per repo
 	err   string
 }
 
-type projFormRepo struct{ url, dir, copy string }
+type projFormRepo struct{ url, dir string }
 
 func newProjForm() *projForm { return &projForm{repos: []projFormRepo{{}}} }
 
-var projRepoLabels = [3]string{"url", "dir", "copy"}
+var projRepoLabels = [2]string{"url", "dir"}
 
-func (f *projForm) fields() int { return 2 + 3*len(f.repos) }
+func (f *projForm) fields() int { return 2 + 2*len(f.repos) }
 
 // ptr is the text of field i, or nil for the flat toggle.
 func (f *projForm) ptr(i int) *string {
@@ -63,20 +63,14 @@ func (f *projForm) ptr(i int) *string {
 	case 1:
 		return nil
 	}
-	r := &f.repos[(i-2)/3]
-	return []*string{&r.url, &r.dir, &r.copy}[(i-2)%3]
+	r := &f.repos[(i-2)/2]
+	return []*string{&r.url, &r.dir}[(i-2)%2]
 }
 
 func (f projForm) def() ProjectDef {
 	d := ProjectDef{Name: f.name, Flat: f.flat}
 	for _, r := range f.repos {
-		rd := RepoDef{URL: r.url, Dir: r.dir}
-		for _, c := range strings.Split(r.copy, ",") {
-			if c = strings.TrimSpace(c); c != "" {
-				rd.Copy = append(rd.Copy, c)
-			}
-		}
-		d.Repos = append(d.Repos, rd)
+		d.Repos = append(d.Repos, RepoDef{URL: r.url, Dir: r.dir})
 	}
 	return d
 }
@@ -96,10 +90,10 @@ func (m model) onProjFormKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		f.focus = (f.focus + f.fields() - 1) % f.fields()
 	case tea.KeyCtrlA:
 		f.repos = append(f.repos, projFormRepo{})
-		f.focus = f.fields() - 3
+		f.focus = f.fields() - 2
 	case tea.KeyCtrlX:
 		if f.focus >= 2 && len(f.repos) > 1 {
-			i := (f.focus - 2) / 3
+			i := (f.focus - 2) / 2
 			f.repos = append(f.repos[:i], f.repos[i+1:]...)
 			f.focus = min(f.focus, f.fields()-1)
 		}
@@ -147,14 +141,14 @@ func (m model) projFormBox() []string {
 	}
 	for i, r := range f.repos {
 		rows = append(rows, "", dimStyle.Render(strings.Repeat("─", 2)+" repo "+string(rune('1'+i))))
-		for j, v := range []string{r.url, r.dir, r.copy} {
-			rows = append(rows, fieldLine(projRepoLabels[j], v, f.focus == 2+3*i+j, 7, inner))
+		for j, v := range []string{r.url, r.dir} {
+			rows = append(rows, fieldLine(projRepoLabels[j], v, f.focus == 2+2*i+j, 7, inner))
 		}
 	}
 	rows = append(rows, "")
 	if f.err != "" {
 		rows = append(rows, noticeStyle.Render(f.err))
 	}
-	rows = append(rows, dimStyle.Render("tab next · ctrl+a add repo · ctrl+x drop"), dimStyle.Render("copy: comma-separated globs · enter save · esc"))
+	rows = append(rows, dimStyle.Render("tab next · ctrl+a add repo · ctrl+x drop"), dimStyle.Render("enter save · esc"))
 	return framed(rows, inner)
 }

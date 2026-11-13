@@ -127,9 +127,7 @@ func TestAddProjectForm(t *testing.T) {
 	m = typed(m, "newp")
 	m, _ = press(m, "tab", "tab") // skip flat → repo 1 url
 	m = typed(m, "git@example.invalid:o/a.git")
-	m, _ = press(m, "tab", "tab") // dir blank → copy
-	m = typed(m, ".env,cfg/*.json")
-	m, _ = press(m, "ctrl+a") // a second repo, focus on its url
+	m, _ = press(m, "ctrl+a") // dir blank; a second repo, focus on its url
 	m = typed(m, "https://example.invalid/o/b")
 	m, _ = press(m, "tab")
 	m = typed(m, "frontend")
@@ -138,7 +136,7 @@ func TestAddProjectForm(t *testing.T) {
 		t.Fatalf("enter must close the form and run: %+v", m.pform)
 	}
 	m = settleAll(m, cmd)
-	want := "create {Name:newp Flat:false Repos:[{URL:git@example.invalid:o/a.git Dir: Copy:[.env cfg/*.json]} {URL:https://example.invalid/o/b Dir:frontend Copy:[]}]}"
+	want := "create {Name:newp Flat:false Repos:[{URL:git@example.invalid:o/a.git Dir:} {URL:https://example.invalid/o/b Dir:frontend}]}"
 	if len(f.calls) != 1 || f.calls[0] != want {
 		t.Errorf("calls = %q\nwant    %q", f.calls, want)
 	}

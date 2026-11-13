@@ -12,24 +12,21 @@ import (
 func TestRemoveProject(t *testing.T) {
 	g := git.Client{}
 	setup := func(t *testing.T) (string, Project) {
-		root, p, _ := taskFixture(t)
+		root, p := fixture(t)
 		t.Setenv("VANTAGE_CONFIG_DIR", t.TempDir())
 		t.Setenv("VANTAGE_PROJECTS_DIR", root)
 		if err := Save(p); err != nil {
 			t.Fatal(err)
 		}
-		if err := NewTask(root, p, g, "t", nil, &bytes.Buffer{}); err != nil {
-			t.Fatal(err)
-		}
 		return root, p
 	}
-	t.Run("removes tasks, clones and definition", func(t *testing.T) {
+	t.Run("removes clones and definition", func(t *testing.T) {
 		root, p := setup(t)
 		if err := Remove(root, p, g, false, &bytes.Buffer{}); err != nil {
 			t.Fatal(err)
 		}
 		file, _ := PathOf(p.Name)
-		for _, path := range []string{file, p.Path(root), p.TaskPath(root, "t")} {
+		for _, path := range []string{file, p.Path(root)} {
 			if exists(path) {
 				t.Errorf("%s should be gone", path)
 			}
@@ -38,24 +35,15 @@ func TestRemoveProject(t *testing.T) {
 			t.Errorf("List = %v", names)
 		}
 	})
-	t.Run("dirty task blocks, nothing touched", func(t *testing.T) {
-		root, p := setup(t)
-		write(t, filepath.Join(p.TaskRepoPath(root, "t", p.Repos[1]), "wip.txt"), "x")
-		err := Remove(root, p, g, false, &bytes.Buffer{})
-		if err == nil || !strings.Contains(err.Error(), "task t web: uncommitted") {
-			t.Fatalf("want refusal, got %v", err)
-		}
-		file, _ := PathOf(p.Name)
-		if !exists(file) || !exists(p.RepoPath(root, p.Repos[0])) || !exists(p.TaskPath(root, "t")) {
-			t.Error("a refusal must touch nothing")
-		}
-	})
 	t.Run("dirty main clone blocks, force removes", func(t *testing.T) {
 		root, p := setup(t)
 		write(t, filepath.Join(p.RepoPath(root, p.Repos[0]), "wip.txt"), "x")
 		err := Remove(root, p, g, false, &bytes.Buffer{})
 		if err == nil || !strings.Contains(err.Error(), "api: uncommitted") {
 			t.Fatalf("want refusal, got %v", err)
+		}
+		if file, _ := PathOf(p.Name); !exists(file) || !exists(p.RepoPath(root, p.Repos[1])) {
+			t.Error("a refusal must touch nothing")
 		}
 		if err := Remove(root, p, g, true, &bytes.Buffer{}); err != nil {
 			t.Fatal(err)

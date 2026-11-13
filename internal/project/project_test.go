@@ -9,7 +9,6 @@ func TestParseFull(t *testing.T) {
 	p, err := parse(`
 [[repo]]
 url = "git@example.invalid:org/api.git"
-copy = [".env", "config/*.local.json"]
 
 [[repo]]
 url = "https://example.invalid/org/web"
@@ -76,15 +75,9 @@ func TestValidate(t *testing.T) {
 		{"dir .git", with(Repo{URL: ok.URL, Dir: ".git"}), "invalid dir"},
 		{"derived dir empty", with(Repo{URL: "ssh://example.invalid/.git"}), "invalid dir"},
 		{"duplicate dir", with(ok, Repo{URL: "https://example.invalid/other/api.git"}), "already used"},
-		{"copy abs", with(Repo{URL: ok.URL, Copy: []string{"/etc/passwd"}}), "relative"},
-		{"copy dotdot", with(Repo{URL: ok.URL, Copy: []string{"../x"}}), "relative"},
-		{"copy sneaky dotdot", with(Repo{URL: ok.URL, Copy: []string{"a/../../x"}}), "relative"},
-		{"copy .git", with(Repo{URL: ok.URL, Copy: []string{".git/config"}}), ".git"},
-		{"copy empty", with(Repo{URL: ok.URL, Copy: []string{""}}), "empty"},
 		{"flat ok", Project{Name: "p", Flat: true, Repos: []Repo{ok}}, ""},
 		{"flat two repos", Project{Name: "p", Flat: true, Repos: []Repo{ok, {URL: ok.URL, Dir: "b"}}}, "flat"},
 		{"flat with dir", Project{Name: "p", Flat: true, Repos: []Repo{{URL: ok.URL, Dir: "x"}}}, "flat"},
-		{"copy glob ok", with(Repo{URL: ok.URL, Copy: []string{".env*", "cfg/*.json"}}), ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

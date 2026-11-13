@@ -91,19 +91,19 @@ func projectList(out io.Writer) error {
 // shown and reported in the returned error, so the exit code is non-zero.
 func printStatus(out io.Writer, rows []project.RepoStatus) error {
 	tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "REPO\tBRANCH\tSYNC\tDIRTY\tWORKTREES\tWARN")
+	fmt.Fprintln(tw, "REPO\tBRANCH\tSYNC\tDIRTY\tWARN")
 	var errs []error
 	for _, r := range rows {
 		name := r.Repo.DirName()
 		switch {
 		case r.Err != nil:
-			fmt.Fprintf(tw, "%s\terror\t\t\t\t%v\n", name, r.Err)
+			fmt.Fprintf(tw, "%s\terror\t\t\t%v\n", name, r.Err)
 			errs = append(errs, fmt.Errorf("%s: %w", name, r.Err))
 		case !r.Cloned:
-			fmt.Fprintf(tw, "%s\tnot cloned\t\t\t\trun: vantage project sync\n", name)
+			fmt.Fprintf(tw, "%s\tnot cloned\t\t\trun: vantage project sync\n", name)
 		default:
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\n", name, branchLabel(r), syncLabel(r),
-				yesNo(r.Git.Dirty), r.Git.Worktrees, joinWarnings(r.Warnings))
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", name, branchLabel(r), syncLabel(r),
+				yesNo(r.Git.Dirty), joinWarnings(r.Warnings))
 		}
 	}
 	if err := tw.Flush(); err != nil {

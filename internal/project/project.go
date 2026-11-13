@@ -5,7 +5,6 @@ package project
 
 import (
 	"fmt"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -16,9 +15,8 @@ import (
 // Project is a named set of git repos managed together.
 type Project struct {
 	Name string `toml:"name"`
-	// Flat puts the single repo directly at the project path (and, for
-	// tasks, at the task path) instead of one directory below it. Needs
-	// exactly one repo and no dir.
+	// Flat puts the single repo directly at the project path instead of one
+	// directory below it. Needs exactly one repo and no dir.
 	Flat  bool   `toml:"flat"`
 	Repos []Repo `toml:"repo"`
 }
@@ -29,9 +27,6 @@ type Repo struct {
 	// Dir is the clone's directory name under the project dir. Defaults to
 	// the last element of URL without ".git".
 	Dir string `toml:"dir"`
-	// Copy lists untracked files (globs allowed, relative to the repo) that
-	// task worktrees need, such as .env. Used by tasks, not by sync.
-	Copy []string `toml:"copy"`
 }
 
 var (
@@ -94,26 +89,6 @@ func (p Project) Validate() error {
 			return fmt.Errorf("%s: dir %q already used by repo %d", where, dir, first)
 		}
 		seen[dir] = i + 1
-		for _, c := range r.Copy {
-			if err := validCopy(c); err != nil {
-				return fmt.Errorf("%s: copy %q: %w", where, c, err)
-			}
-		}
-	}
-	return nil
-}
-
-// validCopy accepts a relative path that stays inside the repo and does not
-// reach into .git.
-func validCopy(c string) error {
-	clean := path.Clean(c)
-	switch {
-	case c == "" || strings.ContainsAny(c, "\x00\r\n"):
-		return fmt.Errorf("empty or contains control characters")
-	case strings.Contains(c, `\`) || !filepath.IsLocal(c):
-		return fmt.Errorf("must be a relative path inside the repo")
-	case clean == ".git" || strings.HasPrefix(clean, ".git/"):
-		return fmt.Errorf("cannot reach into .git")
 	}
 	return nil
 }

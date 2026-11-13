@@ -150,9 +150,8 @@ type saveProject struct {
 }
 
 type saveRepo struct {
-	URL  string   `toml:"url"`
-	Dir  string   `toml:"dir,omitempty"`
-	Copy []string `toml:"copy,omitempty"`
+	URL string `toml:"url"`
+	Dir string `toml:"dir,omitempty"`
 }
 
 // Save validates p and writes its definition file. It never replaces an

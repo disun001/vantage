@@ -43,11 +43,8 @@ type ProjectDef struct {
 	Repos []RepoDef
 }
 
-// RepoDef is one repo of a new project. Dir and Copy may be empty.
-type RepoDef struct {
-	URL, Dir string
-	Copy     []string
-}
+// RepoDef is one repo of a new project. Dir may be empty.
+type RepoDef struct{ URL, Dir string }
 
 type (
 	projectsMsg struct { // the project list

@@ -56,7 +56,7 @@ func TestCloneAndStatus(t *testing.T) {
 	}
 }
 
-func TestStatusDirtyAheadBehindWorktrees(t *testing.T) {
+func TestStatusDirtyAheadBehind(t *testing.T) {
 	needGit(t)
 	g := Client{}
 	src := origin(t)
@@ -75,14 +75,12 @@ func TestStatusDirtyAheadBehindWorktrees(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dest, "new.txt"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// one linked worktree
-	gitIn(t, dest, "worktree", "add", "-q", "-b", "task", filepath.Join(t.TempDir(), "wt"))
 
 	st, err := g.Status(dest)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Ahead != 1 || st.Behind != 1 || !st.Dirty || st.Worktrees != 1 {
+	if st.Ahead != 1 || st.Behind != 1 || !st.Dirty {
 		t.Errorf("status = %+v", st)
 	}
 }

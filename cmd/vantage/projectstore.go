@@ -42,7 +42,7 @@ func repoInfo(r project.RepoStatus) tui.RepoInfo {
 func (s projectStore) Create(d tui.ProjectDef) error {
 	p := project.Project{Name: d.Name, Flat: d.Flat}
 	for _, r := range d.Repos {
-		p.Repos = append(p.Repos, project.Repo{URL: r.URL, Dir: r.Dir, Copy: r.Copy})
+		p.Repos = append(p.Repos, project.Repo{URL: r.URL, Dir: r.Dir})
 	}
 	if err := project.Save(p); err != nil {
 		return err

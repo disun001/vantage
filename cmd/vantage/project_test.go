@@ -91,7 +91,7 @@ func TestProjectStore(t *testing.T) {
 	t.Setenv("VANTAGE_PROJECTS_DIR", t.TempDir())
 
 	s := projectStore{}
-	if err := s.Create(tui.ProjectDef{Name: "demo", Repos: []tui.RepoDef{{URL: src, Dir: "api", Copy: []string{".env"}}}}); err != nil {
+	if err := s.Create(tui.ProjectDef{Name: "demo", Repos: []tui.RepoDef{{URL: src, Dir: "api"}}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Create(tui.ProjectDef{Name: "demo", Repos: []tui.RepoDef{{URL: src}}}); err == nil {

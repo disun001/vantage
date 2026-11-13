@@ -117,7 +117,7 @@ func TestDirPrecedence(t *testing.T) {
 	}
 }
 
-func TestValidateProjectTask(t *testing.T) {
+func TestValidateProject(t *testing.T) {
 	win := []Window{{Panes: []Pane{{}}}}
 	cases := []struct {
 		name string
@@ -126,10 +126,7 @@ func TestValidateProjectTask(t *testing.T) {
 	}{
 		{"none", Workspace{Name: "w", Windows: win}, ""},
 		{"project", Workspace{Name: "w", Project: "api", Windows: win}, ""},
-		{"project and task", Workspace{Name: "w", Project: "api", Task: "fix-1", Windows: win}, ""},
 		{"bad project", Workspace{Name: "w", Project: "a/b", Windows: win}, "invalid project"},
-		{"task without project", Workspace{Name: "w", Task: "t", Windows: win}, "invalid task"},
-		{"bad task", Workspace{Name: "w", Project: "api", Task: "../x", Windows: win}, "invalid task"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -147,7 +144,7 @@ func TestValidateProjectTask(t *testing.T) {
 func TestSaveKeepsLinkOfReplacedFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "w.toml")
 	win := []Window{{Panes: []Pane{{}}}}
-	if err := Save(path, Workspace{Name: "w", Project: "api", Task: "t1", Windows: win}, false); err != nil {
+	if err := Save(path, Workspace{Name: "w", Project: "api", Windows: win}, false); err != nil {
 		t.Fatal(err)
 	}
 	// A capture knows nothing of projects.
@@ -155,7 +152,7 @@ func TestSaveKeepsLinkOfReplacedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := Load(path)
-	if err != nil || got.Project != "api" || got.Task != "t1" {
+	if err != nil || got.Project != "api" {
 		t.Errorf("link lost: %+v, %v", got, err)
 	}
 }

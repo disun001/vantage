@@ -92,14 +92,14 @@ func TestLoadAndList(t *testing.T) {
 func TestSaveRoundTrip(t *testing.T) {
 	t.Setenv("VANTAGE_CONFIG_DIR", t.TempDir())
 	in := Project{Name: "stack", Repos: []Repo{
-		{URL: "https://example.invalid/org/api.git", Copy: []string{".env"}},
+		{URL: "https://example.invalid/org/api.git"},
 		{URL: "https://example.invalid/org/web.git", Dir: "frontend"},
 	}}
 	if err := Save(in); err != nil {
 		t.Fatal(err)
 	}
 	got, err := Load("stack")
-	if err != nil || len(got.Repos) != 2 || got.Repos[0].Copy[0] != ".env" || got.Repos[1].Dir != "frontend" || got.Flat {
+	if err != nil || len(got.Repos) != 2 || got.Repos[1].Dir != "frontend" || got.Flat {
 		t.Fatalf("round trip: %+v, %v", got, err)
 	}
 	if err := Save(in); err == nil || !strings.Contains(err.Error(), "already exists") {

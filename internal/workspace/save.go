@@ -30,7 +30,6 @@ type saveWorkspace struct {
 	Name    string       `toml:"name"`
 	Root    string       `toml:"root,omitempty"`
 	Project string       `toml:"project,omitempty"`
-	Task    string       `toml:"task,omitempty"`
 	Windows []saveWindow `toml:"window"`
 }
 
@@ -65,7 +64,7 @@ func Save(path string, ws Workspace, overwrite bool) (err error) {
 }
 
 func toSave(ws Workspace) saveWorkspace {
-	out := saveWorkspace{Name: ws.Name, Root: ws.Root, Project: ws.Project, Task: ws.Task}
+	out := saveWorkspace{Name: ws.Name, Root: ws.Root, Project: ws.Project}
 	for _, w := range ws.Windows {
 		sw := saveWindow{Name: w.Name, Layout: w.Layout}
 		for _, p := range w.Panes {
@@ -100,9 +99,9 @@ func SaveBackup(path string, ws Workspace) error {
 	return Save(path, ws, true)
 }
 
-// keepLink carries the project and task of the file being replaced into ws
-// when ws has none. A capture reads a live session, which knows nothing of
-// projects, and must not sever a task workspace from its task.
+// keepLink carries the project of the file being replaced into ws when ws
+// has none. A capture reads a live session, which knows nothing of projects,
+// and must not sever a workspace from its project.
 func keepLink(path string, ws Workspace) Workspace {
 	if ws.Project != "" {
 		return ws
@@ -111,6 +110,6 @@ func keepLink(path string, ws Workspace) Workspace {
 	if err != nil {
 		return ws
 	}
-	ws.Project, ws.Task = old.Project, old.Task
+	ws.Project = old.Project
 	return ws
 }
