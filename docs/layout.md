@@ -14,9 +14,9 @@ internal/connections/ which ssh hosts are already open in live tmux panes
 internal/pick/      fuzzy menu (local or ssh) and the split it creates
 internal/embed/     runs a program in a PTY and mirrors it in a virtual screen
 internal/tui/       sidebar of sessions + embedded tmux client, focus keys
-internal/chat/      (planned) chat core: Provider interface, claude stream-json child, event mapping. No UI, no tmux
+internal/chat/      chat core: Provider interface, claude stream-json child, event mapping. No UI, no tmux
 internal/chatui/    (planned) Bubble Tea chat view run by `vantage chat`
-internal/store/     (planned) SQLite connection, goose migrations, sqlc queries. The only importer of the driver
+internal/store/     SQLite connection, goose migrations, sqlc queries. The only importer of the driver
 examples/tmux       tmux snippet binding prefix S / V to the picker
 examples/workspaces sample definitions (the only workspace files tracked)
 docs/               contributor docs

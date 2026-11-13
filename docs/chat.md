@@ -1,6 +1,6 @@
 # Chat
 
-Status: **planned**. Nothing here is built yet. Slices are at the bottom.
+Status: **slice 0 built** (`internal/chat`, `internal/store`). No UI yet. Slices are at the bottom.
 
 Native AI chat inside vantage. Claude only at first. A chat is a Bubble Tea
 program (`vantage chat`) that runs in a normal tmux pane and drives the
@@ -40,8 +40,10 @@ tmux pane ── vantage chat <id> ── claude -p (stream-json, plan mode)
 
 ## Event mapping
 
-Claude stream-json lines are mapped on write. The exact shapes must be
-confirmed against a real captured transcript (slice 0, first fixture).
+Claude stream-json lines are mapped on write (`internal/chat/claude_map.go`).
+Shapes were confirmed against a real transcript:
+`internal/chat/testdata/tooluse.jsonl`. The child emits `init` again on every
+turn, and one child serves many turns while stdin stays open.
 
 | Claude line                        | Stored `kind`    | Notes                                              |
 | ---------------------------------- | ---------------- | -------------------------------------------------- |
@@ -53,8 +55,11 @@ confirmed against a real captured transcript (slice 0, first fixture).
 | `result`                           | `turn_end`       | cost, usage and `is_error` in `raw`                |
 | spawn failure, bad JSON, exit      | `error`          | `text` has the reason                              |
 
-Every row keeps the original line in `raw`. Unknown line types are stored
-with `kind = 'unknown'` and never dropped.
+The first event of each line keeps the original line in `raw`. Unknown line
+types are stored with `kind = 'unknown'` and never dropped. Only known noise
+is skipped: `hook_started`, `hook_response`, `commands_changed` (tens of KB
+per turn) and `rate_limit_event`. The `session` event text is
+`model=... auth=...`; `apiKeySource: none` means the subscription.
 
 ## Turns and status
 
@@ -80,7 +85,7 @@ with `kind = 'unknown'` and never dropped.
 
 | Slice | Scope                                                                                                              |
 | ----- | ------------------------------------------------------------------------------------------------------------------ |
-| 0     | `internal/chat` (spawn, parse, `Provider`), `internal/store` (schema, goose, sqlc), fake `claude`, first real fixture |
+| 0 (done) | `internal/chat` (spawn, parse, `Provider`), `internal/store` (schema, goose, sqlc), fake `claude`, first real fixture |
 | 1     | `vantage chat`: bare transcript UI (streamed text, tool calls as one-line markers, multi-line input), picker row, resume |
 | 2     | Markdown rendering (glamour), collapsible tool calls, status line (model, auth source, tokens)                     |
 | 3     | Sidebar shows each chat's state from SQLite                                                                        |

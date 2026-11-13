@@ -1,6 +1,6 @@
 # Storage
 
-Status: **planned**. Workspaces stay TOML files (`workspace-format.md`). This
+Status: **slice 0 built**. Workspaces stay TOML files (`workspace-format.md`). This
 doc covers the SQLite database that chat introduces.
 
 ## Decisions
@@ -60,9 +60,8 @@ only with a new goose migration.
 - Migrations: `internal/store/migrations/NNNN_name.sql`, embedded.
 - Queries: `internal/store/queries/*.sql`. Generated Go goes to
   `internal/store/gen/` and is committed. Never edit generated files.
-- `make gen` runs `sqlc generate`. `make check` fails if regenerating changes
-  the tree. `sqlc` must be on `PATH` (documented in `workflow.md` once the
-  target exists).
+- `make gen` runs `sqlc generate` (pinned as a `tool` in `go.mod`, no install
+  needed). `make check` fails if regenerating changes the tree.
 
 ## Rules
 
