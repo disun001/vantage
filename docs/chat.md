@@ -1,6 +1,6 @@
 # Chat
 
-Status: **slice 2 built** (`internal/chat`, `internal/store`, `internal/chatui`, `vantage chat`). Slices are at the bottom.
+Status: **slice 3 built** (`internal/chat`, `internal/store`, `internal/chatui`, `vantage chat`). Slices are at the bottom.
 
 Native AI chat inside vantage. Claude only at first. A chat is a Bubble Tea
 program (`vantage chat`) that runs in a normal tmux pane and drives the
@@ -77,6 +77,24 @@ per turn) and `rate_limit_event`. The `session` event text is
   size and total output tokens.
 - Text appears per whole message, not per token (see Events).
 
+## Sidebar markers
+
+The sidebar polls the database (every 2 s with its other data) and matches
+each chat's pane id to a live pane. A marker sits left of the pane count on the
+window row; a collapsed session shows the most urgent one of its chats.
+
+| Marker | Status        | Colour   |
+| ------ | ------------- | -------- |
+| `◇`    | `idle`        | dim      |
+| `◆`    | `running`     | blue     |
+| `✖`    | `error`       | red      |
+| `⊘`    | `interrupted` | lavender |
+
+Urgency order: error, interrupted, running, idle. `chats.pane_id` and
+`chats.tmux_socket` are rewritten whenever a chat opens, since pane ids change
+and repeat across tmux servers. The sidebar never creates the database: it
+opens it only once the file exists.
+
 ## Turns and status
 
 `chats.status` is one of `idle`, `running`, `error`, `interrupted`.
@@ -104,7 +122,7 @@ per turn) and `rate_limit_event`. The `session` event text is
 | 0 (done) | `internal/chat` (spawn, parse, `Provider`), `internal/store` (schema, goose, sqlc), fake `claude`, first real fixture |
 | 1 (done) | `vantage chat`: bare transcript UI (whole messages, tool calls as one-line markers, multi-line input), picker row, resume |
 | 2 (done) | Markdown rendering (glamour), tool results toggled with `ctrl+o`, header with model, auth source and tokens       |
-| 3     | Sidebar shows each chat's state from SQLite                                                                        |
+| 3 (done) | Sidebar shows each chat's state from SQLite                                                                    |
 | Later | `[[chat]]` entry in the workspace file for restore, hooks (chat to task), remote host chats, permission prompts, more providers |
 
 ## Testing

@@ -140,7 +140,12 @@ func (m model) rowLine(r row, selected bool) string {
 			}
 		}
 	}
-	nameW := max(sidebarW-4-len(meta)-1, 1)
+	// A collapsed session shows its chat state, since its windows are hidden.
+	chat := ""
+	if r.Live && !m.expanded(r) {
+		chat = r.Chat
+	}
+	nameW := max(sidebarW-4-len(meta)-1-chatCells(chat), 1)
 	l.add(mocOverlay, "", false, arrow+" ")
 	l.add(dotFG, "", false, dot)
 	if r.Name == m.current {
@@ -155,7 +160,8 @@ func (m model) rowLine(r row, selected bool) string {
 		l.add(fg, "", false, "  "+ansi.Truncate(r.Name, nameW-1, "…"))
 	}
 	if meta != "" {
-		l.padTo(sidebarW - len(meta) - 1)
+		l.padTo(sidebarW - len(meta) - 1 - chatCells(chat))
+		l.addChat(chat, "")
 		l.add(mocOverlay, "", false, meta)
 	}
 	l.padTo(sidebarW)
@@ -190,9 +196,10 @@ func (m model) winLine(r row, i int, selected bool) string {
 	}
 	l.add(mocOverlay, "", false, "  "+guide) // hangs under the session's dot
 	l.add(mocBase, chip, bold, num)
-	nameW := max(1, sidebarW-1-l.w-3-len(meta))
+	nameW := max(1, sidebarW-1-l.w-3-len(meta)-chatCells(w.Chat))
 	l.add(mocText, tile, bold, " "+ansi.Truncate(w.Name, nameW, "…"))
-	l.padBg(sidebarW-len(meta)-2, tile)
+	l.padBg(sidebarW-len(meta)-2-chatCells(w.Chat), tile)
+	l.addChat(w.Chat, tile)
 	l.add(mocOverlay2, tile, false, meta+" ")
 	l.padTo(sidebarW)
 	return l.String()
@@ -214,4 +221,27 @@ func (m model) noticeLines() []string {
 		lines[maxNoticeLines-1] = ansi.Truncate(lines[maxNoticeLines-1], sidebarW-1, "") + "…"
 	}
 	return lines
+}
+
+// chatMark is the glyph and color of a chat status in the sidebar.
+var chatMark = map[string]struct{ glyph, fg string }{
+	"idle":        {"◇", mocOverlay2},
+	"running":     {"◆", mocBlue},
+	"error":       {"✖", mocRed},
+	"interrupted": {"⊘", mocLavender},
+}
+
+// chatCells is how many columns a chat marker and its gap take.
+func chatCells(status string) int {
+	if _, ok := chatMark[status]; ok {
+		return 2
+	}
+	return 0
+}
+
+// addChat appends the marker for a chat status, if it has one.
+func (l *lineBuf) addChat(status, bg string) {
+	if mk, ok := chatMark[status]; ok {
+		l.add(mk.fg, bg, false, mk.glyph+" ")
+	}
 }

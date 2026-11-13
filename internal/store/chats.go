@@ -25,6 +25,7 @@ var ErrNotFound = errors.New("chat not found")
 type NewChat struct {
 	ID, Provider, Cwd string
 	Session, Pane     string // tmux session name and pane id; may be empty
+	Socket            string // tmux server (socket name) the pane lives on
 }
 
 func nullStr(s string) sql.NullString { return sql.NullString{String: s, Valid: s != ""} }
@@ -36,7 +37,7 @@ func (s *Store) CreateChat(ctx context.Context, n NewChat) error {
 	t := now()
 	err := s.q.CreateChat(ctx, gen.CreateChatParams{
 		ID: n.ID, Provider: n.Provider, SessionName: nullStr(n.Session),
-		PaneID: nullStr(n.Pane), Cwd: n.Cwd, CreatedAt: t, UpdatedAt: t,
+		PaneID: nullStr(n.Pane), TmuxSocket: nullStr(n.Socket), Cwd: n.Cwd, CreatedAt: t, UpdatedAt: t,
 	})
 	if err != nil {
 		return fmt.Errorf("create chat %q: %w", n.ID, err)
@@ -82,11 +83,33 @@ func (s *Store) SetProviderSession(ctx context.Context, id, session string) erro
 	return nil
 }
 
-// SetPane points a chat at the tmux pane it now lives in.
-func (s *Store) SetPane(ctx context.Context, id, session, pane string) error {
-	err := s.q.SetChatPane(ctx, gen.SetChatPaneParams{SessionName: nullStr(session), PaneID: nullStr(pane), UpdatedAt: now(), ID: id})
+// SetPane points a chat at the tmux pane (on the given tmux server) it now
+// lives in. Empty values clear the pointer, for a chat run outside tmux.
+func (s *Store) SetPane(ctx context.Context, id, session, pane, socket string) error {
+	err := s.q.SetChatPane(ctx, gen.SetChatPaneParams{
+		SessionName: nullStr(session), PaneID: nullStr(pane), TmuxSocket: nullStr(socket), UpdatedAt: now(), ID: id,
+	})
 	if err != nil {
 		return fmt.Errorf("set pane of %q: %w", id, err)
 	}
 	return nil
+}
+
+// PaneState is the status of the chat living in one tmux pane.
+type PaneState struct {
+	Pane, Status string
+}
+
+// PaneStates returns the status of every chat whose pane is on the given
+// tmux server (socket name). The sidebar matches them to live panes.
+func (s *Store) PaneStates(ctx context.Context, socket string) ([]PaneState, error) {
+	rows, err := s.q.ListSocketPanes(ctx, nullStr(socket))
+	if err != nil {
+		return nil, fmt.Errorf("list chat panes: %w", err)
+	}
+	out := make([]PaneState, len(rows))
+	for i, r := range rows {
+		out[i] = PaneState{Pane: r.PaneID.String, Status: r.Status}
+	}
+	return out, nil
 }

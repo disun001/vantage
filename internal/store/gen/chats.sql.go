@@ -11,8 +11,8 @@ import (
 )
 
 const createChat = `-- name: CreateChat :exec
-INSERT INTO chats (id, provider, session_name, pane_id, cwd, status, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, 'idle', ?, ?)
+INSERT INTO chats (id, provider, session_name, pane_id, tmux_socket, cwd, status, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, 'idle', ?, ?)
 `
 
 type CreateChatParams struct {
@@ -20,6 +20,7 @@ type CreateChatParams struct {
 	Provider    string
 	SessionName sql.NullString
 	PaneID      sql.NullString
+	TmuxSocket  sql.NullString
 	Cwd         string
 	CreatedAt   int64
 	UpdatedAt   int64
@@ -31,6 +32,7 @@ func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) error {
 		arg.Provider,
 		arg.SessionName,
 		arg.PaneID,
+		arg.TmuxSocket,
 		arg.Cwd,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -39,7 +41,7 @@ func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) error {
 }
 
 const getChat = `-- name: GetChat :one
-SELECT id, provider, provider_session, session_name, pane_id, cwd, host, status, created_at, updated_at FROM chats WHERE id = ?
+SELECT id, provider, provider_session, session_name, pane_id, cwd, host, status, created_at, updated_at, tmux_socket FROM chats WHERE id = ?
 `
 
 func (q *Queries) GetChat(ctx context.Context, id string) (Chat, error) {
@@ -56,12 +58,13 @@ func (q *Queries) GetChat(ctx context.Context, id string) (Chat, error) {
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TmuxSocket,
 	)
 	return i, err
 }
 
 const listChats = `-- name: ListChats :many
-SELECT id, provider, provider_session, session_name, pane_id, cwd, host, status, created_at, updated_at FROM chats ORDER BY updated_at DESC
+SELECT id, provider, provider_session, session_name, pane_id, cwd, host, status, created_at, updated_at, tmux_socket FROM chats ORDER BY updated_at DESC
 `
 
 func (q *Queries) ListChats(ctx context.Context) ([]Chat, error) {
@@ -84,6 +87,7 @@ func (q *Queries) ListChats(ctx context.Context) ([]Chat, error) {
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TmuxSocket,
 		); err != nil {
 			return nil, err
 		}
@@ -98,13 +102,46 @@ func (q *Queries) ListChats(ctx context.Context) ([]Chat, error) {
 	return items, nil
 }
 
+const listSocketPanes = `-- name: ListSocketPanes :many
+SELECT pane_id, status FROM chats WHERE tmux_socket = ? AND pane_id IS NOT NULL
+`
+
+type ListSocketPanesRow struct {
+	PaneID sql.NullString
+	Status string
+}
+
+func (q *Queries) ListSocketPanes(ctx context.Context, tmuxSocket sql.NullString) ([]ListSocketPanesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSocketPanes, tmuxSocket)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSocketPanesRow
+	for rows.Next() {
+		var i ListSocketPanesRow
+		if err := rows.Scan(&i.PaneID, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setChatPane = `-- name: SetChatPane :exec
-UPDATE chats SET pane_id = ?, session_name = ?, updated_at = ? WHERE id = ?
+UPDATE chats SET pane_id = ?, session_name = ?, tmux_socket = ?, updated_at = ? WHERE id = ?
 `
 
 type SetChatPaneParams struct {
 	PaneID      sql.NullString
 	SessionName sql.NullString
+	TmuxSocket  sql.NullString
 	UpdatedAt   int64
 	ID          string
 }
@@ -113,6 +150,7 @@ func (q *Queries) SetChatPane(ctx context.Context, arg SetChatPaneParams) error 
 	_, err := q.db.ExecContext(ctx, setChatPane,
 		arg.PaneID,
 		arg.SessionName,
+		arg.TmuxSocket,
 		arg.UpdatedAt,
 		arg.ID,
 	)

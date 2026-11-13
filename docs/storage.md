@@ -51,7 +51,8 @@ CREATE INDEX events_chat_seq ON events(chat_id, seq);
 ```
 
 The columns can change before slice 0 lands. After it ships, change the schema
-only with a new goose migration.
+only with a new goose migration. `0002` added `chats.tmux_socket` (the tmux
+server name, since pane ids repeat across servers).
 
 ## Layout and workflow
 

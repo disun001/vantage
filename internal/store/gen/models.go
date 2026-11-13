@@ -19,6 +19,7 @@ type Chat struct {
 	Status          string
 	CreatedAt       int64
 	UpdatedAt       int64
+	TmuxSocket      sql.NullString
 }
 
 type Event struct {

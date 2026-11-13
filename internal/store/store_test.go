@@ -102,3 +102,38 @@ func TestReopenKeepsData(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestPaneStates(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	if Exists(dir) {
+		t.Fatal("Exists true before Open")
+	}
+	st, err := Open(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = st.Close() }()
+	if !Exists(dir) {
+		t.Fatal("Exists false after Open")
+	}
+	for _, c := range []NewChat{
+		{ID: "a", Provider: "claude", Cwd: "/x", Pane: "%1", Socket: "default"},
+		{ID: "b", Provider: "claude", Cwd: "/x", Pane: "%1", Socket: "other"},
+		{ID: "c", Provider: "claude", Cwd: "/x", Socket: "default"}, // no pane
+	} {
+		if err := st.CreateChat(ctx, c); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.SetStatus(ctx, "a", StatusRunning); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.PaneStates(ctx, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != (PaneState{Pane: "%1", Status: StatusRunning}) {
+		t.Fatalf("PaneStates = %+v, want only chat a", got)
+	}
+}

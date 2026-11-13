@@ -58,7 +58,13 @@ func runTUI(args []string, _ io.Writer) error {
 			return fmt.Errorf("start: %w", err)
 		}
 	}
+	chats, err := newChatStates(*socket)
+	if err != nil {
+		return err
+	}
+	defer chats.Close()
 	return tui.Run(tui.Config{
+		Chats:   chats.PaneStatuses,
 		Client:  client,
 		Saved:   workspace.List,
 		Manage:  manage.Manager{Client: client, Procs: capture.PS},

@@ -52,6 +52,13 @@ func StateDir() (string, error) {
 	return filepath.Join(home, ".local", "state", "vantage"), nil
 }
 
+// Exists reports whether the database file is already there, so a reader such
+// as the sidebar can avoid creating one for people who never use chat.
+func Exists(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, "vantage.db"))
+	return err == nil
+}
+
 // Open opens (creating if needed) vantage.db in dir and applies migrations.
 // The directory is 0700 and the file 0600: transcripts may hold private code.
 func Open(ctx context.Context, dir string) (*Store, error) {

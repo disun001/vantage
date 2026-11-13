@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/disun001/vantage/internal/chat"
@@ -71,6 +73,10 @@ func runChatView(ctx context.Context, st *store.Store, p chat.Provider, id strin
 	if err != nil {
 		return err
 	}
+	pane, socket := tmuxPlace()
+	if err := st.SetPane(ctx, id, "", pane, socket); err != nil {
+		return err
+	}
 	return chatui.Run(ctx, os.Stdin, os.Stdout, chatui.Config{
 		Title: fmt.Sprintf("claude %s  %s", id[:8], row.Cwd),
 		Open: func(onEvent func(store.Event)) (chatui.Driver, error) {
@@ -92,12 +98,24 @@ func createChat(ctx context.Context, st *store.Store, cwd string) (string, error
 	if err != nil {
 		return "", err
 	}
-	pane := os.Getenv("TMUX_PANE")
+	return id, st.CreateChat(ctx, store.NewChat{ID: id, Provider: "claude", Cwd: cwd})
+}
+
+// tmuxPlace is the pane and tmux server (socket name) this process runs in,
+// or empty strings outside tmux. The pane is a live pointer only: it is
+// rewritten every time the chat opens, because pane ids change on restore.
+func tmuxPlace() (pane, socket string) {
+	pane = os.Getenv("TMUX_PANE")
 	if !paneRe.MatchString(pane) {
-		pane = ""
+		return "", ""
 	}
-	err = st.CreateChat(ctx, store.NewChat{ID: id, Provider: "claude", Cwd: cwd, Pane: pane})
-	return id, err
+	// $TMUX is "<socket path>,<server pid>,<session>"; the file name is the
+	// -L name, or "default".
+	path, _, _ := strings.Cut(os.Getenv("TMUX"), ",")
+	if path == "" {
+		return "", ""
+	}
+	return pane, filepath.Base(path)
 }
 
 func newChatID() (string, error) {
