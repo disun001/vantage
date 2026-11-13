@@ -461,11 +461,7 @@ func (m model) hostsSidebar() []string {
 	for i := range out {
 		out[i] = strings.Repeat(" ", sidebarW)
 	}
-	title := "ssh hosts"
-	if m.focus == focusSidebar {
-		title = "▌ssh hosts"
-	}
-	out[0] = fit(titleStyle.Render(title), sidebarW)
+	out[0] = fit(m.pill("ssh hosts"), sidebarW)
 	note := m.noticeLines()
 	cur := m.hostPos()
 	y := firstRowY
@@ -473,16 +469,16 @@ func (m model) hostsSidebar() []string {
 		if y >= m.h-1-len(note) {
 			break
 		}
-		out[y] = m.highlight(hostLine(m.hosts[i]), i == cur)
+		out[y] = m.hostLine(m.hosts[i], i == cur)
 		y++
 	}
 	if len(m.hosts) == 0 {
-		out[firstRowY] = fit(dimStyle.Render("no hosts: a adds one"), sidebarW)
+		out[firstRowY] = fit(hintStyle("no hosts: a adds one"), sidebarW)
 	}
 	for i, l := range note {
 		out[m.h-1-len(note)+i] = fit(noticeStyle.Render(l), sidebarW)
 	}
-	out[m.h-1] = fit(dimStyle.Render("⏎ a e d x v s H alt+s q"), sidebarW)
+	out[m.h-1] = fit(hintStyle("⏎ a e d x v s H alt+s q"), sidebarW)
 	return out
 }
 
@@ -593,4 +589,9 @@ func overlay(lines, box []string, w int) []string {
 }
 
 // hostLine is the alias alone: the form shows the rest.
-func hostLine(h sshconfig.Host) string { return fit(" "+h.Alias, sidebarW) }
+func (m model) hostLine(h sshconfig.Host, selected bool) string {
+	l := lineBuf{bg: m.rowBg(selected)}
+	l.add(mocText, "", selected, " "+ansi.Truncate(h.Alias, sidebarW-1, "…"))
+	l.padTo(sidebarW)
+	return l.String()
+}

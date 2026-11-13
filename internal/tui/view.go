@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -10,8 +11,6 @@ import (
 
 var (
 	dimStyle    = lipgloss.NewStyle().Faint(true)
-	liveDot     = lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Render("●")
-	savedDot    = lipgloss.NewStyle().Faint(true).Render("○")
 	titleStyle  = lipgloss.NewStyle().Bold(true)
 	cursorStyle = lipgloss.NewStyle().Reverse(true)
 	curStyle    = lipgloss.NewStyle().Bold(true)
@@ -82,11 +81,7 @@ func (m model) sidebar() []string {
 	for i := range out {
 		out[i] = strings.Repeat(" ", sidebarW)
 	}
-	title := "vantage"
-	if m.focus == focusSidebar {
-		title = "▌vantage"
-	}
-	out[0] = fit(titleStyle.Render(title), sidebarW)
+	out[0] = fit(m.pill("vantage"), sidebarW)
 
 	note := m.noticeLines()
 	items := m.items()
@@ -102,66 +97,91 @@ func (m model) sidebar() []string {
 	for i, l := range note {
 		out[m.h-1-len(note)+i] = fit(noticeStyle.Render(l), sidebarW)
 	}
-	out[m.h-1] = fit(dimStyle.Render("space n R d H alt+s q"), sidebarW)
+	out[m.h-1] = fit(hintStyle("space n R d H alt+s q"), sidebarW)
 	return out
 }
 
 func (m model) itemLine(it item, selected bool) string {
 	r := m.rows[it.Row]
 	if it.Win >= 0 {
-		return m.highlight(m.winLine(r.Wins[it.Win]), selected)
+		return m.winLine(r, it.Win, selected)
 	}
-	return m.highlight(m.rowLine(r), selected)
+	return m.rowLine(r, selected)
 }
 
 // rowLine draws a session: fold arrow (live sessions with windows), dot,
-// name, and the window and pane counts.
-func (m model) rowLine(r row) string {
-	dot := savedDot
-	meta, arrow := "", " "
+// name, and the window and pane counts. The session on screen has its name
+// in a mauve pill, the one mark that is not yellow, so it stands out and
+// the yellow stays with the window.
+func (m model) rowLine(r row, selected bool) string {
+	l := lineBuf{bg: m.rowBg(selected)}
+	meta, arrow, dot, dotFG := "", " ", "○", mocOverlay
 	if r.Live {
-		dot = liveDot
 		meta = fmt.Sprintf("%dw %dp", r.Windows, r.Panes)
+		dot, dotFG = "●", mocGreen
 		if len(r.Wins) > 0 {
-			arrow = dimStyle.Render("▸")
+			arrow = "▸"
 			if m.expanded(r) {
-				arrow = dimStyle.Render("▾")
+				arrow = "▾"
 			}
 		}
 	}
-	nameW := sidebarW - 4 - len(meta) - 1
-	name := fit(ansi.Truncate(r.Name, nameW, "…"), max(nameW, 1))
+	nameW := max(sidebarW-4-len(meta)-1, 1)
+	l.add(mocOverlay, "", false, arrow+" ")
+	l.add(dotFG, "", false, dot)
 	if r.Name == m.current {
-		name = curStyle.Render(name)
+		// The pill's left pad sits in the gap after the dot, so the name
+		// still starts in the same column as the other sessions.
+		l.add(mocBase, mocMauve, true, " "+ansi.Truncate(r.Name, nameW-1, "…")+" ")
+	} else {
+		fg := mocText
+		if !r.Live {
+			fg = mocSub
+		}
+		l.add(fg, "", false, " "+ansi.Truncate(r.Name, nameW, "…"))
 	}
-	return fit(arrow+" "+dot+" "+name+" "+dimStyle.Render(meta), sidebarW)
+	if meta != "" {
+		l.padTo(sidebarW - len(meta) - 1)
+		l.add(mocOverlay, "", false, meta)
+	}
+	l.padTo(sidebarW)
+	return l.String()
 }
 
-// winLine draws a window under its session. The session's current window is
-// bold and marked with * like tmux's own status bar.
-func (m model) winLine(w win) string {
+// winLine draws window i of a session as one tile hanging off the session's
+// dot: a tree guide, the number in a chip, then the title on a block that
+// runs to the pane count, like the tmux status bar. Only the active window of
+// the session on screen has the yellow chip; every other window looks the
+// same, whichever session it is in.
+func (m model) winLine(r row, i int, selected bool) string {
+	w := r.Wins[i]
+	l := lineBuf{bg: m.rowBg(selected)}
 	meta := fmt.Sprintf("%dp", w.Panes)
-	label := fmt.Sprintf("%d:%s", w.Index, w.Name)
-	if w.Active {
-		label += "*"
+	digits := len(strconv.Itoa(r.Wins[len(r.Wins)-1].Index))
+	for _, o := range r.Wins {
+		digits = max(digits, len(strconv.Itoa(o.Index)))
 	}
-	labelW := max(1, sidebarW-4-len(meta)-1)
-	label = fit(ansi.Truncate(label, labelW, "…"), labelW)
-	if w.Active {
-		label = curStyle.Render(label)
+	num := fmt.Sprintf(" %*d ", digits, w.Index)
+	chip, bold := mocOverlay, false
+	if w.Active && r.Name == m.current {
+		chip, bold = mocYellow, true
 	}
-	return fit("    "+label+" "+dimStyle.Render(meta), sidebarW) // label lines up with the session name
-}
-
-// highlight marks the cursor line: reversed with focus, underlined without.
-func (m model) highlight(line string, selected bool) string {
-	if !selected {
-		return line
+	tile := mocSurf0
+	if selected {
+		tile = mocSurf1
 	}
-	if m.focus == focusSidebar {
-		return cursorStyle.Render(ansi.Strip(line))
+	guide := "├"
+	if i == len(r.Wins)-1 {
+		guide = "└"
 	}
-	return lipgloss.NewStyle().Underline(true).Render(ansi.Strip(line))
+	l.add(mocOverlay, "", false, "  "+guide) // hangs under the session's dot
+	l.add(mocBase, chip, bold, num)
+	nameW := max(1, sidebarW-1-l.w-3-len(meta))
+	l.add(mocText, tile, bold, " "+ansi.Truncate(w.Name, nameW, "…"))
+	l.padBg(sidebarW-len(meta)-2, tile)
+	l.add(mocOverlay2, tile, false, meta+" ")
+	l.padTo(sidebarW)
+	return l.String()
 }
 
 // maxNoticeLines caps how much of the sidebar an error may take.
