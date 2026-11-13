@@ -8,10 +8,11 @@ A **project** is a set of git repos managed together. A **task** is a unit of wo
 
 ```
 <projects>/<name>/<repo>/          main clones: pristine bases
-<projects>/<name>.tasks/<task>/<repo>/   one worktree per included repo
+<projects>/.tasks/<name>/<task>/<repo>/  one worktree per included repo
 ```
 
-- Flat: a project with `flat = true` has exactly one repo and no `dir`. The clone is `<projects>/<name>/` itself and each task worktree is `<projects>/<name>.tasks/<task>/` itself, so Claude starts inside the repo and loads its `AGENTS.md`. Not a default: adding a second repo later means removing `flat` and moving the clone.
+- Flat: a project with `flat = true` has exactly one repo and no `dir`. The clone is `<projects>/<name>/` itself and each task worktree is `<projects>/.tasks/<name>/<task>/` itself, so Claude starts inside the repo and loads its `AGENTS.md`. Not a default: adding a second repo later means removing `flat` and moving the clone.
+- All task worktrees live under one hidden dir, `<projects>/.tasks/`, so the projects dir lists only projects. Project names start with a letter or digit, so none can collide with `.tasks`.
 - The project dir is a plain directory, not a git repo. Claude runs from a task dir and sees every repo of that task.
 - `<projects>` is `$VANTAGE_PROJECTS_DIR`, else `projects_dir` in `<config>/config.toml` (`~` expands). No default. When unset, `project` commands fail with a clear error.
 - The project definition lives in `<config>/projects/<name>.toml`, next to `workspaces/`. The project dir holds only clones.

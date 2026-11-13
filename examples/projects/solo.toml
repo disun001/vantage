@@ -1,5 +1,5 @@
 # One repo, no nesting: the clone is <projects>/solo and task worktrees are
-# <projects>/solo.tasks/<task>.
+# <projects>/.tasks/solo/<task>.
 flat = true
 
 [[repo]]
