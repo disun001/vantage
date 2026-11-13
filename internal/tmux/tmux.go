@@ -297,6 +297,8 @@ func (c Client) ListAllPanes() ([]PaneRef, error) {
 	return refs, nil
 }
 
+const bordersMarker = "@vantage_borders"
+
 // paneBorderDefaults are the global window options ApplyPaneBorders sets, with
 // the tmux default each one must still have for vantage to touch it.
 var paneBorderDefaults = []struct {
@@ -314,11 +316,20 @@ var paneBorderDefaults = []struct {
 // cosmetic, and older tmux lacks pane-border-lines.
 func (c Client) ApplyPaneBorders(inactive, active string) {
 	vals := []string{"single", "fg=" + inactive, "fg=" + active}
+	// A server vantage already styled keeps being restyled, so a color change
+	// in vantage reaches it. Otherwise only tmux defaults are replaced.
+	ours, _ := c.run("show-options", "-gqv", bordersMarker)
+	set := false
 	for i, o := range paneBorderDefaults {
 		cur, err := c.run("show-options", "-gwv", o.opt)
-		if err != nil || !slices.Contains(o.defs, cur) {
+		if err != nil || (ours == "" && !slices.Contains(o.defs, cur)) {
 			continue
 		}
-		_, _ = c.run("set-option", "-gw", o.opt, vals[i])
+		if _, err := c.run("set-option", "-gw", o.opt, vals[i]); err == nil {
+			set = true
+		}
+	}
+	if set {
+		_, _ = c.run("set-option", "-g", bordersMarker, "1")
 	}
 }
