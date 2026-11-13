@@ -34,7 +34,6 @@ name = "db"
 | `name`            | workspace | Session name                          | `[A-Za-z0-9][A-Za-z0-9_-]*`. No `.`, `:`, spaces (tmux rewrites them)          |
 | `root`            | workspace | Default pane directory                | Optional. `~` expands                                                          |
 | `project`         | workspace | Link to a project (`vantage project`) | Optional. Same charset as `name`. When `root` is empty, `root` is the project dir          |
-| `task`            | workspace | Link to one of its tasks              | Optional. Needs `project`. When `root` is empty, `root` is the task dir                    |
 | `[[window]]`      | workspace | Windows, in order                     | At least one                                                                   |
 | `name`            | window    | Window name                           | Optional                                                                       |
 | `layout`          | window    | `select-layout` argument              | Optional. Applied after all panes exist                                        |
@@ -45,9 +44,9 @@ name = "db"
 | `autorun`         | pane      | Allow `cmd` to run on restore         | Default false. Needs `cmd`                                                     |
 | `split`           | pane      | How it splits from the previous pane  | `h` (side by side, default) or `v` (stacked). Ignored on the first pane        |
 
-## Project and task link
+## Project link
 
-`project` and `task` tie a workspace to a task of a project (see [projects](projects.md)). A task's workspace is found by these keys, not by file name, so the file can be renamed. `restore` and the TUI fill an empty `root` from the link (`project.ApplyRoot`); an explicit `root` wins. Saving over a file (capture `--force`, `S`) keeps the link, since a live session knows nothing of projects. `vantage task workspace <project> <task>` creates the workspace of a task when none is linked: one window, one bare pane, named `<project>-<task>`.
+`project` ties a workspace to a project (see [projects](projects.md)). `restore` and the TUI fill an empty `root` from the link (`project.ApplyRoot`); an explicit `root` wins. Saving over a file (capture `--force`, `S`) keeps the link, since a live session knows nothing of projects.
 
 ## Restore semantics
 

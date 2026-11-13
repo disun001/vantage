@@ -5,7 +5,6 @@ name = "api-stack"           # defaults to the file name
 
 [[repo]]
 url = "git@example.invalid:org/api.git"
-copy = [".env", ".env.local"] # untracked files task worktrees will need
 
 [[repo]]
 url = "https://example.invalid/org/web.git"
