@@ -1,0 +1,45 @@
+# GoReleaser config. Check with: goreleaser check
+# Dry run without publishing: goreleaser release --snapshot --clean
+version: 2
+project_name: vantage
+
+builds:
+  - main: ./cmd/vantage
+    binary: vantage
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files: [LICENSE, README.md]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude: ["^docs:", "^test:", "^chore:"]
+
+# `brews` is deprecated since GoReleaser v2.10 (casks replace it) but still works
+# until a major version. Casks are macOS-oriented and unverified on Linuxbrew
+# (WSL is a supported platform here), so a formula stays for now. `goreleaser check`
+# warns about this on purpose.
+brews:
+  - name: vantage
+    repository:
+      owner: disun001
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://github.com/disun001/vantage
+    description: Save, restore and browse tmux workspaces, with an ssh-aware sidebar
+    license: MIT
+    dependencies:
+      - name: tmux
+    test: |
+      assert_match "vantage", shell_output("#{bin}/vantage version")
