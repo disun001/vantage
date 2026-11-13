@@ -203,3 +203,30 @@ func TestRenameWindowOnLiveSession(t *testing.T) {
 		t.Error("a missing session must fail")
 	}
 }
+
+func TestRenameWindowUpdatesSavedFile(t *testing.T) {
+	m := testManager(t)
+	if err := m.Create("sync"); err != nil {
+		t.Fatal(err)
+	}
+	wins, _ := m.Client.ListWindows()
+	if err := m.RenameWindow("sync", wins[0].Index, "logs"); err != nil {
+		t.Fatal(err)
+	}
+	path, _ := workspace.PathOf("sync")
+	ws, err := workspace.Load(path)
+	if err != nil || len(ws.Windows) != 1 || ws.Windows[0].Name != "logs" {
+		t.Fatalf("file windows = %+v err=%v", ws.Windows, err)
+	}
+	// A file that disagrees keeps its name; the live rename still stands.
+	if err := workspace.RenameWindow("sync", 0, "logs", "other"); err != nil {
+		t.Fatal(err)
+	}
+	err = m.RenameWindow("sync", wins[0].Index, "again")
+	if err == nil || !strings.Contains(err.Error(), "saved file not updated") {
+		t.Fatalf("err = %v", err)
+	}
+	if wins, _ = m.Client.ListWindows(); wins[0].Name != "again" {
+		t.Errorf("live name = %q", wins[0].Name)
+	}
+}

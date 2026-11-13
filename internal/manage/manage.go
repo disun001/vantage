@@ -105,17 +105,61 @@ func (m Manager) Rename(from, to string) error {
 	return nil
 }
 
-// RenameWindow renames one window of a running session. The saved file is
-// left alone: the window name there changes only when the workspace is
-// captured again.
+// RenameWindow renames one window of a running session and, when the
+// workspace is saved, the same window in its file (matched by position). If
+// the file cannot follow, the live rename still stands and the error says
+// why the file was left alone.
 func (m Manager) RenameWindow(session string, index int, name string) error {
 	if strings.TrimSpace(name) == "" || strings.ContainsFunc(name, unicode.IsControl) {
 		return fmt.Errorf("invalid window name %q", name)
 	}
-	if !m.Client.HasSession(session) {
-		return fmt.Errorf("%q is not running", session)
+	pos, from, err := m.windowPos(session, index)
+	if err != nil {
+		return err
 	}
-	return m.Client.RenameWindow(session, index, name)
+	if err := m.Client.RenameWindow(session, index, name); err != nil {
+		return err
+	}
+	if saved, err := workspace.Exists(session); err != nil || !saved {
+		return err
+	}
+	if err := workspace.RenameWindow(session, pos, from, name); err != nil {
+		return fmt.Errorf("window renamed, saved file not updated: %w", err)
+	}
+	return nil
+}
+
+// windowPos finds where window index sits among the session's windows, and
+// its current name.
+func (m Manager) windowPos(session string, index int) (int, string, error) {
+	ss, err := m.Client.ListSessions()
+	if err != nil {
+		return 0, "", err
+	}
+	id := ""
+	for _, s := range ss {
+		if s.Name == session {
+			id = s.ID
+		}
+	}
+	if id == "" {
+		return 0, "", fmt.Errorf("%q is not running", session)
+	}
+	ws, err := m.Client.ListWindows()
+	if err != nil {
+		return 0, "", err
+	}
+	pos := 0
+	for _, w := range ws {
+		if w.SessionID != id {
+			continue
+		}
+		if w.Index == index {
+			return pos, w.Name, nil
+		}
+		pos++
+	}
+	return 0, "", fmt.Errorf("session %q has no window %d", session, index)
 }
 
 // Stop kills the live session of a saved workspace and keeps the file. An
