@@ -5,16 +5,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
 
+// Text styles shared by the sidebar and the pop-ups (see popupstyle.go).
 var (
-	dimStyle    = lipgloss.NewStyle().Faint(true)
-	titleStyle  = lipgloss.NewStyle().Bold(true)
-	cursorStyle = lipgloss.NewStyle().Reverse(true)
-	curStyle    = lipgloss.NewStyle().Bold(true)
-	noticeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+	dimStyle    = paint(mocOverlay, "")
+	curStyle    = paint(mocLavender, "").Bold(true) // the focused field's label, a name asked about
+	cursorStyle = paint(mocBase, mocText)           // the text cursor, a block
+	selStyle    = paint(mocText, mocSurf1).Bold(true)
+	noticeStyle = paint(mocRed, "")
 )
 
 func (m model) View() string {
@@ -23,7 +23,7 @@ func (m model) View() string {
 	}
 	side := m.sidebar()
 	right := m.right()
-	div := dimStyle.Render("│")
+	div := paint(mocSurf1, "").Render("│")
 	lines := make([]string, m.h)
 	for i := range lines {
 		lines[i] = side[i] + div + right[i]

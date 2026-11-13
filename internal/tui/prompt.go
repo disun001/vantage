@@ -29,9 +29,9 @@ type prompt struct {
 func (m model) promptBox() []string {
 	p := m.prompt
 	title, hint := "new workspace", "enter create · esc cancels"
-	rows := []string{titleStyle.Render(title), ""}
+	rows := []string{popTitle(title), ""}
 	if p.kind == promptRename {
-		rows[0] = titleStyle.Render("rename workspace")
+		rows[0] = popTitle("rename workspace")
 		rows = append(rows, dimStyle.Render("from "+p.target), "")
 		hint = "enter rename · esc cancels"
 	}
@@ -49,7 +49,7 @@ func (m model) promptBox() []string {
 // removes, and what running work it ends.
 func (m model) deleteBox() []string {
 	name := m.prompt.target
-	rows := []string{titleStyle.Render("delete workspace"), "", curStyle.Render(name), ""}
+	rows := []string{dangerTitle("delete workspace"), "", curStyle.Render(name), ""}
 	for _, r := range m.rows {
 		if r.Name != name {
 			continue

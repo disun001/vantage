@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/disun001/vantage/internal/hostuse"
@@ -490,7 +489,7 @@ func (m model) formBox() []string {
 	if f.edit {
 		title = "edit host"
 	}
-	rows := []string{titleStyle.Render(title), ""}
+	rows := []string{popTitle(title), ""}
 	const labelW = 7 // "alias" plus a gap
 	for i, fd := range hostFields {
 		label := fit(fd.label, labelW)
@@ -513,18 +512,6 @@ func (m model) formBox() []string {
 	return framed(rows, inner)
 }
 
-// framed wraps rows to inner cells and draws them in a rounded border.
-func framed(rows []string, inner int) []string {
-	var lines []string
-	for _, r := range rows {
-		for _, l := range strings.Split(ansi.Wrap(r, inner, ""), "\n") {
-			lines = append(lines, fit(l, inner))
-		}
-	}
-	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1).Render(strings.Join(lines, "\n"))
-	return strings.Split(box, "\n")
-}
-
 // hostDelete is the open delete question: the host and what depends on it.
 type hostDelete struct {
 	alias string
@@ -534,7 +521,7 @@ type hostDelete struct {
 
 // box draws the delete pop-up, with a warning when something uses the host.
 func (d hostDelete) box(w int) []string {
-	rows := []string{titleStyle.Render("delete host"), "", curStyle.Render(d.alias), ""}
+	rows := []string{dangerTitle("delete host"), "", curStyle.Render(d.alias), ""}
 	if len(d.use.Workspaces) > 0 {
 		rows = append(rows,
 			noticeStyle.Render("Used by workspaces:"),

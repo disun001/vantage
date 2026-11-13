@@ -176,7 +176,7 @@ const pickRows = 12 // panes shown at once
 // box draws the choice as a pop-up: one line per pane, the chosen one marked.
 func (p hostPick) box(w int) []string {
 	inner := max(10, min(44, w-6))
-	rows := []string{titleStyle.Render("connected to " + p.alias), ""}
+	rows := []string{popTitle("connected to " + p.alias), ""}
 	start := max(0, min(p.cur-pickRows/2, len(p.panes)-pickRows))
 	for i := start; i < min(len(p.panes), start+pickRows); i++ {
 		r := p.panes[i]
@@ -186,7 +186,7 @@ func (p hostPick) box(w int) []string {
 		}
 		text := fmt.Sprintf("%s %s:%d %s", num, r.Session, r.Window, r.WindowName)
 		if i == p.cur {
-			rows = append(rows, curStyle.Render(fit("▸"+text, inner)))
+			rows = append(rows, selStyle.Render(fit("▸"+text, inner)))
 		} else {
 			rows = append(rows, fit(" "+text, inner))
 		}

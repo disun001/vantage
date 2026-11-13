@@ -91,7 +91,7 @@ func (m model) onHostClosed(msg hostClosedMsg) (tea.Model, tea.Cmd) {
 // box draws the question: the panes that go, and what else may go with them.
 func (s hostShut) box(w int) []string {
 	inner := max(10, min(44, w-6))
-	rows := []string{titleStyle.Render("close panes of " + s.alias), ""}
+	rows := []string{dangerTitle("close panes of " + s.alias), ""}
 	for i, r := range s.panes {
 		if i == pickRows {
 			rows = append(rows, fmt.Sprintf("  … %d more", len(s.panes)-pickRows))
