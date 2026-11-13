@@ -321,11 +321,16 @@ func (m model) startTerm(cmd *exec.Cmd) (*embed.Term, error) {
 	)
 }
 
-func (m model) termW() int { return max(1, m.w-sidebarW-1) }
+// The embedded view sits in a frame: the divider on the left, one cell on
+// the right, one row above and below.
+func (m model) termW() int { return max(1, m.w-sidebarW-2) }
+
+// innerH is the visible height of the embedded view inside the frame.
+func (m model) innerH() int { return max(1, m.h-2) }
 
 // termH is the height of the embedded screen: the window plus the status bar
 // that view() crops away.
-func (m model) termH() int { return m.h + m.bar.lines }
+func (m model) termH() int { return m.innerH() + m.bar.lines }
 
 func (m model) onEdge(msg edgeMsg) model {
 	if msg.err != nil || msg.atLeft {

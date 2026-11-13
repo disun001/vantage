@@ -23,10 +23,19 @@ func (m model) View() string {
 	}
 	side := m.sidebar()
 	right := m.right()
-	div := paint(mocSurf1, "").Render("│")
+	frame := paint(mocSurf1, "")
+	bar := frame.Render
 	lines := make([]string, m.h)
+	rule := strings.Repeat("─", m.termW())
 	for i := range lines {
-		lines[i] = side[i] + div + right[i]
+		switch i {
+		case 0:
+			lines[i] = side[i] + bar("╭"+rule+"╮")
+		case m.h - 1:
+			lines[i] = side[i] + bar("╰"+rule+"╯")
+		default:
+			lines[i] = side[i] + bar("│") + right[i-1] + bar("│")
+		}
 	}
 	if box := m.popup(); box != nil {
 		lines = overlay(lines, box, m.w)
@@ -46,13 +55,13 @@ func fit(s string, w int) string {
 
 func (m model) right() []string {
 	w := m.termW()
-	out := make([]string, m.h)
+	out := make([]string, m.innerH())
 	if m.term == nil {
 		msg := "enter: open a session"
 		for i := range out {
 			out[i] = strings.Repeat(" ", w)
 		}
-		out[m.h/2] = fit(strings.Repeat(" ", max(0, (w-len(msg))/2))+dimStyle.Render(msg), w)
+		out[len(out)/2] = fit(strings.Repeat(" ", max(0, (w-len(msg))/2))+dimStyle.Render(msg), w)
 		return out
 	}
 	lines := m.term.Lines(m.focus == focusTerm)

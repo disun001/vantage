@@ -27,7 +27,10 @@ func (m model) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	if msg.Action == tea.MouseActionPress && m.focus != focusTerm {
 		m.focus = focusTerm
 	}
-	y := msg.Y
+	y := msg.Y - 1 // the top frame row
+	if y < 0 || y >= m.innerH() || msg.X > sidebarW+m.termW() {
+		return m, nil
+	}
 	if m.bar.top {
 		y += m.bar.lines // the cropped status bar sits above the visible rows
 	}
