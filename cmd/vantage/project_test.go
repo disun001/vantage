@@ -72,3 +72,19 @@ func TestProjectCommandErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestParseTaskArgs(t *testing.T) {
+	got, err := parseTaskArgs([]string{"p", "--repo", "api:dev", "t", "--repo=web", "--force"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.pos) != 2 || !got.force || len(got.repos) != 2 ||
+		got.repos[0].Base != "dev" || got.repos[1].Dir != "web" || got.repos[1].Base != "" {
+		t.Errorf("parsed %+v", got)
+	}
+	for _, bad := range [][]string{{"--repo"}, {"--repo", ":x"}, {"--repo", "a:"}, {"--nope"}} {
+		if _, err := parseTaskArgs(bad); err == nil {
+			t.Errorf("%v should fail", bad)
+		}
+	}
+}

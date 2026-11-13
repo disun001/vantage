@@ -1,6 +1,6 @@
 # Projects (design)
 
-Status: designed. Steps 1 (projects path, project file, `sync`, `status`) and 2 (`update`) are built; the rest is not. Build order at the end.
+Status: designed. Steps 1 (projects path, project file, `sync`, `status`), 2 (`update`) and 3 (tasks) are built; the rest is not. Build order at the end.
 
 A **project** is a set of git repos managed together. A **task** is a unit of work that spans some of those repos, isolated in git worktrees. Vantage keeps the repos fresh and creates task worktrees; the user (and later, agents) work inside tasks.
 
@@ -46,14 +46,14 @@ Pristine bases: the user and agents work in task worktrees, not here.
 
 State is derived from disk and `git worktree list`. No database yet; task metadata (status, agent) joins the SQLite store when orchestration is designed.
 
+- `task list <project>`: task names and their repos.
 - `task new <project> <task> [--repo name[:base]]...`
-  - No `--repo`: a prompt form with the task name and one row per repo (include checkbox, base branch defaulting to that repo's default branch).
-  - With `--repo`: no prompt. The prompt and the flags build the same request.
-  - Each included repo gets a worktree on branch `<task>`, cut from its fetched base. The repo's `copy` files are copied from its main clone. File contents are never printed or logged. Warn if a `copy` path is tracked by git.
+  - The CLI is non-interactive: no `--repo` means every repo at its default branch. The prompt form (task name, one row per repo with an include checkbox and base branch) comes with the TUI in step 5; it builds the same request as the flags.
+  - Each included repo gets a worktree on branch `<task>`, cut from its fetched base (`origin/<base>`, else a local branch; the branch does not track it). All or nothing: every check runs first, and a failure part way removes the worktrees already made. Then the repo's `copy` files are copied from its main clone: regular files only, no symlinks or anything under `.git`, never overwriting, contents never printed. A tracked `copy` path is warned about and not copied. A copy failure keeps the task and exits non-zero.
 - `task rm <project> <task> [--force]`
   - All or nothing: refuses if any repo has uncommitted, unpushed or unmerged work. `--force` overrides the check.
-  - Removes the worktrees, then the task dir. Deletes a branch only when fully merged into its base (`git branch -d`, never `-D`), even with `--force`.
-  - Warns about the task's workspace file.
+  - Removes the worktrees, then the task dir. Deletes a branch only when fully merged (`git branch -d`, never `-D`, even with `--force`). It judges against the main clone's HEAD, so run `project update` first; an unmerged branch is kept and reported.
+  - Warning about the task's workspace file comes with step 4.
 
 ## Workspace link
 
@@ -83,7 +83,7 @@ A task's workspace is found by the `project` and `task` keys, not by file name, 
 
 1. Projects path, project TOML, `sync`, `status`. **Done.**
 2. `update`. **Done.**
-3. Tasks: `new`, `rm`, `copy` files.
+3. Tasks: `new`, `rm`, `copy` files. **Done.**
 4. Workspace `project` and `task` keys.
 5. TUI projects view and details page.
 
