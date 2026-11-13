@@ -28,6 +28,12 @@ tmux -L scratch attach        # look around
 tmux -L scratch kill-server   # clean up
 ```
 
+## Testing chat (planned)
+
+- Chat tests run against a fake `claude` that emits canned stream-json (`docs/chat.md`). They never call the real CLI, so `make check` uses no subscription.
+- One live test runs the real `claude -p`. It runs only with `VANTAGE_LIVE_CLAUDE=1`. Run it by hand before releases.
+- Database tests set `VANTAGE_STATE_DIR` to a temp dir. Never use the real state dir.
+
 ## Markdown
 
 Docs are formatted with [prettier](https://prettier.io) (`.prettierrc` at the repo root). Most editors format on save; to check by hand: `npx prettier --check "*.md" "docs/*.md"`. Prettier aligns table columns and adds blank lines after headings, so run it before committing doc changes to avoid noisy diffs.
