@@ -1,7 +1,9 @@
 # Contributing
 
-Issues are welcome. For anything beyond a small fix, open an issue first so we
-agree on the approach before you write code. Report security problems privately
+Vantage is a personal project and the roadmap is the maintainer's own, so a
+feature request or pull request may be declined even if it is well made. Issues
+are welcome. For anything beyond a small fix, open an issue first so we agree on
+the approach before you write code. Report security problems privately
 (see [SECURITY.md](../SECURITY.md)).
 
 1. Read `AGENTS.md` (the hard rules), `go-conventions.md` (how we write Go here), and skim `architecture.md` (what is decided and what is planned).

@@ -72,6 +72,13 @@ vantage capture mysession
 | [docs/workspace-format.md](docs/workspace-format.md) | TOML schema reference                        |
 | [docs/architecture.md](docs/architecture.md)         | Design decisions and their reasons           |
 
+## Project status
+
+Vantage is a personal project. I build it for my own workflow, so the roadmap
+is mine: there is no public roadmap, and feature requests may not be accepted.
+It is shared as is, with support on a best-effort basis. If it fits how you
+work, great. If it does not, forks are welcome under the MIT license.
+
 ## Contributing
 
 Bug reports and ideas are welcome as issues. For anything bigger than a small
