@@ -63,8 +63,8 @@ func TestTreeShowsWindowsAndHidesStatusBar(t *testing.T) {
 	if !strings.Contains(side, "first") || !strings.Contains(side, "uniqwin") {
 		t.Errorf("windows missing from the sidebar:\n%s", side)
 	}
-	if got := len(d.m.term.Lines(false)); got != d.m.h+1 {
-		t.Errorf("embedded screen has %d lines, want window + bar = %d", got, d.m.h+1)
+	if got := len(d.m.term.Lines(false)); got != d.m.innerH()+1 {
+		t.Errorf("embedded screen has %d lines, want window + bar = %d", got, d.m.innerH()+1)
 	}
 	// The bar is on the edge row of the taller screen only once tmux has seen
 	// the new client height, so wait for that. The edge depends on the user's
@@ -94,8 +94,8 @@ func TestTreeShowsWindowsAndHidesStatusBar(t *testing.T) {
 	// Turning it off gives the row back.
 	tmuxCmd(t, cfg, "set", "-g", "status", "off")
 	waitFor(t, "bar off", func() bool { d.refresh(); return d.m.bar.lines == 0 })
-	if got := len(d.m.term.Lines(false)); got != d.m.h {
-		t.Errorf("embedded screen has %d lines, want %d", got, d.m.h)
+	if got := len(d.m.term.Lines(false)); got != d.m.innerH() {
+		t.Errorf("embedded screen has %d lines, want %d", got, d.m.innerH())
 	}
 }
 
