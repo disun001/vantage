@@ -265,6 +265,8 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 		return m.splitHost("v") // stacked, like :split
 	case "H", "esc", "h", "left":
 		return m.toggleHosts()
+	case "P":
+		return m.toggleProjects()
 	case "tab", "alt+l":
 		if m.term != nil {
 			m.focus = focusTerm

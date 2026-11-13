@@ -206,6 +206,9 @@ func (m model) onProjectKey(s string) (tea.Model, tea.Cmd) {
 		return m.startTaskForm(), nil
 	case "r":
 		return m, m.loadProjects()
+	case "H":
+		m.projFocus = false
+		return m.toggleHosts()
 	}
 	if m.projFocus {
 		return m.onTaskKey(s)
