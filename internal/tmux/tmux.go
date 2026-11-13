@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -294,4 +295,30 @@ func (c Client) ListAllPanes() ([]PaneRef, error) {
 		refs = append(refs, PaneRef{Session: f[0], Window: idx, Pane: f[2], TTY: f[3], Renamed: f[4], WindowName: f[5]})
 	}
 	return refs, nil
+}
+
+// paneBorderDefaults are the global window options ApplyPaneBorders sets, with
+// the tmux default each one must still have for vantage to touch it.
+var paneBorderDefaults = []struct {
+	opt  string
+	defs []string
+}{
+	{"pane-border-lines", []string{"single"}},
+	{"pane-border-style", []string{"default", "fg=themelightgrey"}},
+	{"pane-active-border-style", []string{"fg=green", "fg=themegreen"}},
+}
+
+// ApplyPaneBorders gives panes a subtle border: inactive in inactive, the
+// active pane in active (tmux color strings). An option the user already
+// changed from tmux's default is left alone. Errors are ignored: borders are
+// cosmetic, and older tmux lacks pane-border-lines.
+func (c Client) ApplyPaneBorders(inactive, active string) {
+	vals := []string{"single", "fg=" + inactive, "fg=" + active}
+	for i, o := range paneBorderDefaults {
+		cur, err := c.run("show-options", "-gwv", o.opt)
+		if err != nil || !slices.Contains(o.defs, cur) {
+			continue
+		}
+		_, _ = c.run("set-option", "-gw", o.opt, vals[i])
+	}
 }

@@ -13,6 +13,7 @@ import (
 
 // Run starts the TUI and blocks until the user quits.
 func Run(cfg Config) error {
+	cfg.Client.ApplyPaneBorders(mocSurf1, mocLavender)
 	h := &hub{}
 	p := tea.NewProgram(newModel(cfg, h), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	h.send = p.Send
