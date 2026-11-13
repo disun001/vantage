@@ -33,6 +33,7 @@ tmux -L scratch kill-server   # clean up
 
 - Chat tests run against a fake `claude` that emits canned stream-json (`docs/chat.md`). They never call the real CLI, so `make check` uses no subscription.
 - One live test runs the real `claude -p`. It runs only with `VANTAGE_LIVE_CLAUDE=1`. Run it by hand before releases.
+- To try the UI without the subscription: `VANTAGE_CLAUDE=internal/chat/testdata/fake-claude.sh FAKE_CLAUDE_SCENARIO=tooluse VANTAGE_STATE_DIR=$(mktemp -d) ./bin/vantage chat new`.
 - Database tests set `VANTAGE_STATE_DIR` to a temp dir. Never use the real state dir.
 
 ## Markdown

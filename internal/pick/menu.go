@@ -31,6 +31,9 @@ type Host struct {
 type Context struct {
 	Dir string // "h" or "v"
 	CWD string
+	// ChatExe is the vantage binary that runs the chat. Empty hides the
+	// "Claude chat" row.
+	ChatExe string
 }
 
 const (
@@ -60,6 +63,7 @@ func Choose(in *os.File, out io.Writer, ctx Context, hosts []Host) (Choice, erro
 // item is one menu row. Index 0 is always the local shell.
 type item struct {
 	local  bool
+	chat   bool
 	host   Host
 	search string // what the fuzzy filter matches against
 }
@@ -78,6 +82,9 @@ type menu struct {
 
 func newMenu(ctx Context, hosts []Host) menu {
 	items := []item{{local: true, search: "local shell"}}
+	if ctx.ChatExe != "" {
+		items = append(items, item{chat: true, search: "claude chat ai"})
+	}
 	for _, h := range hosts {
 		items = append(items, item{host: h, search: h.Alias + " " + h.HostName})
 	}
@@ -172,7 +179,10 @@ func (m menu) accept() (tea.Model, tea.Cmd) {
 	if len(m.shown) == 0 {
 		return m, nil
 	}
-	if it := m.items[m.shown[m.cursor]]; !it.local {
+	switch it := m.items[m.shown[m.cursor]]; {
+	case it.chat:
+		m.choice = Choice{Chat: true, Exe: m.ctx.ChatExe}
+	case !it.local:
 		m.choice = Choice{Alias: it.host.Alias}
 	}
 	return m, tea.Quit
@@ -247,7 +257,10 @@ func (m menu) listCell(i int) string {
 	it := m.items[m.shown[i]]
 	label := "local shell"
 	mark := " "
-	if !it.local {
+	switch {
+	case it.chat:
+		label = "Claude chat (local)"
+	case !it.local:
 		label = it.host.Alias
 		if len(it.host.Open) > 0 {
 			mark = green + "●" + "\x1b[39m"
@@ -262,6 +275,15 @@ func (m menu) listCell(i int) string {
 }
 
 func (m menu) detail(it item) []string {
+	if it.chat {
+		return []string{
+			accent + "Claude chat (local)" + reset, "",
+			kv("runs", "vantage chat new"),
+			kv("cwd", m.ctx.CWD),
+			kv("auth", "claude login"),
+			kv("mode", "plan (read-only)"),
+		}
+	}
 	if it.local {
 		dir := "stacked (below)"
 		if m.ctx.Dir == "h" {

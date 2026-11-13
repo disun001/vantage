@@ -1,6 +1,6 @@
 # Chat
 
-Status: **slice 0 built** (`internal/chat`, `internal/store`). No UI yet. Slices are at the bottom.
+Status: **slice 1 built** (`internal/chat`, `internal/store`, `internal/chatui`, `vantage chat`). Slices are at the bottom.
 
 Native AI chat inside vantage. Claude only at first. A chat is a Bubble Tea
 program (`vantage chat`) that runs in a normal tmux pane and drives the
@@ -61,6 +61,20 @@ is skipped: `hook_started`, `hook_response`, `commands_changed` (tens of KB
 per turn) and `rate_limit_event`. The `session` event text is
 `model=... auth=...`; `apiKeySource: none` means the subscription.
 
+## Using it
+
+- `vantage chat new` starts a chat in the current directory and pane.
+  `vantage chat <id>` reopens one and replays it. `vantage chat list` prints ids.
+- In `vantage pick` (prefix `S` / `V`) the `Claude chat (local)` row splits the
+  pane and runs `vantage chat new` in it. The pane closes when the chat quits.
+- Keys: `enter` sends, `alt+enter` or `ctrl+j` adds a newline, `pgup`/`pgdn`
+  scroll, `esc` or `ctrl+c` interrupts a running turn, `ctrl+c` on an idle
+  chat or `ctrl+d` quits.
+- Flags: `--cwd`, `--turn-timeout`, `--allow-api-key`. `VANTAGE_CLAUDE` points
+  at another claude executable (tests use the fake).
+- Text appears per whole message, not per token (see Events). Tool results are
+  stored but not shown yet.
+
 ## Turns and status
 
 `chats.status` is one of `idle`, `running`, `error`, `interrupted`.
@@ -86,7 +100,7 @@ per turn) and `rate_limit_event`. The `session` event text is
 | Slice | Scope                                                                                                              |
 | ----- | ------------------------------------------------------------------------------------------------------------------ |
 | 0 (done) | `internal/chat` (spawn, parse, `Provider`), `internal/store` (schema, goose, sqlc), fake `claude`, first real fixture |
-| 1     | `vantage chat`: bare transcript UI (streamed text, tool calls as one-line markers, multi-line input), picker row, resume |
+| 1 (done) | `vantage chat`: bare transcript UI (whole messages, tool calls as one-line markers, multi-line input), picker row, resume |
 | 2     | Markdown rendering (glamour), collapsible tool calls, status line (model, auth source, tokens)                     |
 | 3     | Sidebar shows each chat's state from SQLite                                                                        |
 | Later | `[[chat]]` entry in the workspace file for restore, hooks (chat to task), remote host chats, permission prompts, more providers |
