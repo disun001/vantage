@@ -15,7 +15,11 @@ import (
 
 // Project is a named set of git repos managed together.
 type Project struct {
-	Name  string `toml:"name"`
+	Name string `toml:"name"`
+	// Flat puts the single repo directly at the project path (and, for
+	// tasks, at the task path) instead of one directory below it. Needs
+	// exactly one repo and no dir.
+	Flat  bool   `toml:"flat"`
 	Repos []Repo `toml:"repo"`
 }
 
@@ -72,6 +76,9 @@ func (p Project) Validate() error {
 	}
 	if len(p.Repos) == 0 {
 		return fmt.Errorf("project %q has no repos", p.Name)
+	}
+	if p.Flat && (len(p.Repos) != 1 || p.Repos[0].Dir != "") {
+		return fmt.Errorf("project %q: flat needs exactly one repo and no dir", p.Name)
 	}
 	seen := map[string]int{}
 	for i, r := range p.Repos {

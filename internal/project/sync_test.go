@@ -134,3 +134,15 @@ func TestWarnings(t *testing.T) {
 		}
 	}
 }
+
+func TestSyncFlat(t *testing.T) {
+	src := fixtureRepo(t)
+	root := t.TempDir()
+	p := Project{Name: "solo", Flat: true, Repos: []Repo{{URL: src}}}
+	if err := Sync(root, p, git.Client{}, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "solo", ".git")); err != nil {
+		t.Errorf("flat clone should sit at the project path: %v", err)
+	}
+}

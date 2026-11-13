@@ -1,0 +1,6 @@
+# One repo, no nesting: the clone is <projects>/solo and task worktrees are
+# <projects>/solo.tasks/<task>.
+flat = true
+
+[[repo]]
+url = "git@example.invalid:org/tool.git"

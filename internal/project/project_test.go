@@ -81,6 +81,9 @@ func TestValidate(t *testing.T) {
 		{"copy sneaky dotdot", with(Repo{URL: ok.URL, Copy: []string{"a/../../x"}}), "relative"},
 		{"copy .git", with(Repo{URL: ok.URL, Copy: []string{".git/config"}}), ".git"},
 		{"copy empty", with(Repo{URL: ok.URL, Copy: []string{""}}), "empty"},
+		{"flat ok", Project{Name: "p", Flat: true, Repos: []Repo{ok}}, ""},
+		{"flat two repos", Project{Name: "p", Flat: true, Repos: []Repo{ok, {URL: ok.URL, Dir: "b"}}}, "flat"},
+		{"flat with dir", Project{Name: "p", Flat: true, Repos: []Repo{{URL: ok.URL, Dir: "x"}}}, "flat"},
 		{"copy glob ok", with(Repo{URL: ok.URL, Copy: []string{".env*", "cfg/*.json"}}), ""},
 	}
 	for _, c := range cases {

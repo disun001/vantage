@@ -132,7 +132,11 @@ func List() ([]string, error) {
 // Path is the project's directory under root.
 func (p Project) Path(root string) string { return filepath.Join(root, p.Name) }
 
-// RepoPath is the main clone of r under root.
+// RepoPath is the main clone of r under root. A flat project's clone is the
+// project dir itself.
 func (p Project) RepoPath(root string, r Repo) string {
+	if p.Flat {
+		return p.Path(root)
+	}
 	return filepath.Join(p.Path(root), r.DirName())
 }
