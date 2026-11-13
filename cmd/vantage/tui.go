@@ -20,13 +20,14 @@ import (
 var tuiCmd = command{
 	name:    "tui",
 	usage:   "tui",
-	summary: "sidebar + embedded tmux (--socket NAME)",
+	summary: "sidebar + embedded tmux (--socket NAME, --start)",
 	run:     runTUI,
 }
 
 func runTUI(args []string, _ io.Writer) error {
 	fs := flag.NewFlagSet("tui", flag.ContinueOnError)
 	socket := fs.String("socket", os.Getenv("VANTAGE_SOCKET"), "tmux socket name (-L)")
+	start := fs.Bool("start", false, "with no live session, restore the first saved workspace (or create \"main\")")
 	if _, err := parseInterspersed(fs, args); err != nil {
 		return err
 	}
@@ -40,6 +41,23 @@ func runTUI(args []string, _ io.Writer) error {
 	}
 	defer closeLog()
 	client := tmux.Client{Socket: *socket}
+	restoreByName := func(name string) error {
+		path, err := workspace.Resolve(name)
+		if err != nil {
+			return err
+		}
+		ws, err := workspace.Load(path)
+		if err != nil {
+			return err
+		}
+		_, err = restore.Restore(client, ws)
+		return err
+	}
+	if *start {
+		if err := ensureSession(client, workspace.List, restoreByName, home); err != nil {
+			return fmt.Errorf("start: %w", err)
+		}
+	}
 	return tui.Run(tui.Config{
 		Client:  client,
 		Saved:   workspace.List,
@@ -47,18 +65,7 @@ func runTUI(args []string, _ io.Writer) error {
 		SSH:     sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
 		HostUse: hostuse.Finder{Client: client, Procs: capture.PS},
 		KeyLog:  keyLog,
-		Restore: func(name string) error {
-			path, err := workspace.Resolve(name)
-			if err != nil {
-				return err
-			}
-			ws, err := workspace.Load(path)
-			if err != nil {
-				return err
-			}
-			_, err = restore.Restore(client, ws)
-			return err
-		},
+		Restore: restoreByName,
 	})
 }
 

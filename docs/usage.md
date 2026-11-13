@@ -11,6 +11,13 @@
 | `vantage pick --split h\|v` | Splits the pane as local or ssh, chosen from a menu |
 | `vantage version`           | Prints the version (`--version` works too)          |
 
+`vantage --start` is the TUI with a startup step, meant for a terminal that
+should always open on something (for example a terminal emulator's shell
+command). If no tmux session is live it restores the first saved workspace
+(alphabetically), or creates a bare `main` session when none are saved. Plain
+`vantage` never creates anything on its own. Commands in the workspace still
+follow `autorun`.
+
 Every command that talks to tmux accepts `--socket NAME` (or set
 `$VANTAGE_SOCKET`) to use a separate tmux server instead of your default one.
 
