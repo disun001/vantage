@@ -27,11 +27,14 @@ type model struct {
 	view   viewport.Model
 	input  textarea.Model
 	notice string // last send/interrupt failure
+	md     markdown
+	dark   bool
+	expand bool // show tool results
 	w, h   int
 	ready  bool
 }
 
-func newModel(ctx context.Context, drv Driver, title string, history []store.Event) model {
+func newModel(ctx context.Context, drv Driver, title string, history []store.Event, dark bool) model {
 	in := textarea.New()
 	in.Prompt = "│ "
 	in.ShowLineNumbers = false
@@ -40,7 +43,7 @@ func newModel(ctx context.Context, drv Driver, title string, history []store.Eve
 	// Enter sends, so a newline needs a modified key.
 	in.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("alt+enter", "ctrl+j"))
 	in.Focus()
-	return model{ctx: ctx, drv: drv, title: title, events: history, input: in}
+	return model{ctx: ctx, drv: drv, title: title, events: history, input: in, dark: dark}
 }
 
 func (m model) Init() tea.Cmd { return textarea.Blink }
@@ -71,6 +74,10 @@ func (m model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "ctrl+d":
 		return m, tea.Quit
+	case "ctrl+o":
+		m.expand = !m.expand
+		m.refresh(true)
+		return m, nil
 	case "esc":
 		if busy(m.events) {
 			return m, m.interrupt()
@@ -121,6 +128,7 @@ func (m model) resize(w, h int) model {
 	m.input.SetWidth(w)
 	m.view.Width = w
 	m.view.Height = max(h-inputHeight-2, 1) // header and status line
+	m.md = newMarkdown(w, m.dark)
 	m.ready = true
 	m.refresh(true)
 	return m
@@ -131,7 +139,7 @@ func (m *model) refresh(follow bool) {
 	if !m.ready {
 		return
 	}
-	m.view.SetContent(render(m.events, m.w))
+	m.view.SetContent(render(m.events, m.w, m.md, m.expand))
 	if follow {
 		m.view.GotoBottom()
 	}
@@ -141,15 +149,21 @@ func (m model) View() string {
 	if !m.ready {
 		return ""
 	}
-	head := dimStyle.Render(oneLine(m.title+headerExtra(m.events), m.w))
+	// The title gives way first: model and token counts matter more than the cwd.
+	extra := headerExtra(m.events)
+	head := dimStyle.Render(oneLine(m.title, max(m.w-len([]rune(extra)), 10)) + extra)
 	return head + "\n" + m.view.View() + "\n" + m.input.View() + "\n" + m.statusLine()
 }
 
 func headerExtra(events []store.Event) string {
-	if s := sessionInfo(events); s != "" {
-		return "  " + s
+	s := sessionInfo(events)
+	if s != "" {
+		s = "  " + s
 	}
-	return ""
+	if c, o := usage(events); c > 0 || o > 0 {
+		s += "  ctx " + kilo(c) + " out " + kilo(o)
+	}
+	return s
 }
 
 func (m model) statusLine() string {
@@ -159,5 +173,5 @@ func (m model) statusLine() string {
 	case busy(m.events):
 		return dimStyle.Render("working…  esc interrupt")
 	}
-	return dimStyle.Render("enter send  alt+enter newline  pgup/pgdn scroll  ctrl+c quit")
+	return dimStyle.Render("enter send  alt+enter newline  ctrl+o tool output  pgup/pgdn scroll  ctrl+c quit")
 }

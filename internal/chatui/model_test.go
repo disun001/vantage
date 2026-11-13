@@ -2,11 +2,13 @@ package chatui
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"sync"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/disun001/vantage/internal/chat"
 	"github.com/disun001/vantage/internal/store"
@@ -38,7 +40,7 @@ func ev(kind, text string) store.Event { return store.Event{Kind: kind, Text: te
 
 func sized(t *testing.T, d Driver, hist ...store.Event) model {
 	t.Helper()
-	m := newModel(context.Background(), d, "chat abc", hist)
+	m := newModel(context.Background(), d, "chat abc", hist, true)
 	return m.resize(60, 20)
 }
 
@@ -61,7 +63,8 @@ func TestRenderTranscript(t *testing.T) {
 		ev(chat.KindAssistantMsg, "hi there"),
 		ev(chat.KindTurnEnd, ""),
 		ev(chat.KindError, "boom"),
-	}, 40)
+	}, 40, newMarkdown(40, true), false)
+	out = ansi.Strip(out) // glamour styles word by word
 	for _, want := range []string{"hello", "Read(main.go)", "hi there", "boom"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("transcript missing %q:\n%s", want, out)
@@ -156,5 +159,47 @@ func TestSendErrorShownInStatus(t *testing.T) {
 	next, _ := m.Update(sentMsg{err: context.DeadlineExceeded})
 	if !strings.Contains(next.(model).View(), "deadline") {
 		t.Error("send error not shown")
+	}
+}
+
+func TestToolResultsToggle(t *testing.T) {
+	evs := []store.Event{ev(chat.KindToolUse, "Read(a)"), ev(chat.KindToolResult, "line one\nline two")}
+	md := newMarkdown(40, true)
+	if strings.Contains(render(evs, 40, md, false), "line one") {
+		t.Error("collapsed transcript shows tool result")
+	}
+	if !strings.Contains(render(evs, 40, md, true), "line two") {
+		t.Error("expanded transcript misses tool result")
+	}
+	m := sized(t, &fakeDriver{}, evs...)
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlO})
+	if !next.(model).expand || !strings.Contains(next.(model).View(), "line one") {
+		t.Error("ctrl+o did not expand")
+	}
+}
+
+func TestMarkdownRenders(t *testing.T) {
+	out := newMarkdown(40, true).render("# Title\n\n- item **bold**", 40)
+	if !strings.Contains(out, "Title") || !strings.Contains(out, "item") || strings.Contains(out, "**") {
+		t.Errorf("markdown not rendered: %q", out)
+	}
+	if got := (markdown{}).render("plain text", 40); !strings.Contains(got, "plain text") {
+		t.Errorf("fallback = %q", got)
+	}
+}
+
+func TestUsage(t *testing.T) {
+	raw := func(s string) sql.NullString { return sql.NullString{String: s, Valid: true} }
+	evs := []store.Event{
+		{Kind: chat.KindTurnEnd, Raw: raw(`{"usage":{"input_tokens":4,"cache_creation_input_tokens":100,"cache_read_input_tokens":900,"output_tokens":50}}`)},
+		{Kind: chat.KindTurnEnd, Raw: raw(`{"usage":{"input_tokens":6,"cache_read_input_tokens":1994,"output_tokens":25}}`)},
+		{Kind: chat.KindTurnEnd, Raw: raw(`not json`)},
+	}
+	c, o := usage(evs)
+	if c != 2000 || o != 75 {
+		t.Errorf("usage = %d, %d; want 2000, 75", c, o)
+	}
+	if kilo(151) != "151" || kilo(58000) != "58.0k" {
+		t.Error("kilo format")
 	}
 }

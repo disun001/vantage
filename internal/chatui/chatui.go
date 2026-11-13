@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/disun001/vantage/internal/store"
 )
@@ -51,7 +52,7 @@ func Run(ctx context.Context, in *os.File, out io.Writer, cfg Config) error {
 	if err != nil {
 		return errors.Join(err, drv.Close())
 	}
-	m := newModel(ctx, drv, cfg.Title, hist)
+	m := newModel(ctx, drv, cfg.Title, hist, lipgloss.HasDarkBackground())
 	p := tea.NewProgram(m, tea.WithInput(in), tea.WithOutput(out), tea.WithAltScreen())
 	prog.Store(p)
 	live.Store(true)
