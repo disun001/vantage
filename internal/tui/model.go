@@ -46,6 +46,8 @@ type Manager interface {
 	Create(name string) error
 	// Rename renames the saved workspace and the live session.
 	Rename(from, to string) error
+	// RenameWindow renames window index of a running session.
+	RenameWindow(session string, index int, name string) error
 	// Delete removes the saved file and kills the live session.
 	Delete(name string) error
 	// Stop kills the live session and keeps the saved file.

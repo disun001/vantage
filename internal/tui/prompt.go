@@ -15,6 +15,7 @@ const (
 	promptRename
 	promptDelete
 	promptStop
+	promptRenameWin
 )
 
 // prompt is the open question about a workspace: its name for new and
@@ -22,6 +23,7 @@ const (
 type prompt struct {
 	kind   promptKind
 	target string // session or workspace the prompt acts on
+	win    int    // window index (rename window)
 	text   string // typed text (new, rename)
 }
 
@@ -31,9 +33,14 @@ func (m model) promptBox() []string {
 	p := m.prompt
 	title, hint := "new workspace", "enter create · esc cancels"
 	rows := []string{popTitle(title), ""}
-	if p.kind == promptRename {
+	switch p.kind {
+	case promptRename:
 		rows[0] = popTitle("rename workspace")
 		rows = append(rows, dimStyle.Render("from "+p.target), "")
+		hint = "enter rename · esc cancels"
+	case promptRenameWin:
+		rows[0] = popTitle("rename window")
+		rows = append(rows, dimStyle.Render(fmt.Sprintf("in %s, window %d", p.target, p.win)), "")
 		hint = "enter rename · esc cancels"
 	}
 	inner := max(10, min(44, m.w-6))
@@ -94,6 +101,11 @@ func (m model) startPrompt(kind promptKind) model {
 		return m
 	}
 	r := m.rows[it.Row]
+	if kind == promptRename && it.Win >= 0 {
+		w := r.Wins[it.Win]
+		m.prompt, m.notice = &prompt{kind: promptRenameWin, target: r.Name, win: w.Index, text: w.Name}, ""
+		return m
+	}
 	if kind == promptStop && (!r.Live || !r.Saved) {
 		m.notice = "stop needs a saved, running workspace"
 		return m
@@ -117,7 +129,7 @@ func (m model) onPromptKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.prompt = nil
 	case tea.KeyEnter:
 		m.prompt = nil
-		if strings.TrimSpace(p.text) == "" || p.text == p.target {
+		if strings.TrimSpace(p.text) == "" || (p.kind == promptRename && p.text == p.target) {
 			return m, nil
 		}
 		return m, m.manageCmd(p)
@@ -145,6 +157,8 @@ func (m model) manageCmd(p prompt) tea.Cmd {
 			msg.err = mg.Create(name)
 		case promptRename:
 			msg.err = mg.Rename(p.target, name)
+		case promptRenameWin:
+			msg.err = mg.RenameWindow(p.target, p.win, p.text)
 		case promptDelete:
 			msg.err = mg.Delete(p.target)
 		case promptStop:
@@ -167,6 +181,7 @@ func (m model) onManage(msg manageMsg) (tea.Model, tea.Cmd) {
 		return m.onReady(readyMsg{name: msg.to})
 	case promptRename:
 		m = m.renamed(msg.from, msg.to)
+	case promptRenameWin: // the next refresh shows the new name
 	case promptDelete:
 		m = m.afterDelete(msg.from)
 	case promptStop:

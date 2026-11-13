@@ -201,6 +201,12 @@ func (c Client) RenameSession(from, to string) error {
 	return err
 }
 
+// RenameWindow gives window index of the session called session a new name.
+func (c Client) RenameWindow(session string, index int, name string) error {
+	_, err := c.run("rename-window", "-t", fmt.Sprintf("=%s:%d", session, index), name)
+	return err
+}
+
 // KillServer stops the whole server. Refused on the default server.
 func (c Client) KillServer() error {
 	if c.Socket == "" {

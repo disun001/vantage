@@ -2,6 +2,7 @@ package tui
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -26,6 +27,10 @@ func (f *fakeManager) Rename(a, b string) error {
 	return f.err
 }
 
+func (f *fakeManager) RenameWindow(s string, i int, n string) error {
+	f.calls = append(f.calls, fmt.Sprintf("renamewin %s %d %s", s, i, n))
+	return f.err
+}
 func (f *fakeManager) Stop(n string) error   { f.calls = append(f.calls, "stop "+n); return f.err }
 func (f *fakeManager) Delete(n string) error { f.calls = append(f.calls, "delete "+n); return f.err }
 
@@ -115,7 +120,7 @@ func TestPromptSwallowsKeysAndCancels(t *testing.T) {
 func TestRenamePromptStartsWithName(t *testing.T) {
 	f := &fakeManager{}
 	m := manageModel(f)
-	m.cur = key{"a", 2} // on a window line: renames its session
+	m.cur = key{"a", -1} // on the session line
 	m, _ = press(m, "R")
 	if m.prompt == nil || m.prompt.text != "a" || m.prompt.target != "a" {
 		t.Fatalf("prompt = %+v", m.prompt)
@@ -347,6 +352,27 @@ func TestStopPrompt(t *testing.T) {
 	_, cmd = press(m, "y")
 	cmd()
 	if len(f.calls) != 1 || f.calls[0] != "stop a" {
+		t.Fatalf("calls = %v", f.calls)
+	}
+}
+
+func TestRenameWindowPrompt(t *testing.T) {
+	f := &fakeManager{}
+	m := manageModel(f)
+	m.cur = key{"a", 2} // the "vim" window, tmux index 2
+	m, _ = press(m, "R")
+	if m.prompt == nil || m.prompt.kind != promptRenameWin || m.prompt.target != "a" || m.prompt.win != 2 || m.prompt.text != "vim" {
+		t.Fatalf("prompt = %+v", m.prompt)
+	}
+	if box := popupText(m); !strings.Contains(box, "rename window") {
+		t.Errorf("pop-up = %q", box)
+	}
+	m, cmd := press(m, "x", "enter")
+	if m.prompt != nil || cmd == nil {
+		t.Fatalf("enter must close the prompt and run: %+v", m.prompt)
+	}
+	cmd()
+	if len(f.calls) != 1 || f.calls[0] != "renamewin a 2 vimx" {
 		t.Fatalf("calls = %v", f.calls)
 	}
 }

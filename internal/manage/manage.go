@@ -6,6 +6,8 @@ package manage
 import (
 	"fmt"
 	"os"
+	"strings"
+	"unicode"
 
 	"github.com/disun001/vantage/internal/capture"
 	"github.com/disun001/vantage/internal/tmux"
@@ -101,6 +103,19 @@ func (m Manager) Rename(from, to string) error {
 		}
 	}
 	return nil
+}
+
+// RenameWindow renames one window of a running session. The saved file is
+// left alone: the window name there changes only when the workspace is
+// captured again.
+func (m Manager) RenameWindow(session string, index int, name string) error {
+	if strings.TrimSpace(name) == "" || strings.ContainsFunc(name, unicode.IsControl) {
+		return fmt.Errorf("invalid window name %q", name)
+	}
+	if !m.Client.HasSession(session) {
+		return fmt.Errorf("%q is not running", session)
+	}
+	return m.Client.RenameWindow(session, index, name)
 }
 
 // Stop kills the live session of a saved workspace and keeps the file. An

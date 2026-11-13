@@ -178,3 +178,28 @@ func TestStopKillsSessionKeepsFile(t *testing.T) {
 		t.Error("an unsaved session must be refused and left running")
 	}
 }
+
+func TestRenameWindowOnLiveSession(t *testing.T) {
+	m := testManager(t)
+	if err := m.Create("w"); err != nil {
+		t.Fatal(err)
+	}
+	wins, err := m.Client.ListWindows()
+	if err != nil || len(wins) != 1 {
+		t.Fatalf("wins=%v err=%v", wins, err)
+	}
+	if err := m.RenameWindow("w", wins[0].Index, "build logs"); err != nil {
+		t.Fatal(err)
+	}
+	if wins, _ = m.Client.ListWindows(); wins[0].Name != "build logs" {
+		t.Errorf("name = %q", wins[0].Name)
+	}
+	for _, bad := range []string{"", "  ", "a\nb"} {
+		if err := m.RenameWindow("w", wins[0].Index, bad); err == nil {
+			t.Errorf("RenameWindow(%q) succeeded", bad)
+		}
+	}
+	if err := m.RenameWindow("nope", 0, "x"); err == nil {
+		t.Error("a missing session must fail")
+	}
+}

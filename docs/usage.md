@@ -51,7 +51,7 @@ listing every key of the current view, grouped and explained. `esc`, `?` or
 | ------- | ----------------------------------------------------------------------- |
 | `space` | Fold or unfold a session                                                |
 | `n`     | New workspace (asks for a name in a pop-up)                             |
-| `R`     | Rename the workspace and its live session                               |
+| `R`     | Rename the workspace and its live session. On a window line: rename that window (live only, not the saved file)                               |
 | `K`     | Stop: kill the session, keep the workspace file, after a `y` in a pop-up |
 | `d`     | Delete the workspace file and kill its session, after a `y` in a pop-up |
 | `H`     | Switch the sidebar to your ssh hosts                                    |
