@@ -21,6 +21,9 @@ const (
 	mocYellow   = "#f9e2af"
 	mocMauve    = "#cba6f7"
 	mocGreen    = "#a6e3a1"
+	mocBlue     = "#89b4fa"
+	mocRed      = "#f38ba8"
+	mocLavender = "#b4befe"
 )
 
 // paint is a foreground and background pair; an empty bg leaves the
@@ -36,13 +39,10 @@ func paint(fg, bg string) lipgloss.Style {
 // hintStyle draws the key hints at the foot of the sidebar.
 func hintStyle(s string) string { return paint(mocOverlay, "").Render(s) }
 
-// pill is the title tag, like tmux's TMUX tag: green with the sidebar
-// focused, muted without.
-func (m model) pill(text string) string {
-	if m.focus == focusSidebar {
-		return paint(mocBase, mocGreen).Bold(true).Render(" " + text + " ")
-	}
-	return paint(mocSub, mocSurf0).Render(" " + text + " ")
+// pill is the title tag, the mode of the moment (see modeTag).
+func (m model) pill() string {
+	label, bg := m.modeTag()
+	return paint(mocBase, bg).Bold(true).Render(" " + label + " ")
 }
 
 // rowBg is the fill behind the cursor line: a clear one with the sidebar

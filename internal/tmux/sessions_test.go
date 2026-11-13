@@ -90,3 +90,22 @@ func TestStatusLines(t *testing.T) {
 		}
 	}
 }
+
+func TestParseMode(t *testing.T) {
+	cases := map[string]Mode{
+		"0|0|0":    {},
+		"1|0|0":    {Prefix: true},
+		"0|1|0":    {Copy: true},
+		"0|0|1":    {Sync: true},
+		"1|1|1":    {Prefix: true, Copy: true, Sync: true},
+		"":         {},
+		"1|0":      {},
+		"1|0|0|0":  {},
+		"yes|0|no": {},
+	}
+	for in, want := range cases {
+		if got := parseMode(in); got != want {
+			t.Errorf("parseMode(%q) = %+v, want %+v", in, got, want)
+		}
+	}
+}

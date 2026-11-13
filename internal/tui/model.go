@@ -88,6 +88,7 @@ type model struct {
 	hostShut *hostShut   // the close-all question, while it is open
 	hostPick *hostPick   // the choice of connected pane, while it is open
 	shown    bool        // a live session was auto-shown once; do not re-attach after a detach
+	mode     tmux.Mode   // PREFIX, COPY or SYNC of the embedded client, for the title pill
 }
 
 // statusBar is the tmux status bar of the embedded client. The embedded
@@ -128,7 +129,7 @@ type (
 
 func newModel(cfg Config, h *hub) model { return model{cfg: cfg, hub: h} }
 
-func (m model) Init() tea.Cmd { return tea.Batch(m.refresh(), tick()) }
+func (m model) Init() tea.Cmd { return tea.Batch(m.refresh(), tick(), modeTick()) }
 
 func tick() tea.Cmd {
 	return tea.Tick(tickEvery, func(time.Time) tea.Msg { return tickMsg{} })
@@ -196,6 +197,13 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.hub.dirty.Store(false)
 	case tickMsg:
 		return m, tea.Batch(m.refresh(), tick())
+	case modeTickMsg:
+		return m, tea.Batch(m.modeCmd(), modeTick())
+	case modeMsg:
+		if m.term != nil && m.term.PID() == msg.pid {
+			m.mode = msg.mode
+		}
+		return m, nil
 	case warmMsg:
 		if m.term != nil && m.tty == "" {
 			return m, tea.Batch(m.refresh(), warm())
@@ -204,7 +212,7 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.onRows(msg), nil
 	case exitMsg:
 		if m.term != nil && m.term.PID() == msg.pid {
-			m.term, m.tty, m.current, m.bar = nil, "", "", statusBar{}
+			m.term, m.tty, m.current, m.bar, m.mode = nil, "", "", statusBar{}, tmux.Mode{}
 			m.focus = focusSidebar
 			m.notice = "detached: enter reopens"
 		}

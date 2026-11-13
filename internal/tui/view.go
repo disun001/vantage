@@ -81,7 +81,7 @@ func (m model) sidebar() []string {
 	for i := range out {
 		out[i] = strings.Repeat(" ", sidebarW)
 	}
-	out[0] = fit(m.pill("vantage"), sidebarW)
+	out[0] = fit(m.pill(), sidebarW)
 
 	note := m.noticeLines()
 	items := m.items()

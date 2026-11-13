@@ -186,6 +186,34 @@ func (c Client) StatusBar(tty string) (lines int, top bool, err error) {
 	return statusLines(v), pos == "top", nil
 }
 
+// Mode is the state of a client's current pane that a tmux status bar usually
+// tags: PREFIX, COPY and SYNC.
+type Mode struct {
+	Prefix bool // the prefix key was pressed and a command key is awaited
+	Copy   bool // the pane is in copy mode (or another pane mode)
+	Sync   bool // synchronize-panes is on for the window
+}
+
+// Mode reports the mode of the client on tty.
+func (c Client) Mode(tty string) (Mode, error) {
+	out, err := c.run("display-message", "-p", "-c", tty,
+		"#{client_prefix}|#{pane_in_mode}|#{pane_synchronized}")
+	if err != nil {
+		return Mode{}, err
+	}
+	return parseMode(out), nil
+}
+
+// parseMode reads the three flags of Mode's format. Anything unexpected is no
+// mode, which shows the idle tag.
+func parseMode(s string) Mode {
+	f := strings.Split(s, "|")
+	if len(f) != 3 {
+		return Mode{}
+	}
+	return Mode{Prefix: f[0] == "1", Copy: f[1] == "1", Sync: f[2] == "1"}
+}
+
 // statusLines turns the value of the status option into a line count.
 // Anything unknown counts as no bar, which crops nothing.
 func statusLines(v string) int {
