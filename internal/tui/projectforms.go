@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // noBlanks drops all whitespace from typed text: no field of these forms has
@@ -36,115 +35,6 @@ func fieldLine(label, text string, focus bool, labelW, inner int) string {
 		return curStyle.Render(fit(label, labelW)) + fit(text+cursorStyle.Render(" "), inner-labelW)
 	}
 	return fit(dimStyle.Render(fit(label, labelW))+text, inner)
-}
-
-// taskForm is the add-task pop-up: the task name, then one line per repo to
-// include, each with a base branch.
-type taskForm struct {
-	project string
-	name    string
-	repos   []taskFormRepo
-	focus   int // 0 is the name, 1.. the repos
-	err     string
-}
-
-type taskFormRepo struct {
-	name    string
-	include bool
-	base    string // empty means the repo's default branch
-}
-
-func (m model) startTaskForm() model {
-	if m.projInfo == nil || m.projInfo.Name != m.projCur || len(m.projInfo.Repos) == 0 {
-		return m
-	}
-	f := &taskForm{project: m.projCur}
-	for _, r := range m.projInfo.Repos {
-		f.repos = append(f.repos, taskFormRepo{name: r.Name, include: true})
-	}
-	m.tform, m.notice = f, ""
-	return m
-}
-
-func (m model) onTaskFormKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
-	f := *m.tform
-	f.repos = append([]taskFormRepo(nil), f.repos...)
-	m.tform = &f
-	n := len(f.repos) + 1
-	switch k.Type {
-	case tea.KeyEsc, tea.KeyCtrlC:
-		m.tform = nil
-	case tea.KeyEnter:
-		return m.submitTaskForm()
-	case tea.KeyTab, tea.KeyDown:
-		f.focus = (f.focus + 1) % n
-	case tea.KeyShiftTab, tea.KeyUp:
-		f.focus = (f.focus + n - 1) % n
-	case tea.KeySpace:
-		if f.focus > 0 {
-			f.repos[f.focus-1].include = !f.repos[f.focus-1].include
-		}
-	default:
-		if f.focus == 0 {
-			typeInto(&f.name, k)
-		} else {
-			typeInto(&f.repos[f.focus-1].base, k)
-		}
-	}
-	return m, nil
-}
-
-func (m model) submitTaskForm() (tea.Model, tea.Cmd) {
-	f := *m.tform
-	var picks []TaskPick
-	for _, r := range f.repos {
-		if r.include {
-			picks = append(picks, TaskPick{Repo: r.name, Base: r.base})
-		}
-	}
-	switch {
-	case f.name == "":
-		f.focus, f.err = 0, "task name is required"
-	case len(picks) == 0:
-		f.err = "include at least one repo"
-	default:
-		m.tform, m.notice, m.okNotice = nil, "creating task…", "creating task…"
-		return m, m.taskCmd(f.project, f.name, picks)
-	}
-	m.tform = &f
-	return m, nil
-}
-
-func (m model) taskFormBox() []string {
-	f := m.tform
-	inner := max(10, min(48, m.w-6))
-	rows := []string{popTitle("new task in " + f.project), ""}
-	rows = append(rows, fieldLine("task", f.name, f.focus == 0, 6, inner), "")
-	for i, r := range f.repos {
-		box := "[ ] "
-		if r.include {
-			box = "[x] "
-		}
-		base := r.base
-		if base == "" {
-			base = "default branch"
-		}
-		line := box + fit(ansi.Truncate(r.name, 14, "…"), 15) + "from " + base
-		switch {
-		case f.focus == i+1:
-			rows = append(rows, curStyle.Render(fit(ansi.Truncate(line, inner, "…"), inner)))
-		case !r.include:
-			rows = append(rows, fit(dimStyle.Render(ansi.Truncate(line, inner, "…")), inner))
-		default:
-			rows = append(rows, fit(ansi.Truncate(line, inner, "…"), inner))
-		}
-	}
-	rows = append(rows, "")
-	if f.err != "" {
-		rows = append(rows, noticeStyle.Render(f.err))
-	}
-	rows = append(rows, dimStyle.Render("tab next · space include · type base"), dimStyle.Render("enter create · esc"))
-	return framed(rows, inner)
 }
 
 // projForm is the add-project pop-up: name, flat, and one block of url, dir

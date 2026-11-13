@@ -58,7 +58,7 @@ func (m model) helpGroups() []helpGroup {
 		focusGroup,
 		{"App", []bind{
 			{"H", "ssh hosts"},
-			{"P", "projects and tasks"},
+			{"P", "projects"},
 			{"?", "this help"},
 			{"q", "quit"},
 		}},
@@ -160,10 +160,8 @@ func projectHelp() []helpGroup {
 		moveGroup,
 		{"Projects", []bind{
 			{"a", "add project"},
-			{"n", "new task"},
-			{"d", "delete project (list) or task"},
-			{"⏎", "open task (list: step in)"},
-			{"h/esc", "step out / back"},
+			{"d", "delete project"},
+			{"h/esc", "back"},
 			{"r", "refresh"},
 		}},
 		{"App", []bind{

@@ -23,17 +23,6 @@ func (s projectStore) Detail(name string) (tui.ProjectInfo, error) {
 	for _, r := range project.Check(root, p, s.git) {
 		info.Repos = append(info.Repos, repoInfo(r))
 	}
-	tasks, err := project.ListTasks(root, p)
-	if err != nil {
-		return info, err
-	}
-	for _, t := range tasks {
-		ti := tui.TaskInfo{Name: t}
-		for _, r := range project.TaskRepos(root, p, t) {
-			ti.Repos = append(ti.Repos, r.DirName())
-		}
-		info.Tasks = append(info.Tasks, ti)
-	}
 	return info, nil
 }
 
@@ -68,41 +57,12 @@ func (s projectStore) Create(d tui.ProjectDef) error {
 	return nil
 }
 
-func (s projectStore) NewTask(name, task string, picks []tui.TaskPick) error {
-	p, root, err := loadProject(name)
-	if err != nil {
-		return err
-	}
-	repos := make([]project.TaskRepo, len(picks))
-	for i, pk := range picks {
-		repos[i] = project.TaskRepo{Dir: pk.Repo, Base: pk.Base}
-	}
-	return project.NewTask(root, p, s.git, task, repos, io.Discard)
-}
-
 func (s projectStore) Remove(name string, force bool) error {
 	p, root, err := loadProject(name)
 	if err != nil {
 		return err
 	}
 	return project.Remove(root, p, s.git, force, io.Discard)
-}
-
-func (s projectStore) RemoveTask(name, task string, force bool) error {
-	p, root, err := loadProject(name)
-	if err != nil {
-		return err
-	}
-	return project.RemoveTask(root, p, s.git, task, force, io.Discard)
-}
-
-func (projectStore) Workspace(name, task string) (string, error) {
-	p, root, err := loadProject(name)
-	if err != nil {
-		return "", err
-	}
-	ws, _, err := project.EnsureTaskWorkspace(root, p, task)
-	return ws, err
 }
 
 func loadProject(name string) (project.Project, string, error) {

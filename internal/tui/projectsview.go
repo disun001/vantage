@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
@@ -43,7 +42,7 @@ func (m model) projectsSidebar() []string {
 }
 
 // projectDetails draws the right pane of the projects view: the repos of the
-// project under the cursor with their state, then its tasks.
+// project under the cursor with their state.
 func (m model) projectDetails() []string {
 	w, h := m.termW(), m.innerH()
 	out := make([]string, h)
@@ -63,16 +62,10 @@ func (m model) projectDetails() []string {
 	for _, r := range info.Repos {
 		head = append(head, " "+repoLine(r, w-2))
 	}
-	head = append(head, "", " "+dimStyle.Render("tasks"))
-	lines := append(head, m.taskLines(info, w, h-len(head)-1)...)
-	for i := 0; i < len(lines) && i < h-1; i++ {
-		out[i] = fit(lines[i], w)
+	for i := 0; i < len(head) && i < h-1; i++ {
+		out[i] = fit(head[i], w)
 	}
-	hint := "n new task · a add project"
-	if len(info.Tasks) > 0 {
-		hint = "⏎ open task · " + hint
-	}
-	out[h-1] = fit(" "+dimStyle.Render(hint), w)
+	out[h-1] = fit(" "+dimStyle.Render("a add project · d delete · r refresh"), w)
 	return out
 }
 
@@ -102,24 +95,4 @@ func repoLine(r RepoInfo, w int) string {
 	}
 	return fit(name+fit(ansi.Truncate(r.Branch, branchW-1, "…"), branchW)+
 		dimStyle.Render(fit(r.Sync, syncW))+extra, w)
-}
-
-// taskLines lists the tasks, scrolled so the cursor stays inside room lines.
-func (m model) taskLines(info *ProjectInfo, w, room int) []string {
-	if len(info.Tasks) == 0 {
-		return []string{" " + dimStyle.Render("none yet: n creates one")}
-	}
-	room = max(1, room)
-	start := max(0, min(m.taskCur-room+1, len(info.Tasks)-room))
-	var out []string
-	for i := start; i < len(info.Tasks) && len(out) < room; i++ {
-		t := info.Tasks[i]
-		text := fmt.Sprintf(" %-22s %s", ansi.Truncate(t.Name, 22, "…"), strings.Join(t.Repos, ", "))
-		if m.projFocus && i == m.taskCur {
-			out = append(out, selStyle.Render(fit(text, w)))
-			continue
-		}
-		out = append(out, fit(text, w))
-	}
-	return out
 }

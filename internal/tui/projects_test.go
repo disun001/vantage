@@ -16,7 +16,7 @@ func ansiText(s string) string { return ansi.Strip(s) }
 type fakeProjects struct {
 	infos map[string]ProjectInfo
 	calls []string
-	err   error // fails NewTask and Create
+	err   error // fails Create and Remove
 }
 
 func (f *fakeProjects) List() ([]string, error) {
@@ -36,24 +36,9 @@ func (f *fakeProjects) Create(d ProjectDef) error {
 	return f.err
 }
 
-func (f *fakeProjects) NewTask(p, task string, picks []TaskPick) error {
-	f.calls = append(f.calls, fmt.Sprintf("newtask %s %s %v", p, task, picks))
-	return f.err
-}
-
 func (f *fakeProjects) Remove(name string, force bool) error {
 	f.calls = append(f.calls, fmt.Sprintf("rm %s %v", name, force))
 	return f.err
-}
-
-func (f *fakeProjects) RemoveTask(p, task string, force bool) error {
-	f.calls = append(f.calls, fmt.Sprintf("rmtask %s %s %v", p, task, force))
-	return f.err
-}
-
-func (f *fakeProjects) Workspace(p, task string) (string, error) {
-	f.calls = append(f.calls, "workspace "+p+" "+task)
-	return p + "-" + task, nil
 }
 
 func stackInfos() map[string]ProjectInfo {
@@ -65,7 +50,6 @@ func stackInfos() map[string]ProjectInfo {
 				{Name: "web", Cloned: true, Branch: "dev", Sync: "+1 -0", Dirty: true, Warn: "on dev, default is main"},
 				{Name: "docs"},
 			},
-			Tasks: []TaskInfo{{Name: "fix-login", Repos: []string{"api", "web"}}, {Name: "other", Repos: []string{"web"}}},
 		},
 		"solo": {Name: "solo", Flat: true, Repos: []RepoInfo{{Name: "solo", Cloned: true, Branch: "main", Sync: "up to date"}}},
 	}
@@ -100,7 +84,7 @@ func TestProjectsViewListsAndShowsDetails(t *testing.T) {
 	}
 	m.w, m.h = 100, 30
 	right := ansiText(strings.Join(m.right(), "\n"))
-	for _, want := range []string{"api-stack", "up to date", "dirty", "on dev, default is main", "not cloned", "fix-login", "api, web"} {
+	for _, want := range []string{"api-stack", "up to date", "dirty", "on dev, default is main", "not cloned"} {
 		if !strings.Contains(right, want) {
 			t.Errorf("details lack %q:\n%s", want, right)
 		}
@@ -130,126 +114,6 @@ func TestProjectsMoveLoadsDetailsAndDropsStaleAnswers(t *testing.T) {
 	}
 	if m, _ = press(m, "j"); m.projCur != "solo" {
 		t.Error("cursor must clamp at the last project")
-	}
-}
-
-func TestTaskListFocus(t *testing.T) {
-	m := openProjects(t, &fakeProjects{infos: stackInfos()}, new([]string))
-	m, _ = press(m, "enter")
-	if !m.projFocus {
-		t.Fatal("enter must step into the task list")
-	}
-	m, _ = press(m, "j", "j")
-	if m.taskCur != 1 {
-		t.Errorf("taskCur = %d, want clamped at 1", m.taskCur)
-	}
-	if m, _ = press(m, "esc"); m.projFocus || m.view != viewProjects {
-		t.Error("esc steps out of the list, not out of the view")
-	}
-	// solo has no tasks: nothing to step into.
-	m, cmd := press(m, "j")
-	m = settle(m, cmd)
-	if m, _ = press(m, "enter"); m.projFocus {
-		t.Error("no tasks, no focus")
-	}
-	if m, _ = press(m, "esc"); m.view != viewSessions {
-		t.Error("esc from the list returns to workspaces")
-	}
-}
-
-func TestOpenTaskReturnsToWorkspaceAndRestores(t *testing.T) {
-	f, restored := &fakeProjects{infos: stackInfos()}, new([]string)
-	m := openProjects(t, f, restored)
-	m, _ = press(m, "enter", "j")
-	m, cmd := press(m, "enter")
-	if cmd == nil {
-		t.Fatal("enter on a task must act")
-	}
-	next, _ := m.Update(cmd())
-	got := next.(model)
-	if got.term != nil {
-		defer got.term.Close()
-	}
-	if got.view != viewSessions || got.projFocus {
-		t.Errorf("view=%v focus=%v, want back on workspaces", got.view, got.projFocus)
-	}
-	if got.cur != (key{"api-stack-other", -1}) {
-		t.Errorf("cursor = %+v, want the task's workspace", got.cur)
-	}
-	if len(*restored) != 1 || (*restored)[0] != "api-stack-other" {
-		t.Errorf("restored = %v", *restored)
-	}
-	if got.current != "api-stack-other" {
-		t.Errorf("shown session = %q", got.current)
-	}
-	if strings.Join(f.calls, ";") != "workspace api-stack other" {
-		t.Errorf("an existing task must not be created again: %v", f.calls)
-	}
-}
-
-func TestNewTaskForm(t *testing.T) {
-	f, restored := &fakeProjects{infos: stackInfos()}, new([]string)
-	m := openProjects(t, f, restored)
-	m, _ = press(m, "n")
-	if m.tform == nil {
-		t.Fatal("n did not open the task form")
-	}
-	box := ansiText(popupText(m))
-	for _, want := range []string{"new task in api-stack", "[x] api", "[x] web", "default branch"} {
-		if !strings.Contains(box, want) {
-			t.Errorf("form lacks %q:\n%s", want, box)
-		}
-	}
-	m = typed(m, "t1")
-	m, _ = press(m, "tab", "tab") // web
-	m = typed(m, "dev")
-	m, _ = press(m, "tab", "space") // docs: leave it out
-	if r := m.tform.repos; !r[0].include || !r[1].include || r[2].include {
-		t.Fatalf("space must toggle the focused repo only: %+v", r)
-	}
-	m, cmd := press(m, "enter")
-	if m.tform != nil || cmd == nil {
-		t.Fatalf("enter must close the form and run: %+v", m.tform)
-	}
-	next, _ := m.Update(cmd())
-	got := next.(model)
-	if got.term != nil {
-		defer got.term.Close()
-	}
-	want := []string{"newtask api-stack t1 [{api } {web dev}]", "workspace api-stack t1"}
-	if strings.Join(f.calls, ";") != strings.Join(want, ";") {
-		t.Errorf("calls = %v, want %v", f.calls, want)
-	}
-	if got.view != viewSessions || got.cur != (key{"api-stack-t1", -1}) {
-		t.Errorf("view=%v cur=%+v", got.view, got.cur)
-	}
-}
-
-func TestNewTaskFormRefusals(t *testing.T) {
-	m := openProjects(t, &fakeProjects{infos: stackInfos()}, new([]string))
-	m, cmd := press(m, "n", "enter")
-	if m.tform == nil || cmd != nil || !strings.Contains(m.tform.err, "name") {
-		t.Fatalf("empty name must stay open with a message: %+v", m.tform)
-	}
-	m = typed(m, "t")
-	m, _ = press(m, "tab", "space", "tab", "space", "tab", "space", "enter")
-	if m.tform == nil || !strings.Contains(m.tform.err, "at least one repo") {
-		t.Fatalf("no repos must stay open with a message: %+v", m.tform)
-	}
-	if m, _ = press(m, "esc"); m.tform != nil {
-		t.Error("esc closes the form")
-	}
-}
-
-func TestNewTaskFailureStaysOnDetails(t *testing.T) {
-	f := &fakeProjects{infos: stackInfos(), err: errors.New("branch \"t\" already exists")}
-	m := openProjects(t, f, new([]string))
-	m, _ = press(m, "n")
-	m = typed(m, "t")
-	m, cmd := press(m, "enter")
-	m = settleAll(m, cmd)
-	if m.view != viewProjects || !strings.Contains(m.notice, "already exists") {
-		t.Errorf("view=%v notice=%q", m.view, m.notice)
 	}
 }
 
@@ -324,11 +188,7 @@ func TestProjectsViewRendersWholeScreen(t *testing.T) {
 		}
 	}
 	m.w, m.h = 100, 30
-	m, _ = press(m, "n")
-	if !strings.Contains(ansiText(m.View()), "new task in api-stack") {
-		t.Error("the task form must draw over the details page")
-	}
-	m, _ = press(m, "esc", "a")
+	m, _ = press(m, "a")
 	if !strings.Contains(ansiText(m.View()), "add project") {
 		t.Error("the project form must draw over the details page")
 	}
@@ -338,7 +198,7 @@ func TestProjectDeleteAsksThenRemoves(t *testing.T) {
 	f := &fakeProjects{infos: stackInfos()}
 	m := openProjects(t, f, new([]string))
 	m, _ = press(m, "d")
-	if m.projDel == nil || !strings.Contains(ansiText(strings.Join(m.projDel.box(80), "\n")), "2 task(s)") {
+	if m.projDel == nil || !strings.Contains(ansiText(strings.Join(m.projDel.box(80), "\n")), "delete project") {
 		t.Fatal("d must open the delete question")
 	}
 	m, cmd := press(m, "x") // any other key cancels
@@ -349,22 +209,6 @@ func TestProjectDeleteAsksThenRemoves(t *testing.T) {
 	_, cmd = press(m, "f")
 	settleAll(m, cmd)
 	if got := strings.Join(f.calls, "|"); got != "rm api-stack true" {
-		t.Errorf("calls = %q", got)
-	}
-}
-
-func TestTaskDeleteFromTaskList(t *testing.T) {
-	f := &fakeProjects{infos: stackInfos()}
-	m := openProjects(t, f, new([]string))
-	m, _ = press(m, "l")
-	m, _ = press(m, "j")
-	m, _ = press(m, "d")
-	if m.projDel == nil || m.projDel.task != "other" {
-		t.Fatalf("projDel = %+v", m.projDel)
-	}
-	m, cmd := press(m, "y")
-	settleAll(m, cmd)
-	if got := strings.Join(f.calls, "|"); got != "rmtask api-stack other false" {
 		t.Errorf("calls = %q", got)
 	}
 }

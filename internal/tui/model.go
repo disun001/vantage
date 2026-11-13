@@ -74,41 +74,38 @@ type hub struct {
 }
 
 type model struct {
-	cfg       Config
-	hub       *hub
-	w, h      int
-	rows      []row
-	cur       key             // the line under the cursor, by name
-	top       int             // first visible item, for scrolling
-	open      map[string]bool // sessions the user opened or closed by hand
-	focus     focus
-	term      *embed.Term
-	tty       string // tty of the embedded tmux client, once known
-	bar       statusBar
-	current   string // session the embedded client shows
-	notice    string
-	okNotice  string // a notice equal to this is good news, drawn dim
-	prompt    *prompt
-	view      sidebarView
-	hosts     []sshconfig.Host
-	hostCur   string // alias under the cursor in the hosts view
-	hostTop   int
-	form      *hostForm
-	hostDel   *hostDelete // the delete question, while it is open
-	hostShut  *hostShut   // the close-all question, while it is open
-	hostPick  *hostPick   // the choice of connected pane, while it is open
-	projects  []string    // project names, for the projects view
-	projCur   string      // project under the cursor
-	projTop   int
-	projInfo  *ProjectInfo // its details, once loaded
-	projFocus bool         // keys go to the task list on the details page
-	taskCur   int
-	tform     *taskForm   // the add-task pop-up
-	pform     *projForm   // the add-project pop-up
-	projDel   *projDelete // the delete question, while it is open
-	help      bool        // the key help pop-up is open
-	shown     bool        // a live session was auto-shown once; do not re-attach after a detach
-	mode      tmux.Mode   // PREFIX, COPY or SYNC of the embedded client, for the title pill
+	cfg      Config
+	hub      *hub
+	w, h     int
+	rows     []row
+	cur      key             // the line under the cursor, by name
+	top      int             // first visible item, for scrolling
+	open     map[string]bool // sessions the user opened or closed by hand
+	focus    focus
+	term     *embed.Term
+	tty      string // tty of the embedded tmux client, once known
+	bar      statusBar
+	current  string // session the embedded client shows
+	notice   string
+	okNotice string // a notice equal to this is good news, drawn dim
+	prompt   *prompt
+	view     sidebarView
+	hosts    []sshconfig.Host
+	hostCur  string // alias under the cursor in the hosts view
+	hostTop  int
+	form     *hostForm
+	hostDel  *hostDelete // the delete question, while it is open
+	hostShut *hostShut   // the close-all question, while it is open
+	hostPick *hostPick   // the choice of connected pane, while it is open
+	projects []string    // project names, for the projects view
+	projCur  string      // project under the cursor
+	projTop  int
+	projInfo *ProjectInfo // its details, once loaded
+	pform    *projForm    // the add-project pop-up
+	projDel  *projDelete  // the delete question, while it is open
+	help     bool         // the key help pop-up is open
+	shown    bool         // a live session was auto-shown once; do not re-attach after a detach
+	mode     tmux.Mode    // PREFIX, COPY or SYNC of the embedded client, for the title pill
 }
 
 // statusBar is the tmux status bar of the embedded client. The embedded
@@ -242,7 +239,7 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.onReady(msg)
 	case manageMsg:
 		return m.onManage(msg)
-	case projectsMsg, projDetailMsg, projCreatedMsg, taskOpenMsg, projRemovedMsg:
+	case projectsMsg, projDetailMsg, projCreatedMsg, projRemovedMsg:
 		next, cmd, _ := m.updateProjects(msg)
 		return next, cmd
 	case edgeMsg:

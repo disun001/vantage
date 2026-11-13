@@ -43,9 +43,6 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.form != nil {
 		return m.onFormKey(k)
 	}
-	if m.tform != nil {
-		return m.onTaskFormKey(k)
-	}
 	if m.pform != nil {
 		return m.onProjFormKey(k)
 	}

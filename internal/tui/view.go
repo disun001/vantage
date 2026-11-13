@@ -24,7 +24,7 @@ func (m model) View() string {
 	side := m.sidebar()
 	right := m.right()
 	edge := borderIdle
-	if m.focus == focusTerm || (m.view == viewProjects && m.projFocus) {
+	if m.focus == focusTerm {
 		edge = borderActive
 	}
 	frame := paint(edge, "")

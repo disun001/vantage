@@ -75,22 +75,6 @@ func TestProjectCommandErrors(t *testing.T) {
 	}
 }
 
-func TestParseTaskArgs(t *testing.T) {
-	got, err := parseTaskArgs([]string{"p", "--repo", "api:dev", "t", "--repo=web", "--force"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got.pos) != 2 || !got.force || len(got.repos) != 2 ||
-		got.repos[0].Base != "dev" || got.repos[1].Dir != "web" || got.repos[1].Base != "" {
-		t.Errorf("parsed %+v", got)
-	}
-	for _, bad := range [][]string{{"--repo"}, {"--repo", ":x"}, {"--repo", "a:"}, {"--nope"}} {
-		if _, err := parseTaskArgs(bad); err == nil {
-			t.Errorf("%v should fail", bad)
-		}
-	}
-}
-
 func TestProjectStore(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not installed")
@@ -113,19 +97,11 @@ func TestProjectStore(t *testing.T) {
 	if err := s.Create(tui.ProjectDef{Name: "demo", Repos: []tui.RepoDef{{URL: src}}}); err == nil {
 		t.Error("creating an existing project must fail")
 	}
-	if err := s.NewTask("demo", "t1", []tui.TaskPick{{Repo: "api"}}); err != nil {
-		t.Fatal(err)
-	}
-	ws, err := s.Workspace("demo", "t1")
-	if err != nil || ws != "demo-t1" {
-		t.Fatalf("workspace = %q, %v", ws, err)
-	}
 	info, err := s.Detail("demo")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Name != "demo" || len(info.Repos) != 1 || !info.Repos[0].Cloned || info.Repos[0].Branch != "main" ||
-		len(info.Tasks) != 1 || info.Tasks[0].Name != "t1" || info.Tasks[0].Repos[0] != "api" {
+	if info.Name != "demo" || len(info.Repos) != 1 || !info.Repos[0].Cloned || info.Repos[0].Branch != "main" {
 		t.Errorf("detail = %+v", info)
 	}
 	if names, _ := s.List(); len(names) != 1 || names[0] != "demo" {

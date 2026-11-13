@@ -15,7 +15,7 @@ const chevronW = 2
 // the sidebar handles its own clicks and wheel, and events over the tmux
 // region are translated to its coordinates and forwarded.
 func (m model) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	if m.prompt != nil || m.form != nil || m.tform != nil || m.pform != nil || m.projDel != nil || m.hostDel != nil || m.hostPick != nil || m.hostShut != nil || m.help { // a prompt owns the input until it is answered
+	if m.prompt != nil || m.form != nil || m.pform != nil || m.projDel != nil || m.hostDel != nil || m.hostPick != nil || m.hostShut != nil || m.help { // a prompt owns the input until it is answered
 		return m, nil
 	}
 	if msg.X < sidebarW {
@@ -74,7 +74,7 @@ func (m model) onProjectMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	case msg.Button == tea.MouseButtonWheelDown:
 		return m.moveProj(1)
 	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
-		m.focus, m.projFocus = focusSidebar, false
+		m.focus = focusSidebar
 		if i := msg.Y - firstRowY + m.projTop; msg.Y >= firstRowY && i < len(m.projects) {
 			return m.moveProj(i - m.projPos())
 		}
