@@ -96,3 +96,15 @@ func TestHelpOpensFromTmuxFocus(t *testing.T) {
 func altKey(s string) tea.KeyMsg {
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s[len("alt+"):]), Alt: true}
 }
+
+func TestSidebarHeadingsNameTheView(t *testing.T) {
+	m := treeModel()
+	m.w, m.h = 100, 30
+	if top := ansi.Strip(m.sidebar()[1]); !strings.Contains(top, "workspaces") {
+		t.Errorf("workspaces heading = %q", top)
+	}
+	m.view = viewHosts
+	if top := ansi.Strip(m.sidebar()[1]); !strings.Contains(top, "ssh hosts") {
+		t.Errorf("hosts heading = %q", top)
+	}
+}

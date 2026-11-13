@@ -95,6 +95,7 @@ func (m model) sidebar() []string {
 		out[i] = strings.Repeat(" ", sidebarW)
 	}
 	out[0] = fit(m.pill(), sidebarW)
+	out[1] = fit(hintStyle("workspaces"), sidebarW)
 
 	note := m.noticeLines()
 	items := m.items()

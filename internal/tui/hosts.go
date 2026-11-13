@@ -462,7 +462,8 @@ func (m model) hostsSidebar() []string {
 	for i := range out {
 		out[i] = strings.Repeat(" ", sidebarW)
 	}
-	out[0] = fit(m.pill()+" "+hintStyle("ssh hosts"), sidebarW)
+	out[0] = fit(m.pill(), sidebarW)
+	out[1] = fit(hintStyle("ssh hosts"), sidebarW)
 	note := m.noticeLines()
 	cur := m.hostPos()
 	y := firstRowY
