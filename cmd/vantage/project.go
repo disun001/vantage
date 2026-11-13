@@ -12,20 +12,20 @@ import (
 
 var projectCmd = command{
 	name:    "project",
-	usage:   "project list|sync|status [name]",
+	usage:   "project list|sync|status|update [name]",
 	summary: "manage projects (sets of git repos)",
 	run:     runProject,
 }
 
 func runProject(args []string, out io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: vantage project list|sync|status [name]")
+		return errors.New("usage: vantage project list|sync|status|update [name]")
 	}
 	sub, rest := args[0], args[1:]
 	if sub == "list" {
 		return projectList(out)
 	}
-	if sub != "sync" && sub != "status" {
+	if sub != "sync" && sub != "status" && sub != "update" {
 		return fmt.Errorf("unknown project command %q", sub)
 	}
 	if len(rest) != 1 {
@@ -39,8 +39,11 @@ func runProject(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if sub == "sync" {
+	switch sub {
+	case "sync":
 		return project.Sync(root, p, git.Client{}, out)
+	case "update":
+		return project.Update(root, p, git.Client{}, out)
 	}
 	return printStatus(out, project.Check(root, p, git.Client{}))
 }

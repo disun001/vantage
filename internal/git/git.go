@@ -71,6 +71,14 @@ func (c Client) Fetch(dir string) error {
 	return err
 }
 
+// FastForward advances the current branch of dir to its upstream. It fails
+// instead of creating a merge commit or touching the working tree on
+// divergence.
+func (c Client) FastForward(dir string) error {
+	_, err := c.run(dir, "merge", "--ff-only", "@{u}")
+	return err
+}
+
 // Status reports the state of the checkout in dir.
 func (c Client) Status(dir string) (Status, error) {
 	var st Status

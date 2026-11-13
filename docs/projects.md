@@ -1,6 +1,6 @@
 # Projects (design)
 
-Status: designed. Step 1 (projects path, project file, `sync`, `status`) is built; the rest is not. Build order at the end.
+Status: designed. Steps 1 (projects path, project file, `sync`, `status`) and 2 (`update`) are built; the rest is not. Build order at the end.
 
 A **project** is a set of git repos managed together. A **task** is a unit of work that spans some of those repos, isolated in git worktrees. Vantage keeps the repos fresh and creates task worktrees; the user (and later, agents) work inside tasks.
 
@@ -37,7 +37,7 @@ Pristine bases: the user and agents work in task worktrees, not here.
 
 - `project sync`: clone repos that are missing.
 - `project status`: per repo, branch, ahead/behind, dirty, worktree count. Warns when a main clone is dirty or off its default branch. Never blocks or resets.
-- `project update`: `git fetch` everywhere, then fast-forward only clones that are clean and on their default branch.
+- `project update`: `git fetch` everywhere, then fast-forward (`merge --ff-only`) only clones that are clean, on their default branch, with an upstream and not diverged. Others are reported as skipped.
 
 ## Tasks
 
@@ -79,7 +79,7 @@ A task's workspace is found by the `project` and `task` keys, not by file name, 
 ## Build order
 
 1. Projects path, project TOML, `sync`, `status`. **Done.**
-2. `update`.
+2. `update`. **Done.**
 3. Tasks: `new`, `rm`, `copy` files.
 4. Workspace `project` and `task` keys.
 5. TUI projects view and details page.
