@@ -93,6 +93,7 @@ type model struct {
 	hosts    []sshconfig.Host
 	hostCur  string // alias under the cursor in the hosts view
 	hostTop  int
+	hostInfo *hostInfo // usage of the host under the cursor, once loaded
 	form     *hostForm
 	hostDel  *hostDelete // the delete question, while it is open
 	hostShut *hostShut   // the close-all question, while it is open

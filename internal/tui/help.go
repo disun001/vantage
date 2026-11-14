@@ -188,7 +188,6 @@ func hostHelp() []helpGroup {
 			{"d", "delete"},
 			{"r", "refresh"},
 		}},
-		focusGroup,
 		{"App", []bind{
 			{"H/esc", "back to workspaces"},
 			{"?", "this help"},

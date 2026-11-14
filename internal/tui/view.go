@@ -61,6 +61,9 @@ func (m model) right() []string {
 	if m.view == viewProjects {
 		return m.projectDetails()
 	}
+	if m.view == viewHosts {
+		return m.hostDetails()
+	}
 	w := m.termW()
 	out := make([]string, m.innerH())
 	if m.term == nil {

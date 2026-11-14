@@ -187,6 +187,12 @@ func (m model) onHosts(msg hostsMsg) model {
 	return m
 }
 
+// onHostsLoaded refreshes the list, then the details of the host it lands on.
+func (m model) onHostsLoaded(msg hostsMsg) (tea.Model, tea.Cmd) {
+	m = m.onHosts(msg)
+	return m, m.loadHostInfo()
+}
+
 // neighbour is the host to park the cursor on when alias goes away: the one
 // below it, else the one above.
 func (m model) neighbour(alias string) string {
@@ -223,8 +229,18 @@ func (m model) toggleHosts() (model, tea.Cmd) {
 		m.view = viewSessions
 		return m, nil
 	}
-	m.view = viewHosts
+	m.view, m.focus = viewHosts, focusSidebar
 	return m, m.loadHosts()
+}
+
+// stepHost moves the cursor for a movement key and loads the details it lands on.
+func (m model) stepHost(s string) (tea.Model, tea.Cmd) {
+	delta := map[string]int{
+		"j": 1, "down": 1, "k": -1, "up": -1,
+		"g": -len(m.hosts), "home": -len(m.hosts), "G": len(m.hosts), "end": len(m.hosts),
+	}[s]
+	m = m.moveHost(delta)
+	return m, m.loadHostInfo()
 }
 
 // onHostKey handles a sidebar key in the hosts view.
@@ -235,18 +251,12 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 			m.term.Close()
 		}
 		return m, tea.Quit
-	case "j", "down":
-		m = m.moveHost(1)
-	case "k", "up":
-		m = m.moveHost(-1)
-	case "g", "home":
-		m = m.moveHost(-len(m.hosts))
-	case "G", "end":
-		m = m.moveHost(len(m.hosts))
+	case "j", "down", "k", "up", "g", "home", "G", "end":
+		return m.stepHost(s)
 	case "?":
 		m.help = true
 	case "r":
-		return m, m.loadHosts()
+		return m, tea.Batch(m.loadHosts(), m.loadHostInfo())
 	case "a":
 		m.form, m.notice = &hostForm{}, ""
 	case "e":
@@ -267,10 +277,6 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 		return m.toggleHosts()
 	case "P":
 		return m.toggleProjects()
-	case "tab", "alt+l":
-		if m.term != nil {
-			m.focus = focusTerm
-		}
 	}
 	return m, nil
 }
@@ -306,7 +312,7 @@ func (m model) onHostSplit(msg hostSplitMsg) (tea.Model, tea.Cmd) {
 		m.notice = msg.err.Error()
 		return m, nil
 	}
-	m.focus = focusTerm
+	m.view, m.focus = viewSessions, focusTerm
 	return m, m.refresh()
 }
 

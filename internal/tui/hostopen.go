@@ -37,7 +37,9 @@ type hostPick struct {
 func (m model) updateHosts(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case hostsMsg:
-		return m.onHosts(msg), nil
+		return m.onHostsLoaded(msg)
+	case hostInfoMsg:
+		return m.onHostInfo(msg), nil
 	case hostUsageMsg:
 		return m.onHostUsage(msg), nil
 	case hostSplitMsg:

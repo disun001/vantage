@@ -500,7 +500,8 @@ func TestDeleteWarnsThenClosesPanes(t *testing.T) {
 	if !reflect.DeepEqual(u.stripped, []string{"web"}) {
 		t.Errorf("workspaces stripped for %v, want web", u.stripped)
 	}
-	if u.findCalls != 2 {
+	// The question, the confirm-time look, then the details page reload.
+	if u.findCalls != 3 {
 		t.Errorf("usage must be looked up again at confirm time, got %d lookups", u.findCalls)
 	}
 }
@@ -711,5 +712,23 @@ func TestRenameHostEndToEndOnTempFile(t *testing.T) {
 	}
 	if m.notice != "" || m.hostCur != "web2" {
 		t.Errorf("notice %q, cursor %q", m.notice, m.hostCur)
+	}
+}
+
+func TestHostsViewShowsDetailsNotTerminal(t *testing.T) {
+	u := &fakeUse{use: hostuse.Usage{
+		Workspaces: []string{"proj"},
+		Panes:      []tmux.PaneRef{{Session: "beta", Window: 2, WindowName: "web"}},
+	}}
+	m, _ := usedHost(t, u)
+	m = settle(m, m.loadHostInfo())
+	got := strings.Join(m.hostDetails(), "\n")
+	for _, want := range []string{"web", "open panes", "beta:2 web", "saved workspaces", "proj"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("details lack %q:\n%s", want, got)
+		}
+	}
+	if m.focus != focusSidebar {
+		t.Error("the details page has no terminal to focus")
 	}
 }

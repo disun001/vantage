@@ -21,7 +21,7 @@ func (m model) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	if msg.X < sidebarW {
 		return m.onSidebarMouse(msg)
 	}
-	if msg.X == sidebarW || m.term == nil || m.view == viewProjects { // divider, nothing to forward to, or the details page
+	if msg.X == sidebarW || m.term == nil || m.view == viewProjects || m.view == viewHosts { // divider, nothing to forward to, or a details page
 		return m, nil
 	}
 	if msg.Action == tea.MouseActionPress && m.focus != focusTerm {
@@ -42,7 +42,7 @@ func (m model) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 
 func (m model) onSidebarMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	if m.view == viewHosts {
-		return m.onHostMouse(msg), nil
+		return m.onHostMouse(msg)
 	}
 	if m.view == viewProjects {
 		return m.onProjectMouse(msg)
@@ -83,7 +83,7 @@ func (m model) onProjectMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 }
 
 // onHostMouse selects hosts: the wheel moves the cursor, a click picks a line.
-func (m model) onHostMouse(msg tea.MouseMsg) model {
+func (m model) onHostMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.Button == tea.MouseButtonWheelUp:
 		m = m.moveHost(-1)
@@ -94,8 +94,10 @@ func (m model) onHostMouse(msg tea.MouseMsg) model {
 		if i := msg.Y - firstRowY + m.hostTop; msg.Y >= firstRowY && i < len(m.hosts) {
 			m.hostCur = m.hosts[i].Alias
 		}
+	default:
+		return m, nil
 	}
-	return m
+	return m, m.loadHostInfo()
 }
 
 // toVT converts a Bubble Tea mouse event to the emulator's, at x, y relative

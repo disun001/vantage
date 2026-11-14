@@ -66,7 +66,7 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.help = true
 		return m, nil
 	}
-	if s == "alt+s" && m.view != viewProjects { // the details page has no tmux to focus
+	if s == "alt+s" && m.view != viewProjects && m.view != viewHosts { // the details pages has no tmux to focus
 		if m.focus == focusTerm {
 			m.focus = focusSidebar
 		} else if m.term != nil {
