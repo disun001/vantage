@@ -138,6 +138,7 @@ func (m model) onHostGo(msg hostGoMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m = m.show(msg.session)
+	m.view = viewSessions
 	if m.term != nil {
 		m.focus = focusTerm
 	}
