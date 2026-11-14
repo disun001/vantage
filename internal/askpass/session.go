@@ -122,12 +122,41 @@ func (s *Session) Set(alias, password string) error {
 	return nil
 }
 
-// Delete removes the stored password of alias. The vault must be open.
+// closedOK is what a change does when the vault is not open: nothing to change
+// when there is no vault file at all, ErrLocked when there is one.
+func (s *Session) closedOK() error {
+	if s.Identity == "" && !s.Vault.Exists() {
+		return nil
+	}
+	return ErrLocked
+}
+
+// Rename moves the stored password of from to to, so a renamed host keeps it.
+func (s *Session) Rename(from, to string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.ready() {
+		return s.closedOK()
+	}
+	p, ok := s.pass[from]
+	if !ok {
+		return nil
+	}
+	if err := s.Vault.Rename(*s.key, from, to); err != nil {
+		return err
+	}
+	delete(s.pass, from)
+	s.pass[to] = p
+	return nil
+}
+
+// Delete removes the stored password of alias. The vault must be open, unless
+// there is no vault.
 func (s *Session) Delete(alias string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.ready() {
-		return ErrLocked
+		return s.closedOK()
 	}
 	if err := s.Vault.Delete(*s.key, alias); err != nil {
 		return err

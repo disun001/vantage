@@ -134,3 +134,51 @@ func TestCtrlXRemovesTheStoredPassword(t *testing.T) {
 		t.Errorf("stored %v, popup %q", pw.stored, popupText(m))
 	}
 }
+
+func TestDeleteWarnsAboutAndRemovesTheStoredPassword(t *testing.T) {
+	pw := &fakePasswords{stored: map[string]bool{"web": true}}
+	m, _ := formWithVault(t, pw)
+	m, cmd := press(m, "d")
+	m = settle(m, cmd)
+	if !strings.Contains(popupText(m), "saved password is removed too") {
+		t.Errorf("popup %q", popupText(m))
+	}
+	m, cmd = press(m, "y")
+	settleAll(m, cmd)
+	if pw.stored["web"] {
+		t.Error("the stored password must go with the host")
+	}
+}
+
+func TestDeleteOfAHostWithoutAPasswordSaysNothingOfIt(t *testing.T) {
+	m, _ := formWithVault(t, &fakePasswords{stored: map[string]bool{}})
+	m, cmd := press(m, "d")
+	m = settle(m, cmd)
+	if strings.Contains(popupText(m), "password") {
+		t.Errorf("popup %q", popupText(m))
+	}
+}
+
+func TestRenameMovesTheStoredPassword(t *testing.T) {
+	pw := &fakePasswords{stored: map[string]bool{"web": true}}
+	m, _ := formWithVault(t, pw)
+	m, _ = press(m, "e", "shift+tab") // to the alias
+	m = typeText(m, "2")
+	m, cmd := press(m, "enter")
+	settleAll(m, cmd)
+	if pw.stored["web"] || !pw.stored["web2"] {
+		t.Errorf("stored %v", pw.stored)
+	}
+}
+
+func TestRenameReportsAPasswordThatDidNotMove(t *testing.T) {
+	pw := &fakePasswords{stored: map[string]bool{"web": true}, renameErr: errors.New("locked")}
+	m, _ := formWithVault(t, pw)
+	m, _ = press(m, "e", "shift+tab")
+	m = typeText(m, "2")
+	m, cmd := press(m, "enter")
+	m = settleAll(m, cmd)
+	if got := popupText(m); !strings.Contains(got, "was not moved: locked") {
+		t.Errorf("popup %q", got)
+	}
+}

@@ -334,10 +334,15 @@ func (m model) onHostSplit(msg hostSplitMsg) (tea.Model, tea.Cmd) {
 // startDelete looks up what depends on the host, then asks. Without a usage
 // finder it asks straight away.
 func (m model) startDelete(alias string) (tea.Model, tea.Cmd) {
+	// A stored password goes with the host, so the vault must be open to know.
+	return m.afterUnlock(func(m model) (tea.Model, tea.Cmd) { return m.startDeleteNow(alias) })
+}
+
+func (m model) startDeleteNow(alias string) (tea.Model, tea.Cmd) {
 	m.notice = ""
 	u := m.cfg.HostUse
 	if u == nil {
-		m.hostDel = &hostDelete{alias: alias}
+		m.hostDel = &hostDelete{alias: alias, password: m.hasStoredPassword(alias)}
 		return m, nil
 	}
 	return m, func() tea.Msg {
@@ -349,7 +354,7 @@ func (m model) startDelete(alias string) (tea.Model, tea.Cmd) {
 // onHostUsage opens the delete pop-up, with a warning when something uses
 // the host.
 func (m model) onHostUsage(msg hostUsageMsg) model {
-	m.hostDel = &hostDelete{alias: msg.alias, use: msg.use, err: msg.err}
+	m.hostDel = &hostDelete{alias: msg.alias, use: msg.use, err: msg.err, password: m.hasStoredPassword(msg.alias)}
 	return m
 }
 
@@ -360,7 +365,7 @@ func (m model) onHostDelKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if k.String() != "y" {
 		return m, nil
 	}
-	s, u := m.cfg.SSH, m.cfg.HostUse
+	s, u, pw := m.cfg.SSH, m.cfg.HostUse, m.cfg.Passwords
 	return m, func() tea.Msg {
 		if err := s.Delete(alias); err != nil {
 			return hostSavedMsg{alias: alias, deleted: true, err: err}
@@ -374,6 +379,11 @@ func (m model) onHostDelKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			if err := u.Strip(alias); err != nil {
 				errs = append(errs, fmt.Errorf("workspaces not fully updated: %w", err))
+			}
+		}
+		if pw != nil {
+			if err := pw.Delete(alias); err != nil {
+				errs = append(errs, fmt.Errorf("its stored password was not removed: %w", err))
 			}
 		}
 		if err := errors.Join(errs...); err != nil {
@@ -445,6 +455,15 @@ func (m model) submitForm() (tea.Model, tea.Cmd) {
 		m.form = &f
 		return m, nil
 	}
+	if f.edit && f.from != f.host().Alias && m.cfg.Passwords != nil {
+		// A stored password follows the rename, so the vault must be open.
+		return m.afterUnlock(func(m model) (tea.Model, tea.Cmd) { return m.saveForm(f) })
+	}
+	return m.saveForm(f)
+}
+
+// saveForm writes the ssh config part of a form that passed its checks.
+func (m model) saveForm(f hostForm) (tea.Model, tea.Cmd) {
 	m.notice = ""
 	if f.pwOn { // stays open: the password section is next
 		f.sshMsg, f.err = "saving…", ""
@@ -457,7 +476,7 @@ func (m model) submitForm() (tea.Model, tea.Cmd) {
 
 // saveHost writes the finished form in the background.
 func (m model) saveHost(f hostForm) tea.Cmd {
-	s, u, h := m.cfg.SSH, m.cfg.HostUse, f.host()
+	s, u, pw, h := m.cfg.SSH, m.cfg.HostUse, m.cfg.Passwords, f.host()
 	return func() tea.Msg {
 		if !f.edit {
 			return hostSavedMsg{alias: h.Alias, err: s.Add(h)}
@@ -469,6 +488,11 @@ func (m model) saveHost(f hostForm) tea.Cmd {
 		if msg.renamed && u != nil {
 			if err := u.Rename(f.from, h.Alias); err != nil {
 				msg.err = fmt.Errorf("host renamed, but %w", err)
+			}
+		}
+		if msg.renamed && pw != nil && msg.err == nil {
+			if err := pw.Rename(f.from, h.Alias); err != nil {
+				msg.err = fmt.Errorf("host renamed, but its stored password was not moved: %w", err)
 			}
 		}
 		return msg
@@ -563,6 +587,8 @@ type hostDelete struct {
 	alias string
 	use   hostuse.Usage
 	err   error // the lookup failed, at least in part
+	// password: the vault holds a password for it, which is removed with it.
+	password bool
 }
 
 // box draws the delete pop-up, with a warning when something uses the host.
@@ -576,6 +602,9 @@ func (d hostDelete) box(w int) []string {
 	}
 	if n := len(d.use.Panes); n > 0 {
 		rows = append(rows, noticeStyle.Render(fmt.Sprintf("%d open pane(s) will be closed.", n)), "")
+	}
+	if d.password {
+		rows = append(rows, noticeStyle.Render("Its saved password is removed too."), "")
 	}
 	if d.err != nil {
 		rows = append(rows, noticeStyle.Render("Could not check everything:"), ansi.Strip(d.err.Error()), "")

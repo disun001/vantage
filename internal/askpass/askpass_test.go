@@ -261,3 +261,29 @@ func TestSessionSetAndDelete(t *testing.T) {
 		t.Errorf("Delete: %v, state %v", err, s.Stored("web"))
 	}
 }
+
+func TestSessionRenameAndDeleteFollowTheHost(t *testing.T) {
+	s, _ := newSession(t, "")
+	if err := s.Rename("a", "b"); err != nil || s.Delete("a") != nil {
+		t.Fatal("with no vault there is nothing to move or remove")
+	}
+	if err := s.Unlock("pw"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Set("web", "s3cret"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Rename("web", "web2"); err != nil {
+		t.Fatal(err)
+	}
+	if s.Stored("web") != None || s.Stored("web2") != Stored {
+		t.Error("the password must move with the alias")
+	}
+	if err := s.Rename("nothing", "x"); err != nil {
+		t.Errorf("renaming a host without a password: %v", err)
+	}
+	s.Close()
+	if err := s.Rename("web2", "web3"); !errors.Is(err, ErrLocked) {
+		t.Errorf("a locked vault with a file must say so, got %v", err)
+	}
+}

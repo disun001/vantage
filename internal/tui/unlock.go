@@ -28,6 +28,8 @@ type Passwords interface {
 	// Set stores the host's password; Delete removes it. The vault must be open.
 	Set(alias, password string) error
 	Delete(alias string) error
+	// Rename moves the host's stored password to its new alias.
+	Rename(from, to string) error
 }
 
 // unlockDoneMsg reports the end of an unlock attempt.
@@ -144,4 +146,9 @@ func (m model) unlockBox() []string {
 	}
 	rows = append(rows, "", dimStyle.Render("enter unlock · esc skip"))
 	return framed(rows, inner)
+}
+
+// hasStoredPassword reports an open vault with a password for the host.
+func (m model) hasStoredPassword(alias string) bool {
+	return m.cfg.Passwords != nil && m.cfg.Passwords.Stored(alias) == askpass.Stored
 }

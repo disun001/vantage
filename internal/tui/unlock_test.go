@@ -11,12 +11,13 @@ import (
 )
 
 type fakePasswords struct {
-	locked  bool
-	missing bool // no vault file yet
-	pass    string
-	stored  map[string]bool
-	tried   []string
-	setErr  error
+	locked    bool
+	missing   bool // no vault file yet
+	pass      string
+	stored    map[string]bool
+	tried     []string
+	setErr    error
+	renameErr error
 }
 
 func (f *fakePasswords) NeedsCreate() bool { return f.missing }
@@ -27,6 +28,14 @@ func (f *fakePasswords) Set(alias, pw string) error {
 	}
 	f.stored[alias] = pw != ""
 	return nil
+}
+
+func (f *fakePasswords) Rename(from, to string) error {
+	if f.stored[from] {
+		f.stored[to] = true
+		delete(f.stored, from)
+	}
+	return f.renameErr
 }
 
 func (f *fakePasswords) Delete(alias string) error {
