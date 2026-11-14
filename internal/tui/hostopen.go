@@ -38,6 +38,8 @@ func (m model) updateHosts(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case hostsMsg:
 		return m.onHostsLoaded(msg)
+	case pwSavedMsg:
+		return m.onPwSaved(msg)
 	case unlockDoneMsg:
 		return m.onUnlockDone(msg)
 	case hostInfoMsg:

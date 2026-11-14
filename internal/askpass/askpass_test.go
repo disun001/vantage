@@ -236,3 +236,28 @@ func TestSessionWithAnIdentityNeedsNoPrompt(t *testing.T) {
 		t.Error("an identity vault opens on first use")
 	}
 }
+
+func TestSessionSetAndDelete(t *testing.T) {
+	s, v := newSession(t, "")
+	if !s.NeedsCreate() || s.NeedsUnlock() {
+		t.Fatal("no vault yet: it must be created, not unlocked")
+	}
+	if err := s.Set("web", "x"); !errors.Is(err, ErrLocked) {
+		t.Fatalf("Set before Unlock: %v", err)
+	}
+	if err := s.Unlock("fresh"); err != nil { // no file yet: this chooses the passphrase
+		t.Fatal(err)
+	}
+	if err := s.Set("web", "s3cret"); err != nil {
+		t.Fatal(err)
+	}
+	if s.Stored("web") != Stored || s.NeedsCreate() {
+		t.Error("state after Set")
+	}
+	if got, err := v.Get(vault.Key{Passphrase: "fresh"}, "web"); err != nil || got != "s3cret" {
+		t.Errorf("file holds %q, %v", got, err)
+	}
+	if err := s.Delete("web"); err != nil || s.Stored("web") != None {
+		t.Errorf("Delete: %v, state %v", err, s.Stored("web"))
+	}
+}

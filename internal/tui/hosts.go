@@ -107,6 +107,12 @@ type hostForm struct {
 	vals  [6]string // indexed like hostFields
 	focus int
 	err   string // why the last Enter did not save
+	// The password section, offered when a vault is configured. It saves on
+	// its own, apart from the ssh config (see passwordRows).
+	pwOn   bool
+	pw     string // typed, never shown
+	sshMsg string // outcome of the last ssh config save
+	pwMsg  string // outcome of the last password save
 }
 
 // host collects the typed values.
@@ -259,7 +265,7 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 	case "r":
 		return m, tea.Batch(m.loadHosts(), m.loadHostInfo())
 	case "a":
-		m.form, m.notice = &hostForm{}, ""
+		m.form, m.notice = &hostForm{pwOn: m.cfg.Passwords != nil}, ""
 	case "e":
 		return m.startEdit(), nil
 	case "d":
@@ -390,7 +396,7 @@ func (m model) startEdit() model {
 		m.notice = ansi.Strip(alias + ": " + err.Error())
 		return m
 	}
-	f := hostForm{edit: true, from: alias, focus: 1}
+	f := hostForm{edit: true, from: alias, focus: 1, pwOn: m.cfg.Passwords != nil}
 	for i, fd := range hostFields {
 		f.vals[i] = *fd.ptr(&own)
 	}
@@ -402,7 +408,7 @@ func (m model) startEdit() model {
 func (m model) onFormKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	f := *m.form
 	m.form = &f
-	n := len(hostFields)
+	n := f.count()
 	switch k.Type {
 	case tea.KeyEsc, tea.KeyCtrlC:
 		m.form = nil
@@ -412,14 +418,18 @@ func (m model) onFormKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		f.focus = (f.focus + 1) % n
 	case tea.KeyShiftTab, tea.KeyUp:
 		f.focus = (f.focus + n - 1) % n
+	case tea.KeyCtrlX:
+		if f.onPassword() {
+			return m.removePassword()
+		}
 	case tea.KeyBackspace:
-		if r := []rune(f.vals[f.focus]); len(r) > 0 {
-			f.vals[f.focus] = string(r[:len(r)-1])
+		if r := []rune(*f.text()); len(r) > 0 {
+			*f.text() = string(r[:len(r)-1])
 		}
 	case tea.KeyCtrlU:
-		f.vals[f.focus] = ""
+		*f.text() = ""
 	case tea.KeyRunes:
-		f.vals[f.focus] += strings.Join(strings.Fields(string(k.Runes)), "") // no blanks in any field
+		f.typed(string(k.Runes))
 	}
 	return m, nil
 }
@@ -427,12 +437,21 @@ func (m model) onFormKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 // submitForm saves, or stops on the field that is wrong.
 func (m model) submitForm() (tea.Model, tea.Cmd) {
 	f := *m.form
+	if f.onPassword() {
+		return m.submitPassword()
+	}
 	if i, msg := f.check(); i >= 0 {
 		f.focus, f.err = i, ansi.Strip(msg)
 		m.form = &f
 		return m, nil
 	}
-	m.form, m.notice = nil, ""
+	m.notice = ""
+	if f.pwOn { // stays open: the password section is next
+		f.sshMsg, f.err = "saving…", ""
+		m.form = &f
+		return m, m.saveHost(f)
+	}
+	m.form = nil
 	return m, m.saveHost(f)
 }
 
@@ -457,6 +476,9 @@ func (m model) saveHost(f hostForm) tea.Cmd {
 }
 
 func (m model) onHostSaved(msg hostSavedMsg) (tea.Model, tea.Cmd) {
+	if m.form != nil && m.form.pwOn && !msg.deleted {
+		return m.onHostSavedInForm(msg)
+	}
 	switch {
 	case msg.err != nil:
 		m.notice = ansi.Strip(fmt.Sprintf("%s: %v", msg.alias, msg.err))
@@ -529,6 +551,9 @@ func (m model) formBox() []string {
 	if f.err != "" {
 		rows = append(rows, noticeStyle.Render(f.err))
 	}
+	if f.pwOn {
+		return framed(append(rows, passwordRows(*f, inner)...), inner)
+	}
 	rows = append(rows, dimStyle.Render("tab next · enter save · esc"))
 	return framed(rows, inner)
 }
@@ -570,6 +595,8 @@ func (m model) popup() []string {
 		return m.saveAllBox()
 	case m.prompt != nil:
 		return m.promptBox()
+	case m.unlock != nil:
+		return m.unlockBox()
 	case m.form != nil:
 		return m.formBox()
 	case m.pform != nil:
@@ -580,8 +607,6 @@ func (m model) popup() []string {
 		return m.hostDel.box(m.w)
 	case m.hostPick != nil:
 		return m.hostPick.box(m.w)
-	case m.unlock != nil:
-		return m.unlockBox()
 	case m.hostShut != nil:
 		return m.hostShut.box(m.w)
 	case m.help:

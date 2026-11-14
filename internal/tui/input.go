@@ -40,6 +40,9 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.prompt != nil {
 		return m.onPromptKey(k)
 	}
+	if m.unlock != nil { // asked from the form too: it comes first
+		return m.onUnlockKey(k)
+	}
 	if m.form != nil {
 		return m.onFormKey(k)
 	}
@@ -54,9 +57,6 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.hostPick != nil {
 		return m.onHostPickKey(k)
-	}
-	if m.unlock != nil {
-		return m.onUnlockKey(k)
 	}
 	if m.hostShut != nil {
 		return m.onHostShutKey(k)

@@ -23,6 +23,11 @@ type Passwords interface {
 	Askpass(alias string) *workspace.Askpass
 	// Stored says what the vault knows about the host.
 	Stored(alias string) askpass.State
+	// NeedsCreate reports a passphrase vault that does not exist yet.
+	NeedsCreate() bool
+	// Set stores the host's password; Delete removes it. The vault must be open.
+	Set(alias, password string) error
+	Delete(alias string) error
 }
 
 // unlockDoneMsg reports the end of an unlock attempt.
@@ -36,12 +41,24 @@ type unlockPrompt struct {
 	err  string
 	busy bool // scrypt is running; keys wait
 	then func(model) (tea.Model, tea.Cmd)
+	// skip runs instead of then when Esc is pressed; nil means then.
+	skip func(model) (tea.Model, tea.Cmd)
+	// create asks for a new passphrase, twice, because there is no vault yet.
+	create bool
+	first  string // the first entry, while the second is asked
 }
 
 // afterUnlock runs next now, or after the passphrase has been asked.
 func (m model) afterUnlock(next func(model) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
-	if p := m.cfg.Passwords; p != nil && p.NeedsUnlock() {
-		m.unlock = &unlockPrompt{then: next}
+	return m.afterVault(next, nil, false)
+}
+
+// afterVault is afterUnlock that can also ask for the passphrase of a vault
+// that does not exist yet (create), and lets Esc do something other than carry
+// on (skip).
+func (m model) afterVault(next, skip func(model) (tea.Model, tea.Cmd), create bool) (tea.Model, tea.Cmd) {
+	if p := m.cfg.Passwords; p != nil && (p.NeedsUnlock() || (create && p.NeedsCreate())) {
+		m.unlock = &unlockPrompt{then: next, skip: skip, create: p.NeedsCreate()}
 		return m, nil
 	}
 	return next(m)
@@ -57,10 +74,21 @@ func (m model) onUnlockKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch k.Type {
 	case tea.KeyEsc, tea.KeyCtrlC:
 		m.unlock = nil
+		if u.skip != nil {
+			return u.skip(m)
+		}
 		m.notice = "vault locked: ssh will ask for the password"
 		return u.then(m)
 	case tea.KeyEnter:
 		if u.pass == "" {
+			return m, nil
+		}
+		if u.create && u.first == "" { // ask again
+			u.first, u.pass, u.err = u.pass, "", ""
+			return m, nil
+		}
+		if u.create && u.first != u.pass {
+			u.first, u.pass, u.err = "", "", "the two entries differ, start again"
 			return m, nil
 		}
 		u.busy, u.err = true, ""
@@ -99,7 +127,14 @@ func (m model) onUnlockDone(msg unlockDoneMsg) (tea.Model, tea.Cmd) {
 // unlockBox draws the passphrase question; the typed text shows as dots.
 func (m model) unlockBox() []string {
 	inner := max(10, min(44, m.w-6))
-	rows := []string{popTitle("password vault"), "", dimStyle.Render("passphrase")}
+	title, ask := "password vault", "passphrase"
+	switch {
+	case m.unlock.create && m.unlock.first == "":
+		title, ask = "new password vault", "choose a passphrase"
+	case m.unlock.create:
+		title, ask = "new password vault", "repeat it"
+	}
+	rows := []string{popTitle(title), "", dimStyle.Render(ask)}
 	rows = append(rows, strings.Repeat("•", len([]rune(m.unlock.pass)))+cursorStyle.Render(" "))
 	switch {
 	case m.unlock.busy:

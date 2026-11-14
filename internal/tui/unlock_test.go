@@ -11,10 +11,27 @@ import (
 )
 
 type fakePasswords struct {
-	locked bool
-	pass   string
-	stored map[string]bool
-	tried  []string
+	locked  bool
+	missing bool // no vault file yet
+	pass    string
+	stored  map[string]bool
+	tried   []string
+	setErr  error
+}
+
+func (f *fakePasswords) NeedsCreate() bool { return f.missing }
+
+func (f *fakePasswords) Set(alias, pw string) error {
+	if f.setErr != nil {
+		return f.setErr
+	}
+	f.stored[alias] = pw != ""
+	return nil
+}
+
+func (f *fakePasswords) Delete(alias string) error {
+	delete(f.stored, alias)
+	return nil
 }
 
 func (f *fakePasswords) NeedsUnlock() bool { return f.locked }

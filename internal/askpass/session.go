@@ -1,6 +1,7 @@
 package askpass
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/disun001/vantage/internal/sshconfig"
@@ -38,6 +39,14 @@ func (s *Session) NeedsUnlock() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.key == nil && s.Identity == "" && s.Vault.Exists()
+}
+
+// NeedsCreate reports a passphrase vault that does not exist yet: the person
+// must choose its passphrase before the first password can be stored.
+func (s *Session) NeedsCreate() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.key == nil && s.Identity == "" && !s.Vault.Exists()
 }
 
 // Unlock opens the vault with the passphrase (ignored for an identity vault)
@@ -97,6 +106,38 @@ func (s *Session) Askpass(alias string) *workspace.Askpass {
 	}
 	return &workspace.Askpass{Bin: s.Bin, Socket: s.ln.Path}
 }
+
+// Set stores the password for alias in the vault file, then in memory. The
+// vault must be open.
+func (s *Session) Set(alias, password string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.ready() {
+		return ErrLocked
+	}
+	if err := s.Vault.Set(*s.key, alias, password); err != nil {
+		return err
+	}
+	s.pass[alias] = password
+	return nil
+}
+
+// Delete removes the stored password of alias. The vault must be open.
+func (s *Session) Delete(alias string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.ready() {
+		return ErrLocked
+	}
+	if err := s.Vault.Delete(*s.key, alias); err != nil {
+		return err
+	}
+	delete(s.pass, alias)
+	return nil
+}
+
+// ErrLocked is returned when a change needs the vault open first.
+var ErrLocked = errors.New("the password vault is locked")
 
 // State is what the vault knows about a host.
 type State int
