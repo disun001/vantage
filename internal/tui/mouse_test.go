@@ -8,8 +8,8 @@ import (
 )
 
 func TestSidebarClickSelectsRow(t *testing.T) {
-	m := model{rows: []row{{Name: "a"}, {Name: "b"}, {Name: "c"}}, focus: focusTerm}
-	click := tea.MouseMsg{X: 3, Y: firstRowY + 2, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress}
+	m := model{w: 80, h: 20, rows: []row{{Name: "a"}, {Name: "b"}, {Name: "c"}}, focus: focusTerm}
+	click := tea.MouseMsg{X: 3, Y: firstRowY + 4, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress}
 	got, cmd := m.onMouse(click)
 	gm := got.(model)
 	if gm.cur != (key{"c", -1}) || gm.focus != focusSidebar || cmd == nil {

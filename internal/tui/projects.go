@@ -22,6 +22,10 @@ type ProjectStore interface {
 	Remove(name string, force bool) error
 }
 
+// repoCounter is an optional ProjectStore ability: how many repos each
+// project defines, for the badge in the sidebar.
+type repoCounter interface{ RepoCounts() map[string]int }
+
 // ProjectInfo is the details page of one project.
 type ProjectInfo struct {
 	Name  string
@@ -48,8 +52,9 @@ type RepoDef struct{ URL, Dir string }
 
 type (
 	projectsMsg struct { // the project list
-		names []string
-		err   error
+		names  []string
+		counts map[string]int // repos per project, when the store can say
+		err    error
 	}
 	projDetailMsg struct { // the details of project name
 		name string
@@ -97,14 +102,7 @@ func (m model) moveProj(delta int) (model, tea.Cmd) {
 }
 
 func (m model) projScrolled() model {
-	c, p := m.listCap(), m.projPos()
-	if p < m.projTop {
-		m.projTop = p
-	}
-	if p >= m.projTop+c {
-		m.projTop = p - c + 1
-	}
-	m.projTop = max(0, min(m.projTop, len(m.projects)-c))
+	m.projTop = scrollTop(allFlat(len(m.projects)), m.projTop, m.projPos(), m.listCap())
 	return m
 }
 
@@ -112,7 +110,11 @@ func (m model) loadProjects() tea.Cmd {
 	s := m.cfg.Projects
 	return func() tea.Msg {
 		names, err := s.List()
-		return projectsMsg{names: names, err: err}
+		var counts map[string]int
+		if c, ok := s.(repoCounter); ok {
+			counts = c.RepoCounts()
+		}
+		return projectsMsg{names: names, counts: counts, err: err}
 	}
 }
 
@@ -129,7 +131,7 @@ func (m model) onProjects(msg projectsMsg) (model, tea.Cmd) {
 		m.notice = ansi.Strip(msg.err.Error())
 		return m, nil
 	}
-	m.projects = msg.names
+	m.projects, m.projN = msg.names, msg.counts
 	if !m.hasProject(m.projCur) {
 		m.projCur, m.projInfo = "", nil
 		if len(m.projects) > 0 {

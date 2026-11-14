@@ -151,7 +151,7 @@ func TestHostsViewListsAndMoves(t *testing.T) {
 		t.Fatalf("hosts=%v cur=%q", m.hosts, m.hostCur)
 	}
 	side := strings.Join(m.sidebar(), "\n")
-	for _, want := range []string{"ssh hosts", "web", "db"} {
+	for _, want := range []string{"H hosts", "web", "db"} {
 		if !strings.Contains(side, want) {
 			t.Errorf("sidebar lacks %q:\n%s", want, side)
 		}
@@ -335,7 +335,7 @@ func TestMouseIgnoredWhileFormOpen(t *testing.T) {
 
 func TestMouseSelectsHost(t *testing.T) {
 	m := openHosts(t, twoHosts())
-	next, _ := m.Update(tea.MouseMsg{X: 2, Y: firstRowY + 1, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	next, _ := m.Update(tea.MouseMsg{X: 2, Y: firstRowY + 2, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
 	if got := next.(model); got.hostCur != "db" {
 		t.Errorf("cur = %q", got.hostCur)
 	}

@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
@@ -101,18 +99,17 @@ func (m model) sidebar() []string {
 		out[i] = strings.Repeat(" ", sidebarW)
 	}
 	out[0] = fit(m.pill(), sidebarW)
-	out[1] = fit(hintStyle("workspaces"), sidebarW)
+	out[1] = m.tabLine()
 
 	note := m.noticeLines()
 	items := m.items()
 	cur := m.pos(items)
-	y := firstRowY
-	for i := m.top; i < len(items); i++ {
-		if y >= m.h-1-len(note) {
-			break
+	for y, i := range span(m.flatItems(items), m.top, m.listCap()) {
+		if i < 0 {
+			out[firstRowY+y] = ruleLine()
+			continue
 		}
-		out[y] = m.itemLine(items[i], i == cur)
-		y++
+		out[firstRowY+y] = m.itemLine(items[i], i == cur)
 	}
 	for i, l := range note {
 		style := noticeStyle
@@ -123,89 +120,6 @@ func (m model) sidebar() []string {
 	}
 	out[m.h-1] = fit(hintStyle("? keys"), sidebarW)
 	return out
-}
-
-func (m model) itemLine(it item, selected bool) string {
-	r := m.rows[it.Row]
-	if it.Win >= 0 {
-		return m.winLine(r, it.Win, selected)
-	}
-	return m.rowLine(r, selected)
-}
-
-// rowLine draws a session: fold arrow (live sessions with windows), dot,
-// name, and the window and pane counts. The session on screen has its name
-// in a mauve pill, the one mark that is not yellow, so it stands out and
-// the yellow stays with the window.
-func (m model) rowLine(r row, selected bool) string {
-	l := lineBuf{bg: m.rowBg(selected)}
-	meta, arrow, dot, dotFG := "", " ", "○", mocOverlay
-	if r.Live {
-		meta = fmt.Sprintf("%dw %dp", r.Windows, r.Panes)
-		dot, dotFG = "●", mocGreen
-		if len(r.Wins) > 0 {
-			arrow = "▸"
-			if m.expanded(r) {
-				arrow = "▾"
-			}
-		}
-	}
-	nameW := max(sidebarW-4-len(meta)-1, 1)
-	l.add(mocOverlay, "", false, arrow+" ")
-	l.add(dotFG, "", false, dot)
-	if r.Name == m.current {
-		// A plain gap after the dot keeps the pill from touching it.
-		l.add(mocText, "", false, " ")
-		l.add(mocBase, mocMauve, true, " "+ansi.Truncate(r.Name, nameW-2, "…")+" ")
-	} else {
-		fg := mocText
-		if !r.Live {
-			fg = mocSub
-		}
-		l.add(fg, "", false, "  "+ansi.Truncate(r.Name, nameW-1, "…"))
-	}
-	if meta != "" {
-		l.padTo(sidebarW - len(meta) - 1)
-		l.add(mocOverlay, "", false, meta)
-	}
-	l.padTo(sidebarW)
-	return l.String()
-}
-
-// winLine draws window i of a session as one tile hanging off the session's
-// dot: a tree guide, the number in a chip, then the title on a block that
-// runs to the pane count, like the tmux status bar. Only the active window of
-// the session on screen has the yellow chip; every other window looks the
-// same, whichever session it is in.
-func (m model) winLine(r row, i int, selected bool) string {
-	w := r.Wins[i]
-	l := lineBuf{bg: m.rowBg(selected)}
-	meta := fmt.Sprintf("%dp", w.Panes)
-	digits := len(strconv.Itoa(r.Wins[len(r.Wins)-1].Index))
-	for _, o := range r.Wins {
-		digits = max(digits, len(strconv.Itoa(o.Index)))
-	}
-	num := fmt.Sprintf(" %*d ", digits, w.Index)
-	chip, bold := mocOverlay, false
-	if w.Active && r.Name == m.current {
-		chip, bold = mocYellow, true
-	}
-	tile := mocSurf0
-	if selected {
-		tile = mocSurf1
-	}
-	guide := "├"
-	if i == len(r.Wins)-1 {
-		guide = "└"
-	}
-	l.add(mocOverlay, "", false, "  "+guide) // hangs under the session's dot
-	l.add(mocBase, chip, bold, num)
-	nameW := max(1, sidebarW-1-l.w-3-len(meta))
-	l.add(mocText, tile, bold, " "+ansi.Truncate(w.Name, nameW, "…"))
-	l.padBg(sidebarW-len(meta)-2, tile)
-	l.add(mocOverlay2, tile, false, meta+" ")
-	l.padTo(sidebarW)
-	return l.String()
 }
 
 // maxNoticeLines caps how much of the sidebar an error may take.

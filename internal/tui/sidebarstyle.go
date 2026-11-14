@@ -45,18 +45,6 @@ func (m model) pill() string {
 	return paint(mocBase, bg).Bold(true).Render(" " + label + " ")
 }
 
-// rowBg is the fill behind the cursor line: a clear one with the sidebar
-// focused, a faint one without.
-func (m model) rowBg(selected bool) string {
-	switch {
-	case !selected:
-		return ""
-	case m.focus == focusSidebar:
-		return mocSurf0
-	}
-	return mocMantle
-}
-
 // lineBuf builds one sidebar line from styled pieces. It tracks the width so
 // padding can carry the row's background to the edge.
 type lineBuf struct {
@@ -89,13 +77,6 @@ func (l *lineBuf) padTo(w int) {
 		return
 	}
 	l.add(mocText, "", false, strings.Repeat(" ", n))
-}
-
-// padBg fills with spaces up to width w on the given background.
-func (l *lineBuf) padBg(w int, bg string) {
-	if n := w - l.w; n > 0 {
-		l.add(mocText, bg, false, strings.Repeat(" ", n))
-	}
 }
 
 func (l *lineBuf) String() string { return l.sb.String() }

@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	sidebarW  = 26 // columns, divider not included
+	sidebarW  = 32 // columns, divider not included
 	tickEvery = 2 * time.Second
 	warmEvery = 150 * time.Millisecond // polling while a new client registers
 )
@@ -93,6 +93,7 @@ type model struct {
 	hosts    []sshconfig.Host
 	hostCur  string // alias under the cursor in the hosts view
 	hostTop  int
+	hostOn   map[string]bool // aliases with an open ssh pane
 	form     *hostForm
 	hostDel  *hostDelete // the delete question, while it is open
 	hostShut *hostShut   // the close-all question, while it is open
@@ -100,12 +101,13 @@ type model struct {
 	projects []string    // project names, for the projects view
 	projCur  string      // project under the cursor
 	projTop  int
-	projInfo *ProjectInfo // its details, once loaded
-	pform    *projForm    // the add-project pop-up
-	projDel  *projDelete  // the delete question, while it is open
-	help     bool         // the key help pop-up is open
-	shown    bool         // a live session was auto-shown once; do not re-attach after a detach
-	mode     tmux.Mode    // PREFIX, COPY or SYNC of the embedded client, for the title pill
+	projN    map[string]int // repos per project
+	projInfo *ProjectInfo   // its details, once loaded
+	pform    *projForm      // the add-project pop-up
+	projDel  *projDelete    // the delete question, while it is open
+	help     bool           // the key help pop-up is open
+	shown    bool           // a live session was auto-shown once; do not re-attach after a detach
+	mode     tmux.Mode      // PREFIX, COPY or SYNC of the embedded client, for the title pill
 }
 
 // statusBar is the tmux status bar of the embedded client. The embedded
@@ -214,7 +216,7 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case outputMsg:
 		m.hub.dirty.Store(false)
 	case tickMsg:
-		return m, tea.Batch(m.refresh(), tick())
+		return m, tea.Batch(m.refresh(), m.loadHostsIfShown(), tick())
 	case modeTickMsg:
 		return m, tea.Batch(m.modeCmd(), modeTick())
 	case modeMsg:
