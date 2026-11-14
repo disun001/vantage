@@ -60,8 +60,32 @@ var (
 // closes when ssh ends, like a local shell. Exit status 255 means ssh itself
 // failed (unreachable host, auth), so it waits for Enter first or the error
 // would vanish with the pane. alias must pass ValidSSHAlias.
-func SSHCommand(alias string) string {
-	return "ssh " + alias + `; rc=$?; if [ $rc -eq 255 ]; then echo; echo "ssh failed, press Enter"; read _; fi; exit $rc`
+func SSHCommand(alias string) string { return SSHCommandWith(alias, nil) }
+
+// Askpass points ssh at the vantage helper that answers its password prompt
+// from the vault: Bin is the vantage binary, Socket the unlock server of the
+// running TUI. Neither holds a secret.
+type Askpass struct {
+	Bin, Socket string
+}
+
+// SSHCommandWith is SSHCommand for a host with a stored password. ssh gets one
+// password prompt only, so a wrong stored password cannot be retried into a
+// lockout, and the failure message says to check it. A nil a, or paths the
+// shell could misread, give the plain command.
+func SSHCommandWith(alias string, a *Askpass) string {
+	const tail = `; rc=$?; if [ $rc -eq 255 ]; then echo; echo "ssh failed%s, press Enter"; read _; fi; exit $rc`
+	if a == nil || !safePath(a.Bin) || !safePath(a.Socket) {
+		return "ssh " + alias + fmt.Sprintf(tail, "")
+	}
+	return "VANTAGE_ASKPASS_ALIAS=" + alias + " VANTAGE_ASKPASS_SOCK='" + a.Socket +
+		"' SSH_ASKPASS='" + a.Bin + "' SSH_ASKPASS_REQUIRE=force ssh -o NumberOfPasswordPrompts=1 " + alias +
+		fmt.Sprintf(tail, " (the stored password may be wrong)")
+}
+
+// safePath reports whether p can sit inside single quotes in a shell command.
+func safePath(p string) bool {
+	return p != "" && p[0] == '/' && !strings.ContainsAny(p, "'\n\r\x00")
 }
 
 // ValidSSHAlias reports whether s is safe to pass to `ssh` as a host alias.

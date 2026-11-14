@@ -156,3 +156,36 @@ func TestSaveKeepsLinkOfReplacedFile(t *testing.T) {
 		t.Errorf("link lost: %+v, %v", got, err)
 	}
 }
+
+func TestSSHCommandWithAskpass(t *testing.T) {
+	a := &Askpass{Bin: "/opt/bin/vantage", Socket: "/tmp/vantage-askpass-1/s"}
+	got := SSHCommandWith("web", a)
+	for _, want := range []string{
+		"VANTAGE_ASKPASS_ALIAS=web ",
+		"VANTAGE_ASKPASS_SOCK='/tmp/vantage-askpass-1/s'",
+		"SSH_ASKPASS='/opt/bin/vantage'",
+		"SSH_ASKPASS_REQUIRE=force",
+		"ssh -o NumberOfPasswordPrompts=1 web;",
+		"stored password may be wrong",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("command lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(SSHCommand("web"), "ASKPASS") || strings.Contains(SSHCommand("web"), "stored password") {
+		t.Error("the plain command must not mention the helper")
+	}
+}
+
+func TestSSHCommandWithRefusesPathsTheShellCouldMisread(t *testing.T) {
+	for _, bad := range []*Askpass{
+		{Bin: "/b'; rm -rf ~; '", Socket: "/s"},
+		{Bin: "/b", Socket: "/s\nx"},
+		{Bin: "relative/vantage", Socket: "/s"},
+		{Bin: "", Socket: "/s"},
+	} {
+		if got := SSHCommandWith("web", bad); got != SSHCommand("web") {
+			t.Errorf("%+v gave %q, want the plain command", bad, got)
+		}
+	}
+}

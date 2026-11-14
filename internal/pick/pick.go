@@ -13,6 +13,9 @@ import (
 // Choice is where the new pane runs. An empty Alias means the local shell.
 type Choice struct {
 	Alias string
+	// Askpass, when set, lets the new pane answer the host's password prompt
+	// from the vault.
+	Askpass *workspace.Askpass
 }
 
 // Split splits pane in direction dir ("h" side by side, "v" stacked). For an
@@ -32,7 +35,7 @@ func Split(c tmux.Client, pane, dir, cwd string, ch Choice) (string, error) {
 	if !workspace.ValidSSHAlias(ch.Alias) {
 		return "", fmt.Errorf("invalid ssh alias %q", ch.Alias)
 	}
-	id, err := c.SplitWindowRun(pane, dir, cwd, workspace.SSHCommand(ch.Alias))
+	id, err := c.SplitWindowRun(pane, dir, cwd, workspace.SSHCommandWith(ch.Alias, ch.Askpass))
 	if err != nil {
 		return "", fmt.Errorf("split: %w", err)
 	}
