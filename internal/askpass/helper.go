@@ -22,10 +22,10 @@ type Terminal interface {
 // newline) and returns the exit status. env reads environment variables. term is
 // used for everything the vault does not answer, so ssh behaves as it would
 // without the helper.
-func Run(env func(string) string, prompt string, out io.Writer, term Terminal) int {
+func Run(env func(string) string, prompt string, out io.Writer, term Terminal, direct *Direct) int {
 	alias, sock := env(EnvAlias), env(EnvSocket)
-	if alias != "" && sock != "" && env(EnvPrompt) == "" {
-		if pw, ok, err := Ask(sock, alias, prompt); err == nil && ok {
+	if alias != "" && env(EnvPrompt) == "" {
+		if pw, ok := answer(alias, sock, prompt, term, direct); ok {
 			_, err := fmt.Fprintln(out, pw)
 			return exit(err == nil)
 		}
@@ -47,6 +47,19 @@ func Run(env func(string) string, prompt string, out io.Writer, term Terminal) i
 	}
 	_, err = fmt.Fprintln(out, a)
 	return exit(err == nil)
+}
+
+// answer asks the TUI's server when there is one, then opens the vault itself.
+func answer(alias, sock, prompt string, term Terminal, direct *Direct) (string, bool) {
+	if sock != "" {
+		if pw, ok, err := Ask(sock, alias, prompt); err == nil && ok {
+			return pw, true
+		}
+	}
+	if direct != nil {
+		return direct.Answer(alias, prompt, term)
+	}
+	return "", false
 }
 
 func exit(ok bool) int {

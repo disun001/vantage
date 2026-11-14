@@ -74,6 +74,11 @@ func runPick(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	pw, err := newPasswords(*sshPath)
+	if err != nil {
+		return err
+	}
+	choice.Askpass = pw.askpassFor(nil)(choice.Alias)
 	_, err = pick.Split(client, *pane, *split, *cwd, choice)
 	return err
 }

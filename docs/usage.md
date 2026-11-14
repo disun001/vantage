@@ -111,8 +111,15 @@ opens once the host exists. `ctrl+x` on it removes the stored password.
   key passphrase, verification code, a jump host's password) goes to you in the
   pane. One wrong attempt ends the connection, and the pane says the stored
   password may be wrong.
-- **Where it applies.** Connecting from the hosts view (`Enter`, `v`, `s`). Panes
-  restored from a workspace file and the `prefix S` / `V` picker run plain ssh.
+- **Where it applies.** Connecting from the hosts view (`Enter`, `v`, `s`) uses
+  the vault the TUI has open. Restored panes (`vantage restore`, or a restore
+  from the TUI) and the `prefix S` / `V` picker have no TUI to ask, so the helper
+  opens the vault itself: it asks for the vault passphrase in that pane (empty
+  answer: type the ssh password instead), or uses `VANTAGE_AGE_IDENTITY` with no
+  prompt. A host without a stored password costs one extra passphrase question
+  there, because the vault cannot be searched without opening it. With no vault
+  file, panes run plain ssh. Any pane that uses the helper allows one password
+  attempt (`NumberOfPasswordPrompts=1`), also when you type the password.
 - **Rename and delete.** A rename moves the stored password to the new alias. A
   delete removes it, and the confirmation says so.
 

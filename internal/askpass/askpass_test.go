@@ -122,12 +122,12 @@ func TestRunUsesTheVaultThenTheTerminal(t *testing.T) {
 
 	var out bytes.Buffer
 	term := &fakeTerm{secret: "typed"}
-	if code := Run(env, "deploy@192.0.2.7's password: ", &out, term); code != 0 || out.String() != "s3cret\n" || term.shown.Len() != 0 {
+	if code := Run(env, "deploy@192.0.2.7's password: ", &out, term, nil); code != 0 || out.String() != "s3cret\n" || term.shown.Len() != 0 {
 		t.Errorf("vault answer: code %d, out %q, terminal %q", code, out.String(), term.shown.String())
 	}
 
 	out.Reset()
-	if code := Run(env, "Enter passphrase for key '/k': ", &out, term); code != 0 || out.String() != "typed\n" {
+	if code := Run(env, "Enter passphrase for key '/k': ", &out, term, nil); code != 0 || out.String() != "typed\n" {
 		t.Errorf("terminal answer: code %d, out %q", code, out.String())
 	}
 	if !strings.Contains(term.shown.String(), "Enter passphrase") {
@@ -153,7 +153,7 @@ func TestRunConfirmAndInfoPromptsGoToTheTerminal(t *testing.T) {
 			env[k] = v
 		}
 		var out bytes.Buffer
-		if code := Run(envOf(env), "deploy@192.0.2.7's password: ", &out, &fakeTerm{line: c.line}); code != c.want || out.Len() != 0 {
+		if code := Run(envOf(env), "deploy@192.0.2.7's password: ", &out, &fakeTerm{line: c.line}, nil); code != c.want || out.Len() != 0 {
 			t.Errorf("%s: code %d, out %q; want %d and nothing on stdout", name, code, out.String(), c.want)
 		}
 	}
@@ -161,12 +161,12 @@ func TestRunConfirmAndInfoPromptsGoToTheTerminal(t *testing.T) {
 
 func TestRunWithoutAServerAsksTheTerminal(t *testing.T) {
 	var out bytes.Buffer
-	if code := Run(envOf(nil), "Password: ", &out, &fakeTerm{secret: "typed"}); code != 0 || out.String() != "typed\n" {
+	if code := Run(envOf(nil), "Password: ", &out, &fakeTerm{secret: "typed"}, nil); code != 0 || out.String() != "typed\n" {
 		t.Errorf("code %d, out %q", code, out.String())
 	}
 	dead := envOf(map[string]string{EnvAlias: "web", EnvSocket: filepath.Join(t.TempDir(), "gone")})
 	out.Reset()
-	if code := Run(dead, "deploy@192.0.2.7's password: ", &out, &fakeTerm{secret: "typed"}); code != 0 || out.String() != "typed\n" {
+	if code := Run(dead, "deploy@192.0.2.7's password: ", &out, &fakeTerm{secret: "typed"}, nil); code != 0 || out.String() != "typed\n" {
 		t.Errorf("a dead server must fall back to the terminal: code %d, out %q", code, out.String())
 	}
 }
@@ -285,5 +285,94 @@ func TestSessionRenameAndDeleteFollowTheHost(t *testing.T) {
 	s.Close()
 	if err := s.Rename("web2", "web3"); !errors.Is(err, ErrLocked) {
 		t.Errorf("a locked vault with a file must say so, got %v", err)
+	}
+}
+
+func directFor(t *testing.T, store map[string]string, identity string) Direct {
+	t.Helper()
+	v := vault.Vault{Path: filepath.Join(t.TempDir(), "p.age"), WorkFactor: 2}
+	if len(store) > 0 {
+		k := vault.Key{Passphrase: "pw"}
+		if identity != "" {
+			k = vault.Key{IdentityFile: identity}
+		}
+		for a, p := range store {
+			if err := v.Set(k, a, p); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	return Direct{
+		Vault: v, Identity: identity, User: "me",
+		Host: func(string) (sshconfig.Host, error) { return web, nil },
+	}
+}
+
+func TestDirectAsksForThePassphraseThenAnswers(t *testing.T) {
+	d := directFor(t, map[string]string{"web": "s3cret"}, "")
+	term := &fakeTerm{secret: "pw"}
+	var out bytes.Buffer
+	env := envOf(map[string]string{EnvAlias: "web"}) // no socket: a restored pane
+	if code := Run(env, "deploy@192.0.2.7's password: ", &out, term, &d); code != 0 || out.String() != "s3cret\n" {
+		t.Fatalf("code %d, out %q", code, out.String())
+	}
+	if !strings.Contains(term.shown.String(), "vault passphrase for web") {
+		t.Errorf("the person must be told what is asked: %q", term.shown.String())
+	}
+}
+
+func TestDirectFallsBackToTyping(t *testing.T) {
+	d := directFor(t, map[string]string{"web": "s3cret"}, "")
+	for name, c := range map[string]struct {
+		secret string
+		prompt string
+		shown  string
+	}{
+		"wrong passphrase": {"nope", "deploy@192.0.2.7's password: ", "wrong vault passphrase"},
+		"enter to type":    {"", "deploy@192.0.2.7's password: ", "enter to type"},
+		"other prompt":     {"pw", "Enter passphrase for key '/k': ", "Enter passphrase"},
+	} {
+		term := &fakeTerm{secret: c.secret}
+		var out bytes.Buffer
+		Run(envOf(map[string]string{EnvAlias: "web"}), c.prompt, &out, term, &d)
+		if out.String() == "s3cret\n" || !strings.Contains(term.shown.String(), c.shown) {
+			t.Errorf("%s: out %q, shown %q", name, out.String(), term.shown.String())
+		}
+	}
+}
+
+func TestDirectWithoutAVaultOrAPasswordAsksNothingExtra(t *testing.T) {
+	none := directFor(t, nil, "")
+	term := &fakeTerm{secret: "typed"}
+	var out bytes.Buffer
+	Run(envOf(map[string]string{EnvAlias: "web"}), "deploy@192.0.2.7's password: ", &out, term, &none)
+	if strings.Contains(term.shown.String(), "vault passphrase") || out.String() != "typed\n" {
+		t.Errorf("no vault: shown %q, out %q", term.shown.String(), out.String())
+	}
+	// A vault without this host: the passphrase is asked (it cannot be known
+	// before opening), then the person types the ssh password.
+	other := directFor(t, map[string]string{"db": "x"}, "")
+	term = &fakeTerm{secret: "pw"}
+	out.Reset()
+	Run(envOf(map[string]string{EnvAlias: "web"}), "deploy@192.0.2.7's password: ", &out, term, &other)
+	if out.String() != "pw\n" { // the fake returns its one secret for both reads
+		t.Errorf("out %q", out.String())
+	}
+}
+
+func TestDirectWithAnIdentityNeverPrompts(t *testing.T) {
+	id, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	idPath := filepath.Join(t.TempDir(), "key.txt")
+	if err := os.WriteFile(idPath, []byte(id.String()+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d := directFor(t, map[string]string{"web": "s3cret"}, idPath)
+	term := &fakeTerm{}
+	var out bytes.Buffer
+	if code := Run(envOf(map[string]string{EnvAlias: "web"}), "deploy@192.0.2.7's password: ", &out, term, &d); code != 0 || out.String() != "s3cret\n" || term.shown.Len() != 0 {
+		t.Errorf("code %d, out %q, shown %q", code, out.String(), term.shown.String())
 	}
 }

@@ -16,11 +16,28 @@ type Result struct {
 	Panes   int
 }
 
+type options struct {
+	askpass func(alias string) *workspace.Askpass
+}
+
+// Option changes how Restore starts panes.
+type Option func(*options)
+
+// WithAskpass lets ssh panes answer their password prompt from the vault. f
+// returns the helper settings for an alias, or nil for plain ssh.
+func WithAskpass(f func(alias string) *workspace.Askpass) Option {
+	return func(o *options) { o.askpass = f }
+}
+
 // Restore creates the session for ws on the given tmux server. It is
 // idempotent: if a session with the workspace's name already exists it is
 // left untouched. If creation fails part way, the half-built session is
 // removed so a retry starts clean.
-func Restore(c tmux.Client, ws workspace.Workspace) (res Result, err error) {
+func Restore(c tmux.Client, ws workspace.Workspace, opts ...Option) (res Result, err error) {
+	var o options
+	for _, f := range opts {
+		f(&o)
+	}
 	if err := ws.Validate(); err != nil {
 		return res, err
 	}
@@ -48,7 +65,7 @@ func Restore(c tmux.Client, ws workspace.Workspace) (res Result, err error) {
 		}
 		res.Windows++
 		res.Panes++
-		if err = start(c, pane, first); err != nil {
+		if err = start(c, pane, first, o); err != nil {
 			return res, err
 		}
 
@@ -59,7 +76,7 @@ func Restore(c tmux.Client, ws workspace.Workspace) (res Result, err error) {
 				return res, err
 			}
 			res.Panes++
-			if err = start(c, prev, p); err != nil {
+			if err = start(c, prev, p, o); err != nil {
 				return res, err
 			}
 		}
@@ -73,10 +90,14 @@ func Restore(c tmux.Client, ws workspace.Workspace) (res Result, err error) {
 }
 
 // start runs what a pane asks for: an ssh connection, or an opted-in command.
-func start(c tmux.Client, pane string, p workspace.Pane) error {
+func start(c tmux.Client, pane string, p workspace.Pane, o options) error {
 	switch {
 	case p.SSH != "":
-		return c.RespawnPane(pane, workspace.SSHCommand(p.SSH))
+		var a *workspace.Askpass
+		if o.askpass != nil {
+			a = o.askpass(p.SSH)
+		}
+		return c.RespawnPane(pane, workspace.SSHCommandWith(p.SSH, a))
 	case p.Cmd != "" && p.Autorun:
 		return c.SendLine(pane, p.Cmd)
 	}

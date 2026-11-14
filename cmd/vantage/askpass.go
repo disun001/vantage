@@ -22,5 +22,11 @@ func runAskpass(args []string, out, errOut io.Writer) int {
 		return 1
 	}
 	defer tty.Close()
-	return askpass.Run(os.Getenv, args[0], out, tty)
+	var direct *askpass.Direct
+	if ssh, err := defaultSSHPath(); err == nil {
+		if p, err := newPasswords(ssh); err == nil {
+			direct = p.direct()
+		}
+	}
+	return askpass.Run(os.Getenv, args[0], out, tty, direct)
 }

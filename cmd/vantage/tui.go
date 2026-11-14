@@ -41,6 +41,13 @@ func runTUI(args []string, _ io.Writer) error {
 	}
 	defer closeLog()
 	client := tmux.Client{Socket: *socket}
+	sshPath := filepath.Join(home, ".ssh", "config")
+	pws, err := newPasswords(sshPath)
+	if err != nil {
+		return err
+	}
+	pw := pws.session()
+	defer pw.Close()
 	restoreByName := func(name string) error {
 		path, err := workspace.Resolve(name)
 		if err != nil {
@@ -50,7 +57,7 @@ func runTUI(args []string, _ io.Writer) error {
 		if err != nil {
 			return err
 		}
-		_, err = restore.Restore(client, ws)
+		_, err = restore.Restore(client, ws, restore.WithAskpass(pws.askpassFor(pw)))
 		return err
 	}
 	if *start {
@@ -58,11 +65,6 @@ func runTUI(args []string, _ io.Writer) error {
 			return fmt.Errorf("start: %w", err)
 		}
 	}
-	pw, err := passwordSession(filepath.Join(home, ".ssh", "config"))
-	if err != nil {
-		return err
-	}
-	defer pw.Close()
 	return tui.Run(tui.Config{
 		Client:    client,
 		Saved:     workspace.List,

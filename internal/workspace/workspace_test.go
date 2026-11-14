@@ -189,3 +189,10 @@ func TestSSHCommandWithRefusesPathsTheShellCouldMisread(t *testing.T) {
 		}
 	}
 }
+
+func TestSSHCommandWithAskpassWithoutASocketLeavesItOut(t *testing.T) {
+	got := SSHCommandWith("web", &Askpass{Bin: "/opt/bin/vantage"})
+	if strings.Contains(got, "VANTAGE_ASKPASS_SOCK") || !strings.Contains(got, "SSH_ASKPASS='/opt/bin/vantage'") {
+		t.Errorf("a pane without a TUI opens the vault itself:\n%s", got)
+	}
+}

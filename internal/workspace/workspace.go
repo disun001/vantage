@@ -64,7 +64,8 @@ func SSHCommand(alias string) string { return SSHCommandWith(alias, nil) }
 
 // Askpass points ssh at the vantage helper that answers its password prompt
 // from the vault: Bin is the vantage binary, Socket the unlock server of the
-// running TUI. Neither holds a secret.
+// running TUI. Neither holds a secret. Without a Socket the helper opens the
+// vault itself and asks for its passphrase in the pane.
 type Askpass struct {
 	Bin, Socket string
 }
@@ -75,11 +76,15 @@ type Askpass struct {
 // shell could misread, give the plain command.
 func SSHCommandWith(alias string, a *Askpass) string {
 	const tail = `; rc=$?; if [ $rc -eq 255 ]; then echo; echo "ssh failed%s, press Enter"; read _; fi; exit $rc`
-	if a == nil || !safePath(a.Bin) || !safePath(a.Socket) {
+	if a == nil || !safePath(a.Bin) || (a.Socket != "" && !safePath(a.Socket)) {
 		return "ssh " + alias + fmt.Sprintf(tail, "")
 	}
-	return "VANTAGE_ASKPASS_ALIAS=" + alias + " VANTAGE_ASKPASS_SOCK='" + a.Socket +
-		"' SSH_ASKPASS='" + a.Bin + "' SSH_ASKPASS_REQUIRE=force ssh -o NumberOfPasswordPrompts=1 " + alias +
+	sock := ""
+	if a.Socket != "" {
+		sock = " VANTAGE_ASKPASS_SOCK='" + a.Socket + "'"
+	}
+	return "VANTAGE_ASKPASS_ALIAS=" + alias + sock +
+		" SSH_ASKPASS='" + a.Bin + "' SSH_ASKPASS_REQUIRE=force ssh -o NumberOfPasswordPrompts=1 " + alias +
 		fmt.Sprintf(tail, " (the stored password may be wrong)")
 }
 
