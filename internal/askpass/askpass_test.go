@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"filippo.io/age"
+
 	"github.com/disun001/vantage/internal/sshconfig"
 	"github.com/disun001/vantage/internal/vault"
 )
@@ -41,14 +43,12 @@ func TestPlain(t *testing.T) {
 
 func startServer(t *testing.T, store map[string]string) *Listener {
 	t.Helper()
-	v := vault.Vault{Path: filepath.Join(t.TempDir(), "p.age"), WorkFactor: 2}
-	k := vault.Key{Passphrase: "pw"}
-	for a, p := range store {
-		if err := v.Set(k, a, p); err != nil {
-			t.Fatal(err)
+	s := Server{User: "me", Password: func(a string) (string, error) {
+		if p, ok := store[a]; ok {
+			return p, nil
 		}
-	}
-	s := Server{Vault: v, Key: k, User: "me", Host: func(a string) (sshconfig.Host, error) {
+		return "", vault.ErrNoPassword
+	}, Host: func(a string) (sshconfig.Host, error) {
 		if a == "web" || a == "nopass" {
 			h := web
 			h.Alias = a
@@ -168,5 +168,71 @@ func TestRunWithoutAServerAsksTheTerminal(t *testing.T) {
 	out.Reset()
 	if code := Run(dead, "deploy@192.0.2.7's password: ", &out, &fakeTerm{secret: "typed"}); code != 0 || out.String() != "typed\n" {
 		t.Errorf("a dead server must fall back to the terminal: code %d, out %q", code, out.String())
+	}
+}
+
+func newSession(t *testing.T, identity string) (*Session, vault.Vault) {
+	t.Helper()
+	v := vault.Vault{Path: filepath.Join(t.TempDir(), "p.age"), WorkFactor: 2}
+	s := &Session{
+		Vault: v, Identity: identity, Bin: "/opt/bin/vantage", User: "me",
+		Host: func(string) (sshconfig.Host, error) { return web, nil },
+	}
+	t.Cleanup(s.Close)
+	return s, v
+}
+
+func TestSessionUnlocksOnceAndServesStoredPasswords(t *testing.T) {
+	s, v := newSession(t, "")
+	if s.NeedsUnlock() || s.Stored("web") != None {
+		t.Fatal("no vault: nothing to unlock, nothing stored")
+	}
+	if err := v.Set(vault.Key{Passphrase: "pw"}, "web", "s3cret"); err != nil {
+		t.Fatal(err)
+	}
+	if !s.NeedsUnlock() || s.Stored("web") != Locked || s.Askpass("web") != nil {
+		t.Fatal("a vault with a passphrase starts locked")
+	}
+	if err := s.Unlock("wrong"); !errors.Is(err, vault.ErrWrongKey) {
+		t.Fatalf("wrong passphrase: %v", err)
+	}
+	if !s.NeedsUnlock() {
+		t.Error("a failed unlock must leave the vault locked")
+	}
+	if err := s.Unlock("pw"); err != nil {
+		t.Fatal(err)
+	}
+	if s.NeedsUnlock() || s.Stored("web") != Stored || s.Stored("db") != None {
+		t.Error("states after unlock")
+	}
+	a := s.Askpass("web")
+	if a == nil || a.Bin != "/opt/bin/vantage" || s.Askpass("db") != nil {
+		t.Fatalf("Askpass = %+v", a)
+	}
+	pw, ok, err := Ask(a.Socket, "web", "deploy@192.0.2.7's password: ")
+	if err != nil || !ok || pw != "s3cret" {
+		t.Errorf("served %q, %v, %v", pw, ok, err)
+	}
+	s.Close()
+	if _, _, err := Ask(a.Socket, "web", "x"); err == nil {
+		t.Error("Close must stop the server")
+	}
+}
+
+func TestSessionWithAnIdentityNeedsNoPrompt(t *testing.T) {
+	id, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	idPath := filepath.Join(t.TempDir(), "key.txt")
+	if err := os.WriteFile(idPath, []byte(id.String()+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, v := newSession(t, idPath)
+	if err := v.Set(vault.Key{IdentityFile: idPath}, "web", "s3cret"); err != nil {
+		t.Fatal(err)
+	}
+	if s.NeedsUnlock() || s.Stored("web") != Stored || s.Askpass("web") == nil {
+		t.Error("an identity vault opens on first use")
 	}
 }

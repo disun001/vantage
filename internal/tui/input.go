@@ -55,6 +55,9 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.hostPick != nil {
 		return m.onHostPickKey(k)
 	}
+	if m.unlock != nil {
+		return m.onUnlockKey(k)
+	}
 	if m.hostShut != nil {
 		return m.onHostShutKey(k)
 	}

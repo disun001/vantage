@@ -268,6 +268,10 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 		}
 	case "enter":
 		return m.openHost()
+	case "u":
+		if p := m.cfg.Passwords; p != nil && p.NeedsUnlock() {
+			return m.afterUnlock(func(m model) (tea.Model, tea.Cmd) { return m, nil })
+		}
 	case "x":
 		return m.shutHost()
 	case "v":
@@ -285,6 +289,10 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 // splitHost splits the embedded client's active pane and runs ssh to the
 // selected host in the new one. dir is "h" (side by side) or "v" (stacked).
 func (m model) splitHost(dir string) (tea.Model, tea.Cmd) {
+	return m.afterUnlock(func(m model) (tea.Model, tea.Cmd) { return m.splitHostNow(dir) })
+}
+
+func (m model) splitHostNow(dir string) (tea.Model, tea.Cmd) {
 	if len(m.hosts) == 0 {
 		return m, nil
 	}
@@ -292,7 +300,7 @@ func (m model) splitHost(dir string) (tea.Model, tea.Cmd) {
 		m.notice = "open a workspace first"
 		return m, nil
 	}
-	alias, c, tty, pid := m.hosts[m.hostPos()].Alias, m.cfg.Client, m.tty, m.term.PID()
+	alias, c, tty, pid, pw := m.hosts[m.hostPos()].Alias, m.cfg.Client, m.tty, m.term.PID(), m.cfg.Passwords
 	m.notice = ""
 	return m, func() tea.Msg {
 		tty, err := clientTTY(c, tty, pid)
@@ -301,7 +309,7 @@ func (m model) splitHost(dir string) (tea.Model, tea.Cmd) {
 		}
 		pane, cwd, err := c.ActivePane(tty)
 		if err == nil {
-			_, err = pick.Split(c, pane, dir, cwd, pick.Choice{Alias: alias})
+			_, err = pick.Split(c, pane, dir, cwd, pick.Choice{Alias: alias, Askpass: askpassFor(pw, alias)})
 		}
 		return hostSplitMsg{alias: alias, err: err}
 	}
@@ -572,6 +580,8 @@ func (m model) popup() []string {
 		return m.hostDel.box(m.w)
 	case m.hostPick != nil:
 		return m.hostPick.box(m.w)
+	case m.unlock != nil:
+		return m.unlockBox()
 	case m.hostShut != nil:
 		return m.hostShut.box(m.w)
 	case m.help:

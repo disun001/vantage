@@ -16,8 +16,8 @@ import (
 // Server answers prompts from an unlocked vault. Only processes of the same
 // user are served, and only for a plain password prompt of the named host.
 type Server struct {
-	Vault vault.Vault
-	Key   vault.Key
+	// Password returns the stored password of an alias, or vault.ErrNoPassword.
+	Password func(alias string) (string, error)
 	// Host finds the ssh settings of an alias, to tell its prompt from others.
 	Host func(alias string) (sshconfig.Host, error)
 	// User is the local account ssh logs in as when a host sets no User.
@@ -99,7 +99,7 @@ func (s Server) answer(req request) reply {
 	if !Plain(req.Prompt, h, s.User) {
 		return reply{Error: "not a password prompt for this host"}
 	}
-	p, err := s.Vault.Get(s.Key, req.Alias)
+	p, err := s.Password(req.Alias)
 	if err != nil {
 		if errors.Is(err, vault.ErrNoPassword) {
 			return reply{Error: "no stored password"}

@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/disun001/vantage/internal/askpass"
 	"github.com/disun001/vantage/internal/hostuse"
 )
 
@@ -60,7 +61,7 @@ func (m model) hostDetails() []string {
 		if val == "" {
 			val = dimStyle.Render("-")
 		}
-		return " " + dimStyle.Render(fit(label, 7)) + val
+		return " " + dimStyle.Render(fit(label, 9)) + val
 	}
 	head := []string{
 		" " + curStyle.Render(host.Alias), "",
@@ -69,6 +70,7 @@ func (m model) hostDetails() []string {
 		field("port", host.Port),
 		field("jump", host.ProxyJump),
 		field("key", host.Identity),
+		m.passwordField(),
 		"",
 	}
 	info := m.hostInfo
@@ -100,4 +102,21 @@ func (m model) hostDetails() []string {
 	}
 	out[h-1] = fit(" "+dimStyle.Render("⏎ connect · v/s split · x close panes · a add · e edit · d delete"), w)
 	return out
+}
+
+// passwordField is the details line for the stored password: never its value.
+func (m model) passwordField() string {
+	state := "-"
+	if m.cfg.Passwords != nil && len(m.hosts) > 0 {
+		switch m.cfg.Passwords.Stored(m.hosts[m.hostPos()].Alias) {
+		case askpass.Stored:
+			state = "stored"
+		case askpass.Locked:
+			state = "locked (u unlocks)"
+		}
+	}
+	if state == "-" {
+		state = dimStyle.Render("-")
+	}
+	return " " + dimStyle.Render(fit("password", 9)) + state
 }

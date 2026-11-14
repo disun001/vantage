@@ -58,15 +58,21 @@ func runTUI(args []string, _ io.Writer) error {
 			return fmt.Errorf("start: %w", err)
 		}
 	}
+	pw, err := passwordSession(filepath.Join(home, ".ssh", "config"))
+	if err != nil {
+		return err
+	}
+	defer pw.Close()
 	return tui.Run(tui.Config{
-		Client:   client,
-		Saved:    workspace.List,
-		Manage:   manage.Manager{Client: client, Procs: capture.PS},
-		Projects: projectStore{},
-		SSH:      sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
-		HostUse:  hostuse.Finder{Client: client, Procs: capture.PS},
-		KeyLog:   keyLog,
-		Restore:  restoreByName,
+		Client:    client,
+		Saved:     workspace.List,
+		Manage:    manage.Manager{Client: client, Procs: capture.PS},
+		Projects:  projectStore{},
+		SSH:       sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
+		HostUse:   hostuse.Finder{Client: client, Procs: capture.PS},
+		Passwords: pw,
+		KeyLog:    keyLog,
+		Restore:   restoreByName,
 	})
 }
 

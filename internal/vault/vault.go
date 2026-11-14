@@ -65,6 +65,16 @@ func (v Vault) Get(k Key, alias string) (string, error) {
 	return p, nil
 }
 
+// All returns every stored password by alias, for a caller that keeps them in
+// memory for the length of a session.
+func (v Vault) All(k Key) (map[string]string, error) {
+	doc, err := v.read(k)
+	if err != nil {
+		return nil, err
+	}
+	return doc.Passwords, nil
+}
+
 // Aliases returns the hosts that have a stored password.
 func (v Vault) Aliases(k Key) ([]string, error) {
 	doc, err := v.read(k)
