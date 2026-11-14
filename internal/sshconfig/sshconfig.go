@@ -1,6 +1,7 @@
 // Package sshconfig lists the hosts in an ssh_config file and adds or edits
 // them. Listing exposes only what the picker displays (alias, address, user,
-// port, jump host), never key paths or other option values. Writing touches
+// port, jump host) and the identity file path, never key contents or other
+// option values. Writing touches
 // one Host block at a time and is guarded (see File).
 package sshconfig
 
@@ -25,6 +26,8 @@ type Host struct {
 	User      string
 	Port      string
 	ProxyJump string
+	// Identity is the IdentityFile path, never the key itself.
+	Identity string
 }
 
 // Hosts returns the concrete hosts in r, in file order, without duplicates.
@@ -51,6 +54,7 @@ func Hosts(r io.Reader) ([]Host, error) {
 				User:      get(cfg, a, "User"),
 				Port:      get(cfg, a, "Port"),
 				ProxyJump: get(cfg, a, "ProxyJump"),
+				Identity:  get(cfg, a, "IdentityFile"),
 			})
 		}
 	}

@@ -45,7 +45,9 @@ func (f File) Add(h Host) error {
 	return f.write(h.Alias, &h, func(old string) (string, error) { return addBlock(old, h) })
 }
 
-// Edit sets HostName, User, Port and ProxyJump of the block named from.
+// Edit sets HostName, User, Port, ProxyJump and IdentityFile of the block
+// named from. Setting an identity also sets IdentitiesOnly yes, and clearing it
+// removes that option again.
 // Options that already match are left alone and an empty value removes the
 // option. When h.Alias differs from from the block is renamed too, and the
 // ProxyJump hops of other blocks that name the old alias follow. It is refused

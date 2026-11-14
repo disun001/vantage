@@ -96,6 +96,7 @@ var hostFields = []hostField{
 	{"user", func(h *sshconfig.Host) *string { return &h.User }},
 	{"port", func(h *sshconfig.Host) *string { return &h.Port }},
 	{"jump", func(h *sshconfig.Host) *string { return &h.ProxyJump }},
+	{"key", func(h *sshconfig.Host) *string { return &h.Identity }},
 }
 
 // hostForm is the pop-up for adding or editing a host: every field is on
@@ -103,7 +104,7 @@ var hostFields = []hostField{
 type hostForm struct {
 	edit  bool
 	from  string    // the alias being edited, to tell a rename
-	vals  [5]string // indexed like hostFields
+	vals  [6]string // indexed like hostFields
 	focus int
 	err   string // why the last Enter did not save
 }

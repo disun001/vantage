@@ -208,7 +208,7 @@ func TestAddHostForm(t *testing.T) {
 func TestFormTabWrapsAndShiftTabGoesBack(t *testing.T) {
 	m := openHosts(t, twoHosts())
 	m, _ = press(m, "a", "shift+tab")
-	if m.form.focus != 4 {
+	if m.form.focus != 5 {
 		t.Errorf("shift+tab from the top: focus %d", m.form.focus)
 	}
 	m, _ = press(m, "tab")
@@ -220,8 +220,8 @@ func TestFormTabWrapsAndShiftTabGoesBack(t *testing.T) {
 		t.Fatalf("edit shift+tab: focus %d", m.form.focus)
 	}
 	m, _ = press(m, "shift+tab")
-	if m.form.focus != 4 {
-		t.Errorf("edit shift+tab wraps to %d, want 4", m.form.focus)
+	if m.form.focus != 5 {
+		t.Errorf("edit shift+tab wraps to %d, want 5", m.form.focus)
 	}
 }
 
@@ -730,5 +730,18 @@ func TestHostsViewShowsDetailsNotTerminal(t *testing.T) {
 	}
 	if m.focus != focusSidebar {
 		t.Error("the details page has no terminal to focus")
+	}
+}
+
+func TestFormShowsAndKeepsTheKey(t *testing.T) {
+	m := openHosts(t, twoHosts())
+	m, _ = press(m, "a")
+	if !strings.Contains(popupText(m), "key") {
+		t.Errorf("form lacks the key line: %q", popupText(m))
+	}
+	f := hostForm{}
+	f.vals[0], f.vals[5] = "k1", " ~/.ssh/k1 "
+	if got := f.host(); got.Identity != "~/.ssh/k1" {
+		t.Errorf("identity = %q, want the trimmed path", got.Identity)
 	}
 }

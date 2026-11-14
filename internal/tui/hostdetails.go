@@ -68,6 +68,7 @@ func (m model) hostDetails() []string {
 		field("user", host.User),
 		field("port", host.Port),
 		field("jump", host.ProxyJump),
+		field("key", host.Identity),
 		"",
 	}
 	info := m.hostInfo
