@@ -47,15 +47,15 @@ The sidebar footer shows only `? keys`. Press `?` in the sidebar (or `M-/` anywh
 listing every key of the current view, grouped and explained. `esc`, `?` or
 `q` closes it.
 
-| Key     | Does                                                                    |
-| ------- | ----------------------------------------------------------------------- |
-| `space` | Fold or unfold a session                                                |
-| `n`     | New workspace (asks for a name in a pop-up)                             |
-| `R`     | Rename the workspace and its live session. On a window line: rename that window, in the saved file too                               |
-| `K`     | Stop: kill the session, keep the workspace file, after a `y` in a pop-up |
-| `d`     | Delete the workspace file and kill its session, after a `y` in a pop-up |
-| `H`     | Switch the sidebar to your ssh hosts                                    |
-| `P`     | Switch the sidebar to projects (repo details on the right)              |
+| Key     | Does                                                                                                   |
+| ------- | ------------------------------------------------------------------------------------------------------ |
+| `space` | Fold or unfold a session                                                                               |
+| `n`     | New workspace (asks for a name in a pop-up)                                                            |
+| `R`     | Rename the workspace and its live session. On a window line: rename that window, in the saved file too |
+| `K`     | Stop: kill the session, keep the workspace file, after a `y` in a pop-up                               |
+| `d`     | Delete the workspace file and kill its session, after a `y` in a pop-up                                |
+| `H`     | Switch the sidebar to your ssh hosts                                                                   |
+| `P`     | Switch the sidebar to projects (repo details on the right)                                             |
 
 ### Projects view (after `P`)
 
@@ -63,23 +63,23 @@ Keys and forms are listed in [projects.md](projects.md#tui).
 
 ### Sidebar keys (ssh hosts, after `H`)
 
-| Key     | Does                                                                                                                         |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `Enter` | Go to the pane already connected to the host (a pop-up asks which, if several), or open ssh in a new window                  |
-| `x`     | Close every open pane of the host, after a `y`                                                                               |
-| `v`     | Open an ssh split beside the active pane                                                                                     |
-| `s`     | Open an ssh split below the active pane                                                                                      |
-| `a`     | Add a host                                                                                                                   |
+| Key     | Does                                                                                                                              |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `Enter` | Go to the pane already connected to the host (a pop-up asks which, if several), or open ssh in a new window                       |
+| `x`     | Close every open pane of the host, after a `y`                                                                                    |
+| `v`     | Open an ssh split beside the active pane                                                                                          |
+| `s`     | Open an ssh split below the active pane                                                                                           |
+| `a`     | Add a host                                                                                                                        |
 | `e`     | Edit a host: alias, host, user, port, jump, key. A new alias renames it, repoints other hosts' jumps and updates saved workspaces |
-| `d`     | Delete a host after a `y`. The pop-up warns if workspaces or open panes use it                                               |
+| `d`     | Delete a host after a `y`. The pop-up warns if workspaces or open panes use it                                                    |
 
 The right pane shows the host's details instead of a terminal: its ssh options,
 the key, whether a password is stored (never the password itself), the open
 panes connected to it and the saved workspaces that use it. After a connect or
 a split, the sidebar goes back to workspaces.
 
-| Key | Does                                                          |
-| --- | ------------------------------------------------------------- |
+| Key | Does                                                            |
+| --- | --------------------------------------------------------------- |
 | `u` | Unlock the password vault (asked once per run, or on first use) |
 
 Host changes are written to `~/.ssh/config` (see [Safety](#safety)).
