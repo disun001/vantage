@@ -77,6 +77,9 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if s == "alt+r" && m.view != viewProjects && m.view != viewHosts && m.term != nil { // those pages have no tmux pane to name
+		return m, m.paneTitleCmd()
+	}
 	if m.focus == focusTerm && m.term != nil {
 		return m.toTerm(k)
 	}
@@ -89,8 +92,8 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.onSidebarKey(s)
 }
 
-// toTerm forwards a key to the embedded client. alt+h is the only key kept
-// back: it moves focus to the sidebar when the tmux pane is at the left edge.
+// toTerm forwards a key to the embedded client. alt+h is kept back: it moves
+// focus to the sidebar when the tmux pane is at the left edge.
 func (m model) toTerm(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if k.String() == "alt+h" {
 		return m, m.edgeCmd()

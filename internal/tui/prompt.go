@@ -19,6 +19,7 @@ const (
 	promptStop
 	promptRenameWin
 	promptSaveAll
+	promptRenamePane
 )
 
 // prompt is the open question about a workspace: its name for new and
@@ -28,6 +29,7 @@ type prompt struct {
 	target string // session or workspace the prompt acts on
 	win    int    // window index (rename window)
 	text   string // typed text (new, rename)
+	old    string // promptRenamePane: the name the pane had when the prompt opened
 }
 
 // promptBox is the pop-up for naming a new workspace or renaming one. The
@@ -45,6 +47,10 @@ func (m model) promptBox() []string {
 		rows[0] = popTitle("rename window")
 		rows = append(rows, dimStyle.Render(fmt.Sprintf("in %s, window %d", p.target, p.win)), "")
 		hint = "enter rename · esc cancels"
+	case promptRenamePane:
+		rows[0] = popTitle("rename pane")
+		rows = append(rows, dimStyle.Render("empty: follow the running command"), "")
+		hint = "enter save · esc cancels"
 	}
 	inner := max(10, min(44, m.w-6))
 	const label = "name "
@@ -155,6 +161,9 @@ func (m model) onPromptKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.prompt = nil
 	case tea.KeyEnter:
 		m.prompt = nil
+		if p.kind == promptRenamePane {
+			return m, m.renamePaneCmd(p)
+		}
 		if strings.TrimSpace(p.text) == "" || (p.kind == promptRename && p.text == p.target) {
 			return m, nil
 		}
@@ -216,6 +225,7 @@ func (m model) onManage(msg manageMsg) (tea.Model, tea.Cmd) {
 	case promptRename:
 		m = m.renamed(msg.from, msg.to)
 	case promptRenameWin: // the next refresh shows the new name
+	case promptRenamePane: // tmux redraws the border itself
 	case promptDelete:
 		m = m.afterDelete(msg.from)
 	case promptStop:
