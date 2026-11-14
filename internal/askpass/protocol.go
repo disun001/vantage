@@ -31,11 +31,26 @@ type reply struct {
 	Error    string `json:"error,omitempty"`
 }
 
+// Has asks the server at sock whether it holds a password for alias. An error
+// means the server could not be reached.
+func Has(sock, alias string) (bool, error) {
+	_, ok, err := ask(sock, alias, "")
+	return ok, err
+}
+
 // Ask sends the prompt to the server at sock. ok is false when the server
 // declined to answer it (not a plain password prompt, or no stored password),
 // in which case the caller falls back to the terminal. A server that cannot be
 // reached is an error.
 func Ask(sock, alias, prompt string) (password string, ok bool, err error) {
+	if prompt == "" {
+		return "", false, errors.New("no prompt to answer")
+	}
+	return ask(sock, alias, prompt)
+}
+
+// ask is Ask, and with an empty prompt a question whether alias has a password.
+func ask(sock, alias, prompt string) (password string, ok bool, err error) {
 	c, err := net.DialTimeout("unix", sock, 2*time.Second)
 	if err != nil {
 		return "", false, fmt.Errorf("askpass server: %w", err)

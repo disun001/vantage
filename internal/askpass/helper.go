@@ -49,11 +49,15 @@ func Run(env func(string) string, prompt string, out io.Writer, term Terminal, d
 	return exit(err == nil)
 }
 
-// answer asks the TUI's server when there is one, then opens the vault itself.
+// answer asks the TUI's server when there is one. A server that answered is
+// final: its vault is open and it knows the host has nothing stored, or the
+// prompt is not for the password, so the person is asked and no second vault
+// passphrase is. Only an unreachable server sends the helper to open the vault
+// itself.
 func answer(alias, sock, prompt string, term Terminal, direct *Direct) (string, bool) {
 	if sock != "" {
-		if pw, ok, err := Ask(sock, alias, prompt); err == nil && ok {
-			return pw, true
+		if pw, ok, err := Ask(sock, alias, prompt); err == nil {
+			return pw, ok
 		}
 	}
 	if direct != nil {

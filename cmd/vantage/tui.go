@@ -47,6 +47,7 @@ func runTUI(args []string, _ io.Writer) error {
 		return err
 	}
 	pw := pws.session()
+	pw.Start()
 	defer pw.Close()
 	restoreByName := func(name string) error {
 		path, err := workspace.Resolve(name)

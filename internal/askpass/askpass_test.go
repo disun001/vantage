@@ -376,3 +376,102 @@ func TestDirectWithAnIdentityNeverPrompts(t *testing.T) {
 		t.Errorf("code %d, out %q, shown %q", code, out.String(), term.shown.String())
 	}
 }
+
+func shortDir(t *testing.T) string {
+	t.Helper() // unix socket paths are short: t.TempDir can be too long on macOS
+	d, err := os.MkdirTemp("", "va")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(d) })
+	return filepath.Join(d, "v")
+}
+
+func testServer(store map[string]string) Server {
+	return Server{
+		User: "me", Host: func(string) (sshconfig.Host, error) { return web, nil },
+		Password: func(a string) (string, error) {
+			if p, ok := store[a]; ok {
+				return p, nil
+			}
+			return "", vault.ErrNoPassword
+		},
+	}
+}
+
+func TestWellKnownSocketIsFoundAndOnlyOneServesIt(t *testing.T) {
+	dir := shortDir(t)
+	l, err := testServer(map[string]string{"web": "s3cret"}).ListenAt(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sock, ok := Advertised(dir)
+	if !ok || sock != l.Path {
+		t.Fatalf("Advertised = %q, %v", sock, ok)
+	}
+	if has, err := Has(sock, "web"); err != nil || !has {
+		t.Errorf("Has(web) = %v, %v", has, err)
+	}
+	if has, err := Has(sock, "db"); err != nil || has {
+		t.Errorf("Has(db) = %v, %v", has, err)
+	}
+	if _, err := testServer(nil).ListenAt(dir); !errors.Is(err, ErrInUse) {
+		t.Errorf("a second TUI must not take the socket: %v", err)
+	}
+	if err := l.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := Advertised(dir); ok {
+		t.Error("a closed server must not be advertised")
+	}
+	if st, err := os.Stat(dir); err != nil || st.Mode().Perm() != 0o700 {
+		t.Errorf("the directory stays, private: %v, %v", st, err)
+	}
+}
+
+func TestLeftoverSocketIsReplaced(t *testing.T) {
+	dir := shortDir(t)
+	l, err := testServer(nil).ListenAt(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Simulate a crash: stop serving but leave the file behind.
+	_ = l.ln.Close()
+	if _, ok := Advertised(dir); ok {
+		t.Fatal("nothing answers on the leftover")
+	}
+	l2, err := testServer(nil).ListenAt(dir)
+	if err != nil {
+		t.Fatalf("a dead socket must be replaced: %v", err)
+	}
+	_ = l2.Close()
+}
+
+func TestAnOpenDirectoryIsNotTrusted(t *testing.T) {
+	dir := shortDir(t)
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // the test needs an open directory
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o755); err != nil { //nolint:gosec // same
+		t.Fatal(err)
+	}
+	if _, err := testServer(nil).ListenAt(dir); err == nil {
+		t.Error("a directory others can enter must be refused")
+	}
+	if _, ok := Advertised(dir); ok {
+		t.Error("a socket in such a directory must be ignored")
+	}
+}
+
+func TestAServerThatAnsweredIsFinal(t *testing.T) {
+	l := startServer(t, map[string]string{"web": "s3cret"})
+	// The TUI knows this host has no password: no second vault passphrase.
+	d := directFor(t, map[string]string{"nopass": "x"}, "")
+	term := &fakeTerm{secret: "typed"}
+	var out bytes.Buffer
+	env := envOf(map[string]string{EnvAlias: "nopass", EnvSocket: l.Path})
+	Run(env, "deploy@192.0.2.7's password: ", &out, term, &d)
+	if strings.Contains(term.shown.String(), "vault passphrase") || out.String() != "typed\n" {
+		t.Errorf("shown %q, out %q", term.shown.String(), out.String())
+	}
+}

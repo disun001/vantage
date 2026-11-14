@@ -113,13 +113,20 @@ opens once the host exists. `ctrl+x` on it removes the stored password.
   password may be wrong.
 - **Where it applies.** Connecting from the hosts view (`Enter`, `v`, `s`) uses
   the vault the TUI has open. Restored panes (`vantage restore`, or a restore
-  from the TUI) and the `prefix S` / `V` picker have no TUI to ask, so the helper
-  opens the vault itself: it asks for the vault passphrase in that pane (empty
-  answer: type the ssh password instead), or uses `VANTAGE_AGE_IDENTITY` with no
-  prompt. A host without a stored password costs one extra passphrase question
-  there, because the vault cannot be searched without opening it. With no vault
-  file, panes run plain ssh. Any pane that uses the helper allows one password
-  attempt (`NumberOfPasswordPrompts=1`), also when you type the password.
+  from the TUI) and the `prefix S` / `V` picker find the running TUI instead: it
+  also listens on `$XDG_RUNTIME_DIR/vantage/askpass.sock` (else
+  `<tmpdir>/vantage-<uid>/askpass.sock`, a directory only you can enter). So one
+  unlock covers every pane, and a host with no stored password runs plain ssh.
+  With a passphrase vault the socket exists once you have unlocked it; an
+  identity vault opens at start. Only one TUI serves that socket; a second one
+  keeps a private socket for its own panes.
+- **No TUI running.** The helper opens the vault itself: it asks for the vault
+  passphrase in that pane (empty answer: type the ssh password instead), or uses
+  `VANTAGE_AGE_IDENTITY` with no prompt. It cannot know which hosts have a
+  password without opening the vault, so a host with none costs one extra
+  passphrase question. With no vault file, panes run plain ssh. A pane that uses
+  the helper allows one password attempt (`NumberOfPasswordPrompts=1`), also
+  when you type the password.
 - **Rename and delete.** A rename moves the stored password to the new alias. A
   delete removes it, and the confirmation says so.
 

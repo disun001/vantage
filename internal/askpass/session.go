@@ -26,6 +26,10 @@ type Session struct {
 	// SocketBase is where the server's directory goes; empty means the system
 	// temp dir.
 	SocketBase string
+	// SocketDir, when set, is the well-known directory where the server also
+	// listens, so panes started outside this TUI find it. When another TUI
+	// already holds it, this one keeps a private socket only.
+	SocketDir string
 
 	mu   sync.Mutex
 	key  *vault.Key
@@ -49,6 +53,14 @@ func (s *Session) NeedsCreate() bool {
 	return s.key == nil && s.Identity == "" && !s.Vault.Exists()
 }
 
+// Start opens an identity vault right away, so its socket is up for panes
+// started outside the TUI. A passphrase vault waits for Unlock.
+func (s *Session) Start() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ready()
+}
+
 // Unlock opens the vault with the passphrase (ignored for an identity vault)
 // and starts the server. A wrong passphrase is vault.ErrWrongKey.
 func (s *Session) Unlock(passphrase string) error {
@@ -67,9 +79,15 @@ func (s *Session) unlockLocked(passphrase string) error {
 		return err
 	}
 	srv := Server{Password: s.lookup, Host: s.Host, User: s.User}
-	ln, err := srv.Listen(s.SocketBase)
-	if err != nil {
-		return err
+	var ln *Listener
+	if s.SocketDir != "" {
+		ln, _ = srv.ListenAt(s.SocketDir) // in use or unusable: fall back to a private socket
+	}
+	if ln == nil {
+		ln, err = srv.Listen(s.SocketBase)
+		if err != nil {
+			return err
+		}
 	}
 	s.key, s.pass, s.ln = &k, all, ln
 	return nil

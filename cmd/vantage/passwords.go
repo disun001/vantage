@@ -24,6 +24,7 @@ type passwords struct {
 	bin      string // this binary, which ssh runs as its askpass helper
 	user     string
 	sshPath  string
+	sockDir  string // where a running TUI advertises its unlock socket
 }
 
 // newPasswords reads the setup from the environment. sshPath is the ssh config.
@@ -46,7 +47,17 @@ func newPasswords(sshPath string) (passwords, error) {
 		bin:      bin,
 		user:     local,
 		sshPath:  sshPath,
+		sockDir:  askpassDir(),
 	}, nil
+}
+
+// askpassDir is the well-known place of the unlock socket: the user's runtime
+// dir when there is one, else a per-user directory in the temp dir.
+func askpassDir() string {
+	if d := os.Getenv("XDG_RUNTIME_DIR"); d != "" {
+		return filepath.Join(d, "vantage")
+	}
+	return filepath.Join(os.TempDir(), fmt.Sprintf("vantage-%d", os.Getuid()))
 }
 
 // defaultSSHPath is ~/.ssh/config.
@@ -73,7 +84,7 @@ func (p passwords) host(alias string) (sshconfig.Host, error) {
 
 // session is the unlocked vault of a running TUI.
 func (p passwords) session() *askpass.Session {
-	return &askpass.Session{Vault: p.vault, Identity: p.identity, Bin: p.bin, User: p.user, Host: p.host}
+	return &askpass.Session{Vault: p.vault, Identity: p.identity, Bin: p.bin, User: p.user, Host: p.host, SocketDir: p.sockDir}
 }
 
 // direct is the helper's own way into the vault, for panes no TUI serves.
@@ -81,15 +92,25 @@ func (p passwords) direct() *askpass.Direct {
 	return &askpass.Direct{Vault: p.vault, Identity: p.identity, User: p.user, Host: p.host}
 }
 
-// askpassFor is the helper settings for an ssh pane about to start. A running
-// TUI's session answers for the hosts it knows a password for. Otherwise, when
-// a vault exists, the helper opens it itself, since the password cannot be
-// known without the passphrase. No vault, no helper: plain ssh.
+// askpassFor is the helper settings for an ssh pane about to start. This TUI's
+// own session answers for the hosts it knows a password for. Else a TUI that
+// advertises its socket is asked whether the host has one (no password: plain
+// ssh, nothing changes for that host). With no TUI to ask and a vault on disk,
+// the helper opens the vault itself, since the password cannot be known without
+// the passphrase. No vault, no helper: plain ssh.
 func (p passwords) askpassFor(s *askpass.Session) func(alias string) *workspace.Askpass {
 	return func(alias string) *workspace.Askpass {
 		if s != nil {
 			if a := s.Askpass(alias); a != nil {
 				return a
+			}
+		}
+		if sock, ok := askpass.Advertised(p.sockDir); ok {
+			if has, err := askpass.Has(sock, alias); err == nil {
+				if !has {
+					return nil
+				}
+				return &workspace.Askpass{Bin: p.bin, Socket: sock}
 			}
 		}
 		if p.vault.Exists() {
