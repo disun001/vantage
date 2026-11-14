@@ -32,6 +32,15 @@ func Session(c tmux.Client, session, name string, procs Lister) (workspace.Works
 	if name == "" {
 		name = session
 	}
+	// Names are cosmetic: a pane whose name cannot be read, or that a user set
+	// by hand to something we refuse, is saved without one.
+	if titles, err := c.PaneTitles(session); err == nil {
+		for i := range panes {
+			if t := titles[panes[i].Pane]; workspace.ValidPaneTitle(t) == nil {
+				panes[i].Title = t
+			}
+		}
+	}
 	home, _ := os.UserHomeDir()
 	return build(name, home, panes, procs)
 }
@@ -47,6 +56,7 @@ func build(name, home string, panes []tmux.PaneInfo, procs Lister) (workspace.Wo
 		w := &ws.Windows[len(ws.Windows)-1]
 		pane := classify(p, procs)
 		pane.CWD = contractHome(p.CWD, home)
+		pane.Title = p.Title // only custom names: the automatic one follows the command
 		w.Panes = append(w.Panes, pane)
 	}
 	if err := ws.Validate(); err != nil {

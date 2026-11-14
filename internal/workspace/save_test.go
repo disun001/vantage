@@ -99,3 +99,18 @@ func TestSaveBackupKeepsOldFile(t *testing.T) {
 		t.Error("file not replaced")
 	}
 }
+
+func TestSaveKeepsPaneTitle(t *testing.T) {
+	ws := Workspace{Name: "w", Windows: []Window{{Panes: []Pane{{Title: "api server"}, {}}}}}
+	path := filepath.Join(t.TempDir(), "w.toml")
+	if err := Save(path, ws, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := got.Windows[0].Panes; p[0].Title != "api server" || p[1].Title != "" {
+		t.Errorf("titles = %q, %q", p[0].Title, p[1].Title)
+	}
+}

@@ -46,6 +46,9 @@ type Pane struct {
 	// Split is how this pane is split from the previous one: "h" (side by
 	// side) or "v" (stacked). Ignored for the first pane. Default "h".
 	Split string `toml:"split"`
+	// Title is the pane's custom name, shown in its border. Empty means the
+	// border follows the running command.
+	Title string `toml:"title"`
 }
 
 var (
@@ -157,6 +160,9 @@ func (w Workspace) Validate() error {
 			}
 			if p.SSH != "" && !aliasRe.MatchString(p.SSH) {
 				return fmt.Errorf("%s: invalid ssh alias %q", where, p.SSH)
+			}
+			if err := ValidPaneTitle(p.Title); err != nil {
+				return fmt.Errorf("%s: %w", where, err)
 			}
 			if p.Autorun && p.Cmd == "" {
 				return fmt.Errorf("%s: autorun needs cmd", where)

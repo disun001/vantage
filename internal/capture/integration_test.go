@@ -74,3 +74,69 @@ func TestSessionMissing(t *testing.T) {
 		t.Fatal("want error for a missing session")
 	}
 }
+
+// A custom pane name survives capture, save, load and restore. An unnamed
+// pane stays unnamed: the automatic name is never frozen into the file.
+func TestCaptureRoundTripKeepsPaneTitles(t *testing.T) {
+	c := testClient(t)
+	src := workspace.Workspace{
+		Name: "src",
+		Root: t.TempDir(),
+		Windows: []workspace.Window{
+			{Name: "one", Panes: []workspace.Pane{{Title: "api server"}, {Split: "v"}}},
+		},
+	}
+	if _, err := restore.Restore(c, src); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Session(c, "src", "copy", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	panes := got.Windows[0].Panes
+	if panes[0].Title != "api server" || panes[1].Title != "" {
+		t.Fatalf("captured titles = %q, %q", panes[0].Title, panes[1].Title)
+	}
+	path := filepath.Join(t.TempDir(), "copy.toml")
+	if err := workspace.Save(path, got, false); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := workspace.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := restore.Restore(c, loaded); err != nil {
+		t.Fatal(err)
+	}
+	titles, err := c.PaneTitles("copy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(titles) != 1 {
+		t.Fatalf("restored titles = %v, want exactly one", titles)
+	}
+	for _, v := range titles {
+		if v != "api server" {
+			t.Errorf("restored title = %q", v)
+		}
+	}
+}
+
+// A name set by hand to something vantage refuses must not break capture.
+func TestCaptureDropsInvalidPaneTitle(t *testing.T) {
+	c := testClient(t)
+	pane, err := c.NewSession("hand", "w", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.SetPaneTitle(pane, "#(x)"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Session(c, "hand", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Windows[0].Panes[0].Title != "" {
+		t.Errorf("title = %q, want it dropped", got.Windows[0].Panes[0].Title)
+	}
+}
