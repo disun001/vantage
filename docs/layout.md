@@ -10,6 +10,7 @@ internal/project/   project schema, load, validate, projects dir, clone and stat
 internal/restore/   builds a live session from a Workspace
 internal/manage/    create, rename, delete workspaces (file and live session together)
 internal/capture/   reads a live session back into a Workspace (ps lookup for ssh/commands)
+internal/askpass/   SSH_ASKPASS helper, its unlock server and prompt matching; answers only a plain password prompt
 internal/vault/     age-encrypted ssh password store keyed by host alias; no ssh, no printing of secrets
 internal/sshconfig/ list hosts (alias, address, user, port, jump) from ssh_config; guarded add and edit of Host blocks
 internal/hostuse/  what depends on an ssh alias (workspaces, live panes) before it is deleted; closes the panes, strips saved ones
