@@ -9,11 +9,13 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/disun001/vantage/internal/tmux"
 )
 
 // Run starts the TUI and blocks until the user quits.
 func Run(cfg Config) error {
-	cfg.Client.ApplyPaneBorders(borderIdle, borderActive)
+	cfg.Client.ApplyPaneBorders(tmux.PaneBorderColors{Inactive: borderIdle, Active: borderActive, Label: mocSub})
 	h := &hub{}
 	p := tea.NewProgram(newModel(cfg, h), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	h.send = p.Send

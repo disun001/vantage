@@ -36,6 +36,8 @@ type hostPick struct {
 // updateHosts handles the messages of the hosts view.
 func (m model) updateHosts(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case paneTitleMsg:
+		return m.onPaneTitle(msg), nil
 	case hostsMsg:
 		return m.onHostsLoaded(msg)
 	case pwSavedMsg:

@@ -19,6 +19,7 @@ layout = "main-vertical"     # tmux preset or a full layout string
 
   [[window.pane]]
   split = "v"
+  title = "tests"            # optional pane name, shown in its border
 
 [[window]]
 name = "db"
@@ -29,20 +30,21 @@ name = "db"
 
 ## Fields
 
-| Key               | Level     | Meaning                               | Rules                                                                          |
-| ----------------- | --------- | ------------------------------------- | ------------------------------------------------------------------------------ |
-| `name`            | workspace | Session name                          | `[A-Za-z0-9][A-Za-z0-9_-]*`. No `.`, `:`, spaces (tmux rewrites them)          |
-| `root`            | workspace | Default pane directory                | Optional. `~` expands                                                          |
-| `project`         | workspace | Link to a project (`vantage project`) | Optional. Same charset as `name`. When `root` is empty, `root` is the project dir          |
-| `[[window]]`      | workspace | Windows, in order                     | At least one                                                                   |
-| `name`            | window    | Window name                           | Optional                                                                       |
-| `layout`          | window    | `select-layout` argument              | Optional. Applied after all panes exist                                        |
-| `[[window.pane]]` | window    | Panes, in order                       | At least one                                                                   |
-| `cwd`             | pane      | Directory                             | Relative paths join `root`. Empty means `root`                                 |
-| `ssh`             | pane      | ssh config alias                      | Matches `[A-Za-z0-9][A-Za-z0-9._@%+-]*`. Cannot start with `-`. Not with `cmd` |
-| `cmd`             | pane      | Command to type into the pane's shell | Not with `ssh`                                                                 |
-| `autorun`         | pane      | Allow `cmd` to run on restore         | Default false. Needs `cmd`                                                     |
-| `split`           | pane      | How it splits from the previous pane  | `h` (side by side, default) or `v` (stacked). Ignored on the first pane        |
+| Key               | Level     | Meaning                               | Rules                                                                                                            |
+| ----------------- | --------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `name`            | workspace | Session name                          | `[A-Za-z0-9][A-Za-z0-9_-]*`. No `.`, `:`, spaces (tmux rewrites them)                                            |
+| `root`            | workspace | Default pane directory                | Optional. `~` expands                                                                                            |
+| `project`         | workspace | Link to a project (`vantage project`) | Optional. Same charset as `name`. When `root` is empty, `root` is the project dir                                |
+| `[[window]]`      | workspace | Windows, in order                     | At least one                                                                                                     |
+| `name`            | window    | Window name                           | Optional                                                                                                         |
+| `layout`          | window    | `select-layout` argument              | Optional. Applied after all panes exist                                                                          |
+| `[[window.pane]]` | window    | Panes, in order                       | At least one                                                                                                     |
+| `cwd`             | pane      | Directory                             | Relative paths join `root`. Empty means `root`                                                                   |
+| `ssh`             | pane      | ssh config alias                      | Matches `[A-Za-z0-9][A-Za-z0-9._@%+-]*`. Cannot start with `-`. Not with `cmd`                                   |
+| `cmd`             | pane      | Command to type into the pane's shell | Not with `ssh`                                                                                                   |
+| `autorun`         | pane      | Allow `cmd` to run on restore         | Default false. Needs `cmd`                                                                                       |
+| `split`           | pane      | How it splits from the previous pane  | `h` (side by side, default) or `v` (stacked). Ignored on the first pane                                          |
+| `title`           | pane      | Custom pane name                      | Optional, up to 40 characters, no `#`, no control characters. Empty means the border follows the running command |
 
 ## Project link
 
@@ -54,6 +56,7 @@ name = "db"
 - If creation fails part way, the half-built session is removed.
 - SSH panes open a normal shell, then type `ssh <alias>`, so the pane survives a dropped connection.
 - Commands without `autorun = true` are never run.
+- A pane with a `title` gets that name (pane option `@vantage_name`) when created.
 
 ## Capture semantics
 
@@ -64,6 +67,7 @@ name = "db"
 - A pane whose foreground process is exactly `ssh <alias>` becomes `ssh = "<alias>"`.
 - Any other foreground command (including `ssh` with options or ports) is saved as `cmd` with `autorun = false`, so restore never runs it unless you edit the file.
 - Idle shells save nothing. An existing file is only replaced with `--force`.
+- A pane's custom name is saved as `title`. A pane without one saves none: the automatic name follows the running command, so freezing it would go stale.
 - Foreground detection uses `ps -t <tty>`. If it fails, only the command name is saved.
 
 ## Save all (`S` in the sidebar)

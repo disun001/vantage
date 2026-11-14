@@ -172,6 +172,55 @@ func (c Client) ClearRenamedTag(pane string) error {
 	return err
 }
 
+// TitleOption is the pane option that holds a custom pane name. Empty or unset
+// means the border follows the running command.
+const TitleOption = "@vantage_name"
+
+// SetPaneTitle names the pane. An empty title clears the name so the border
+// goes back to the running command. The caller validates the title
+// (workspace.ValidPaneTitle); the value only ever reaches tmux as one
+// argument, never a shell.
+func (c Client) SetPaneTitle(pane, title string) error {
+	if !paneIDRe.MatchString(pane) {
+		return fmt.Errorf("invalid pane id %q", pane)
+	}
+	if title == "" {
+		out, err := c.run("set-option", "-p", "-u", "-t", pane, TitleOption)
+		if err != nil && strings.Contains(out, "can't find pane") {
+			return nil
+		}
+		return err
+	}
+	_, err := c.run("set-option", "-p", "-t", pane, TitleOption, title)
+	return err
+}
+
+// PaneTitle returns the pane's custom name, empty when it has none.
+func (c Client) PaneTitle(pane string) (string, error) {
+	if !paneIDRe.MatchString(pane) {
+		return "", fmt.Errorf("invalid pane id %q", pane)
+	}
+	return c.run("show-options", "-pqv", "-t", pane, TitleOption)
+}
+
+// PaneTitles returns the custom names of one session's panes, keyed by pane
+// ID. Panes without a name are left out. The title is last in the format so a
+// "|" in it cannot shift the pane ID.
+func (c Client) PaneTitles(session string) (map[string]string, error) {
+	out, err := c.run("list-panes", "-s", "-t", "="+session, "-F", "#{pane_id}|#{"+TitleOption+"}")
+	if err != nil {
+		return nil, err
+	}
+	titles := map[string]string{}
+	for _, line := range strings.Split(out, "\n") {
+		id, title, ok := strings.Cut(line, "|")
+		if ok && title != "" {
+			titles[id] = title
+		}
+	}
+	return titles, nil
+}
+
 // IsNoServer reports whether err says no tmux server is running.
 func IsNoServer(err error) bool {
 	if err == nil {
@@ -241,6 +290,9 @@ type PaneInfo struct {
 	TTY string
 	// Pane is the pane ID, e.g. %4.
 	Pane string
+	// Title is the pane's custom name (see TitleOption), empty when it has
+	// none. ListSessionPanes leaves it empty; capture fills it from PaneTitles.
+	Title string
 }
 
 // ListSessionPanes returns every pane of one session, ordered by window then
@@ -308,7 +360,8 @@ func (c Client) ListAllPanes() ([]PaneRef, error) {
 const bordersMarker = "@vantage_borders"
 
 // paneBorderDefaults are the global window options ApplyPaneBorders sets, with
-// the tmux default each one must still have for vantage to touch it.
+// the tmux default each one must still have for vantage to touch it. The
+// value of each is built by borderValues, in the same order.
 var paneBorderDefaults = []struct {
 	opt  string
 	defs []string
@@ -316,14 +369,36 @@ var paneBorderDefaults = []struct {
 	{"pane-border-lines", []string{"single"}},
 	{"pane-border-style", []string{"default", "fg=themelightgrey"}},
 	{"pane-active-border-style", []string{"fg=green", "fg=themegreen"}},
+	{"pane-border-status", []string{"off"}},
+	{"pane-border-format", []string{
+		// tmux 3.8, then older releases without the mouse buttons.
+		`#{?pane_active,#[reverse],}#{pane_index}#[default] "#{pane_title}"#{?#{mouse},#[align=right]#[range=control|7][#{?#{pane_floating_flag},t,f}]#[norange]#[range=control|8][#{?#{window_zoomed_flag},u,z}]#[norange]#[range=control|9][x]#[norange],}`,
+		`#{?pane_active,#[reverse],}#{pane_index}#[default] "#{pane_title}"`,
+	}},
 }
 
-// ApplyPaneBorders gives panes a subtle border: inactive in inactive, the
-// active pane in active (tmux color strings). An option the user already
-// changed from tmux's default is left alone. Errors are ignored: borders are
-// cosmetic, and older tmux lacks pane-border-lines.
-func (c Client) ApplyPaneBorders(inactive, active string) {
-	vals := []string{"single", "fg=" + inactive, "fg=" + active}
+// PaneBorderColors are the tmux color strings ApplyPaneBorders paints with.
+type PaneBorderColors struct {
+	Inactive string // inactive border line
+	Active   string // active border line and active pane label
+	Label    string // inactive pane label, brighter than its line
+}
+
+// borderValues are the values for paneBorderDefaults. The label is the pane's
+// custom name or else the running command, like tmux windows. #{@vantage_name}
+// is inserted as plain text, so a name is never expanded a second time.
+func borderValues(col PaneBorderColors) []string {
+	label := "#{?" + TitleOption + ",#{" + TitleOption + "},#{pane_current_command}}"
+	format := "#{?pane_active,#[fg=" + col.Active + " bold],#[fg=" + col.Label + "]} " + label + " #[default]"
+	return []string{"single", "fg=" + col.Inactive, "fg=" + col.Active, "top", format}
+}
+
+// ApplyPaneBorders gives panes a subtle border in the given colors and a title
+// line on top of each pane. An option the user already changed from tmux's
+// default is left alone. Errors are ignored: borders are cosmetic, and older
+// tmux lacks pane-border-lines.
+func (c Client) ApplyPaneBorders(col PaneBorderColors) {
+	vals := borderValues(col)
 	// A server vantage already styled keeps being restyled, so a color change
 	// in vantage reaches it. Otherwise only tmux defaults are replaced.
 	ours, _ := c.run("show-options", "-gqv", bordersMarker)

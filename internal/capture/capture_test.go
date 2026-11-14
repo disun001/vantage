@@ -89,3 +89,17 @@ func TestContractHome(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildKeepsOnlyCustomTitles(t *testing.T) {
+	panes := []tmux.PaneInfo{
+		{Window: 0, CWD: "/a", Command: "nvim", Title: "editor"},
+		{Window: 0, CWD: "/a", Command: "zsh"},
+	}
+	ws, err := build("demo", "/h", panes, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ws.Windows[0].Panes; got[0].Title != "editor" || got[1].Title != "" {
+		t.Errorf("titles = %q, %q", got[0].Title, got[1].Title)
+	}
+}

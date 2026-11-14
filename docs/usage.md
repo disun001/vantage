@@ -130,6 +130,25 @@ opens once the host exists. `ctrl+x` on it removes the stored password.
 - **Rename and delete.** A rename moves the stored password to the new alias. A
   delete removes it, and the confirmation says so.
 
+## Pane names
+
+Every pane has a label on the top line of its border, at the left. It shows the
+running command (`nvim`, `zsh`, `ssh`), like tmux window names, until you name
+the pane. The TUI turns this on at start, only when `pane-border-status` and
+`pane-border-format` are still at tmux's defaults; set your own and vantage
+leaves them alone. The active pane's label is bold mauve.
+
+| Key        | Where                  | Does                                                     |
+| ---------- | ---------------------- | -------------------------------------------------------- |
+| `alt+r`    | TUI, sidebar or tmux   | Renames the active pane. The prompt starts with its name |
+| `prefix T` | tmux, with the snippet | Same, in a popup (`vantage rename-pane`)                 |
+
+An empty name clears it, and the label follows the command again. Names are up
+to 40 characters, with no `#` and no control characters. A custom name is saved
+by capture and `S` as `title` and comes back on restore; the automatic name is
+never saved. `vantage rename-pane [--pane %N] [title]` does the same from a
+shell, and asks for the name when none is given.
+
 ## ssh split picker
 
 `examples/tmux/vantage.conf` binds `prefix S` (stacked) and `prefix V` (side by

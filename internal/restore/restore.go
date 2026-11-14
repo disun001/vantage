@@ -89,8 +89,14 @@ func Restore(c tmux.Client, ws workspace.Workspace, opts ...Option) (res Result,
 	return res, nil
 }
 
-// start runs what a pane asks for: an ssh connection, or an opted-in command.
+// start names the pane, then runs what it asks for: an ssh connection, or an
+// opted-in command.
 func start(c tmux.Client, pane string, p workspace.Pane, o options) error {
+	if p.Title != "" {
+		if err := c.SetPaneTitle(pane, p.Title); err != nil {
+			return fmt.Errorf("pane title: %w", err)
+		}
+	}
 	switch {
 	case p.SSH != "":
 		var a *workspace.Askpass

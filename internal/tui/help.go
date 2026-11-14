@@ -27,6 +27,7 @@ var (
 		{"tab", "to tmux (alt+l)"},
 		{"alt+h", "from tmux edge"},
 		{"alt+/", "help, from tmux too"},
+		{"alt+r", "rename pane"},
 	}}
 )
 
