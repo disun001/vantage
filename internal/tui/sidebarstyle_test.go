@@ -95,7 +95,7 @@ func TestSessionOnScreenIsAPillAndSavedIsMuted(t *testing.T) {
 	if strings.Index(cur, "api") != strings.Index(oth, "web") {
 		t.Errorf("the pill moves the name: %q vs %q", cur, oth)
 	}
-	if got := ansi.Strip(m.rowLine(row{Name: "notes"}, false)); !strings.Contains(got, "○  notes") {
+	if got := ansi.Strip(m.rowLine(row{Name: "notes"}, false)); !strings.Contains(got, "notes") || !strings.HasSuffix(strings.TrimRight(got, " "), "\uf10c") {
 		t.Errorf("saved line: %q", got)
 	}
 }
@@ -104,7 +104,7 @@ func TestWindowTilesAlignAndHang(t *testing.T) {
 	m := model{focus: focusSidebar}
 	r := row{Name: "api", Live: true, Wins: []win{{Index: 1, Name: "edit", Panes: 2}, {Index: 10, Name: "logs", Panes: 1}}}
 	a, b := ansi.Strip(m.winLine(r, 0, false)), ansi.Strip(m.winLine(r, 1, false))
-	if !strings.HasPrefix(a, "  ├") || !strings.HasPrefix(b, "  └") {
+	if !strings.HasPrefix(a, "   ├") || !strings.HasPrefix(b, "   └") {
 		t.Errorf("tree guides: %q %q", a, b)
 	}
 	if strings.Index(a, "edit") != strings.Index(b, "logs") {

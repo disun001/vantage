@@ -10,6 +10,7 @@ import (
 
 	"github.com/disun001/vantage/internal/capture"
 	"github.com/disun001/vantage/internal/connections"
+	"github.com/disun001/vantage/internal/sshconfig"
 	"github.com/disun001/vantage/internal/tmux"
 	"github.com/disun001/vantage/internal/workspace"
 )
@@ -55,6 +56,20 @@ func (f Finder) Live(alias string) ([]tmux.PaneRef, error) {
 		return nil, err
 	}
 	return connections.Lookup(open, alias), nil
+}
+
+// Connected reports which hosts have an open pane running ssh to their alias
+// or real host name, for the sidebar's connection dot.
+func (f Finder) Connected(hosts []sshconfig.Host) (map[string]bool, error) {
+	open, err := connections.Find(f.Client, f.Procs)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]bool, len(hosts))
+	for _, h := range hosts {
+		out[h.Alias] = len(connections.Lookup(open, h.Alias, h.HostName)) > 0
+	}
+	return out, nil
 }
 
 // Strip removes the panes for alias from the saved workspaces (see

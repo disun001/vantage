@@ -100,11 +100,20 @@ func altKey(s string) tea.KeyMsg {
 func TestSidebarHeadingsNameTheView(t *testing.T) {
 	m := treeModel()
 	m.w, m.h = 100, 30
-	if top := ansi.Strip(m.sidebar()[1]); !strings.Contains(top, "workspaces") {
-		t.Errorf("workspaces heading = %q", top)
+	trueColor(t)
+	strip := func(v sidebarView) string {
+		m.view = v
+		return m.sidebar()[1]
 	}
-	m.view = viewHosts
-	if top := ansi.Strip(m.sidebar()[1]); !strings.Contains(top, "ssh hosts") {
-		t.Errorf("hosts heading = %q", top)
+	for _, v := range []sidebarView{viewSessions, viewHosts, viewProjects} {
+		line := strip(v)
+		for _, want := range []string{"ws", "H hosts", "P proj"} {
+			if !strings.Contains(ansi.Strip(line), want) {
+				t.Errorf("view %v: tab strip lacks %q: %q", v, want, ansi.Strip(line))
+			}
+		}
+	}
+	if strip(viewSessions) == strip(viewHosts) || strip(viewHosts) == strip(viewProjects) {
+		t.Error("the tab strip does not tell the views apart")
 	}
 }

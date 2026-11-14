@@ -13,19 +13,15 @@ func (m model) projectsSidebar() []string {
 		out[i] = strings.Repeat(" ", sidebarW)
 	}
 	out[0] = fit(m.pill(), sidebarW)
-	out[1] = fit(hintStyle("projects"), sidebarW)
+	out[1] = m.tabLine()
 	note := m.noticeLines()
 	cur := m.projPos()
-	y := firstRowY
-	for i := m.projTop; i < len(m.projects); i++ {
-		if y >= m.h-1-len(note) {
-			break
+	for y, i := range span(allFlat(len(m.projects)), m.projTop, m.listCap()) {
+		if i < 0 {
+			out[firstRowY+y] = ruleLine()
+			continue
 		}
-		l := lineBuf{bg: m.rowBg(i == cur)}
-		l.add(mocText, "", i == cur, " "+ansi.Truncate(m.projects[i], sidebarW-1, "…"))
-		l.padTo(sidebarW)
-		out[y] = l.String()
-		y++
+		out[firstRowY+y] = m.projectLine(m.projects[i], i == cur)
 	}
 	if len(m.projects) == 0 {
 		out[firstRowY] = fit(hintStyle("no projects: a adds one"), sidebarW)
@@ -95,4 +91,13 @@ func repoLine(r RepoInfo, w int) string {
 	}
 	return fit(name+fit(ansi.Truncate(r.Branch, branchW-1, "…"), branchW)+
 		dimStyle.Render(fit(r.Sync, syncW))+extra, w)
+}
+
+// projectLine draws a project: its name, and how many repos it defines.
+func (m model) projectLine(name string, selected bool) string {
+	e := entry{name: name, nameFG: mocText, fold: " ", cursor: selected}
+	if n, ok := m.projN[name]; ok {
+		e.meta = countLabel(n)
+	}
+	return m.entryLine(e)
 }
