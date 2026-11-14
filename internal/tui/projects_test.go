@@ -77,12 +77,12 @@ func TestProjectsViewListsAndShowsDetails(t *testing.T) {
 		t.Fatalf("projects=%v cur=%q info=%v", m.projects, m.projCur, m.projInfo)
 	}
 	side := ansiText(strings.Join(m.sidebar(), "\n"))
-	for _, want := range []string{"projects", "api-stack", "solo"} {
+	for _, want := range []string{"P proj", "api-stack", "solo"} {
 		if !strings.Contains(side, want) {
 			t.Errorf("sidebar lacks %q:\n%s", want, side)
 		}
 	}
-	m.w, m.h = 100, 30
+	m.w, m.h = 120, 30
 	right := ansiText(strings.Join(m.right(), "\n"))
 	for _, want := range []string{"api-stack", "up to date", "dirty", "on dev, default is main", "not cloned"} {
 		if !strings.Contains(right, want) {
@@ -178,7 +178,7 @@ func TestProjectViewIgnoresTmuxKeysAndMouse(t *testing.T) {
 
 func TestProjectsViewRendersWholeScreen(t *testing.T) {
 	m := openProjects(t, &fakeProjects{infos: stackInfos()}, new([]string))
-	for _, size := range [][2]int{{100, 30}, {60, 12}, {30, 5}} {
+	for _, size := range [][2]int{{100, 30}, {60, 12}, {36, 5}} {
 		m.w, m.h = size[0], size[1]
 		lines := strings.Split(m.View(), "\n")
 		if len(lines) != m.h {

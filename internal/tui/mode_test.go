@@ -60,7 +60,7 @@ func TestSidebarTitleKeepsItsWidthInBothViews(t *testing.T) {
 	if got := ansi.Strip(side[0]); !strings.Contains(got, "PREFIX") {
 		t.Errorf("hosts title lost the mode: %q", got)
 	}
-	if got := ansi.Strip(side[1]); !strings.Contains(got, "ssh hosts") {
-		t.Errorf("hosts heading lost the view name: %q", got)
+	if got := ansi.Strip(side[1]); !strings.Contains(got, "H hosts") {
+		t.Errorf("hosts tab strip lost its tabs: %q", got)
 	}
 }

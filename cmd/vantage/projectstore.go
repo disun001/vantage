@@ -14,6 +14,22 @@ type projectStore struct{ git git.Client }
 
 func (projectStore) List() ([]string, error) { return project.List() }
 
+// RepoCounts reads how many repos each project defines. It only parses the
+// definitions, so it is cheap next to Detail, which runs git.
+func (projectStore) RepoCounts() map[string]int {
+	names, err := project.List()
+	if err != nil {
+		return nil
+	}
+	out := make(map[string]int, len(names))
+	for _, n := range names {
+		if p, err := project.Load(n); err == nil {
+			out[n] = len(p.Repos)
+		}
+	}
+	return out
+}
+
 func (s projectStore) Detail(name string) (tui.ProjectInfo, error) {
 	p, root, err := loadProject(name)
 	if err != nil {

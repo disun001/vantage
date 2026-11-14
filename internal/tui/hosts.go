@@ -47,6 +47,12 @@ type HostUsage interface {
 	Rename(from, to string) error
 }
 
+// hostLinker is an optional HostUsage ability: which hosts have an open ssh
+// pane, for the dot in the hosts list.
+type hostLinker interface {
+	Connected([]sshconfig.Host) (map[string]bool, error)
+}
+
 // sidebarView is what the sidebar lists.
 type sidebarView int
 
@@ -60,6 +66,7 @@ type (
 	// hostsMsg carries a fresh host list.
 	hostsMsg struct {
 		hosts []sshconfig.Host
+		on    map[string]bool // aliases with an open ssh pane
 		err   error
 	}
 	// hostUsageMsg carries what depends on a host that is about to go.
@@ -152,23 +159,20 @@ func (m model) moveHost(delta int) model {
 }
 
 func (m model) hostScrolled() model {
-	c, p := m.listCap(), m.hostPos()
-	if p < m.hostTop {
-		m.hostTop = p
-	}
-	if p >= m.hostTop+c {
-		m.hostTop = p - c + 1
-	}
-	m.hostTop = max(0, min(m.hostTop, len(m.hosts)-c))
+	m.hostTop = scrollTop(allFlat(len(m.hosts)), m.hostTop, m.hostPos(), m.listCap())
 	return m
 }
 
 // loadHosts reads the host list in the background.
 func (m model) loadHosts() tea.Cmd {
-	s := m.cfg.SSH
+	s, u := m.cfg.SSH, m.cfg.HostUse
 	return func() tea.Msg {
 		hosts, err := s.List()
-		return hostsMsg{hosts: hosts, err: err}
+		var on map[string]bool
+		if l, ok := u.(hostLinker); ok && err == nil {
+			on, _ = l.Connected(hosts) // a failed look only leaves the dots off
+		}
+		return hostsMsg{hosts: hosts, on: on, err: err}
 	}
 }
 
@@ -177,7 +181,7 @@ func (m model) onHosts(msg hostsMsg) model {
 		m.notice = ansi.Strip(msg.err.Error())
 		return m
 	}
-	m.hosts = msg.hosts
+	m.hosts, m.hostOn = msg.hosts, msg.on
 	if m.hostCur == "" || !m.hasHost(m.hostCur) {
 		m.hostCur = ""
 		if len(m.hosts) > 0 {
@@ -466,16 +470,15 @@ func (m model) hostsSidebar() []string {
 		out[i] = strings.Repeat(" ", sidebarW)
 	}
 	out[0] = fit(m.pill(), sidebarW)
-	out[1] = fit(hintStyle("ssh hosts"), sidebarW)
+	out[1] = m.tabLine()
 	note := m.noticeLines()
 	cur := m.hostPos()
-	y := firstRowY
-	for i := m.hostTop; i < len(m.hosts); i++ {
-		if y >= m.h-1-len(note) {
-			break
+	for y, i := range span(allFlat(len(m.hosts)), m.hostTop, m.listCap()) {
+		if i < 0 {
+			out[firstRowY+y] = ruleLine()
+			continue
 		}
-		out[y] = m.hostLine(m.hosts[i], i == cur)
-		y++
+		out[firstRowY+y] = m.hostLine(m.hosts[i], i == cur)
 	}
 	if len(m.hosts) == 0 {
 		out[firstRowY] = fit(hintStyle("no hosts: a adds one"), sidebarW)
@@ -593,8 +596,9 @@ func overlay(lines, box []string, w int) []string {
 
 // hostLine is the alias alone: the form shows the rest.
 func (m model) hostLine(h sshconfig.Host, selected bool) string {
-	l := lineBuf{bg: m.rowBg(selected)}
-	l.add(mocText, "", selected, " "+ansi.Truncate(h.Alias, sidebarW-1, "…"))
-	l.padTo(sidebarW)
-	return l.String()
+	e := entry{name: h.Alias, nameFG: mocText, fold: " ", dot: iconRing, dotFG: mocOverlay, cursor: selected}
+	if m.hostOn[h.Alias] {
+		e.meta, e.dot, e.dotFG = "connected", iconDot, mocGreen
+	}
+	return m.entryLine(e)
 }
