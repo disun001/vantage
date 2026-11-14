@@ -95,7 +95,7 @@ func TestSessionOnScreenIsAPillAndSavedIsMuted(t *testing.T) {
 	if strings.Index(cur, "api") != strings.Index(oth, "web") {
 		t.Errorf("the pill moves the name: %q vs %q", cur, oth)
 	}
-	if got := ansi.Strip(m.rowLine(row{Name: "notes"}, false)); !strings.Contains(got, "notes") || !strings.HasSuffix(strings.TrimRight(got, " "), "\uf10c") {
+	if got := ansi.Strip(m.rowLine(row{Name: "notes"}, false)); !strings.Contains(got, "notes") || !strings.HasSuffix(strings.TrimRight(got, " "), "○") {
 		t.Errorf("saved line: %q", got)
 	}
 }

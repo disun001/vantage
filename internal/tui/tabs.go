@@ -6,11 +6,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Nerd Font glyphs for the sidebar. A terminal without a Nerd Font shows
-// boxes for these.
+// Status glyphs for the sidebar: small plain Unicode circles, no Nerd Font needed.
 const (
-	iconDot  = "" // a live session or a connected host
-	iconRing = "" // a saved or idle one
+	iconDot  = "●" // a live session or a connected host
+	iconRing = "○" // a saved or idle one
 )
 
 // tab is one of the three lists the sidebar can show.
