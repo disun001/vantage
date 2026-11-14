@@ -40,6 +40,9 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.prompt != nil {
 		return m.onPromptKey(k)
 	}
+	if m.unlock != nil { // asked from the form too: it comes first
+		return m.onUnlockKey(k)
+	}
 	if m.form != nil {
 		return m.onFormKey(k)
 	}
@@ -66,7 +69,7 @@ func (m model) dispatchKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.help = true
 		return m, nil
 	}
-	if s == "alt+s" && m.view != viewProjects { // the details page has no tmux to focus
+	if s == "alt+s" && m.view != viewProjects && m.view != viewHosts { // the details pages has no tmux to focus
 		if m.focus == focusTerm {
 			m.focus = focusSidebar
 		} else if m.term != nil {

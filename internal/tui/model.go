@@ -38,6 +38,8 @@ type Config struct {
 	// HostUse warns before a host that workspaces or open panes use is
 	// deleted, and closes those panes. Nil skips the check.
 	HostUse HostUsage
+	// Passwords is the vault of stored ssh passwords. Nil turns them off.
+	Passwords Passwords
 	// KeyLog, when set, gets one line per non-text key press (see logKey).
 	KeyLog io.Writer
 }
@@ -93,13 +95,15 @@ type model struct {
 	hosts    []sshconfig.Host
 	hostCur  string // alias under the cursor in the hosts view
 	hostTop  int
+	hostInfo *hostInfo       // usage of the host under the cursor, once loaded
 	hostOn   map[string]bool // aliases with an open ssh pane
 	form     *hostForm
-	hostDel  *hostDelete // the delete question, while it is open
-	hostShut *hostShut   // the close-all question, while it is open
-	hostPick *hostPick   // the choice of connected pane, while it is open
-	projects []string    // project names, for the projects view
-	projCur  string      // project under the cursor
+	hostDel  *hostDelete   // the delete question, while it is open
+	hostShut *hostShut     // the close-all question, while it is open
+	hostPick *hostPick     // the choice of connected pane, while it is open
+	unlock   *unlockPrompt // the vault passphrase question, while it is open
+	projects []string      // project names, for the projects view
+	projCur  string        // project under the cursor
 	projTop  int
 	projN    map[string]int // repos per project
 	projInfo *ProjectInfo   // its details, once loaded

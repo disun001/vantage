@@ -208,7 +208,7 @@ func TestAddHostForm(t *testing.T) {
 func TestFormTabWrapsAndShiftTabGoesBack(t *testing.T) {
 	m := openHosts(t, twoHosts())
 	m, _ = press(m, "a", "shift+tab")
-	if m.form.focus != 4 {
+	if m.form.focus != 5 {
 		t.Errorf("shift+tab from the top: focus %d", m.form.focus)
 	}
 	m, _ = press(m, "tab")
@@ -220,8 +220,8 @@ func TestFormTabWrapsAndShiftTabGoesBack(t *testing.T) {
 		t.Fatalf("edit shift+tab: focus %d", m.form.focus)
 	}
 	m, _ = press(m, "shift+tab")
-	if m.form.focus != 4 {
-		t.Errorf("edit shift+tab wraps to %d, want 4", m.form.focus)
+	if m.form.focus != 5 {
+		t.Errorf("edit shift+tab wraps to %d, want 5", m.form.focus)
 	}
 }
 
@@ -500,7 +500,8 @@ func TestDeleteWarnsThenClosesPanes(t *testing.T) {
 	if !reflect.DeepEqual(u.stripped, []string{"web"}) {
 		t.Errorf("workspaces stripped for %v, want web", u.stripped)
 	}
-	if u.findCalls != 2 {
+	// The question, the confirm-time look, then the details page reload.
+	if u.findCalls != 3 {
 		t.Errorf("usage must be looked up again at confirm time, got %d lookups", u.findCalls)
 	}
 }
@@ -711,5 +712,36 @@ func TestRenameHostEndToEndOnTempFile(t *testing.T) {
 	}
 	if m.notice != "" || m.hostCur != "web2" {
 		t.Errorf("notice %q, cursor %q", m.notice, m.hostCur)
+	}
+}
+
+func TestHostsViewShowsDetailsNotTerminal(t *testing.T) {
+	u := &fakeUse{use: hostuse.Usage{
+		Workspaces: []string{"proj"},
+		Panes:      []tmux.PaneRef{{Session: "beta", Window: 2, WindowName: "web"}},
+	}}
+	m, _ := usedHost(t, u)
+	m = settle(m, m.loadHostInfo())
+	got := strings.Join(m.hostDetails(), "\n")
+	for _, want := range []string{"web", "open panes", "beta:2 web", "saved workspaces", "proj"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("details lack %q:\n%s", want, got)
+		}
+	}
+	if m.focus != focusSidebar {
+		t.Error("the details page has no terminal to focus")
+	}
+}
+
+func TestFormShowsAndKeepsTheKey(t *testing.T) {
+	m := openHosts(t, twoHosts())
+	m, _ = press(m, "a")
+	if !strings.Contains(popupText(m), "key") {
+		t.Errorf("form lacks the key line: %q", popupText(m))
+	}
+	f := hostForm{}
+	f.vals[0], f.vals[5] = "k1", " ~/.ssh/k1 "
+	if got := f.host(); got.Identity != "~/.ssh/k1" {
+		t.Errorf("identity = %q, want the trimmed path", got.Identity)
 	}
 }

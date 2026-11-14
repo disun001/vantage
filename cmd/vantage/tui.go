@@ -41,6 +41,14 @@ func runTUI(args []string, _ io.Writer) error {
 	}
 	defer closeLog()
 	client := tmux.Client{Socket: *socket}
+	sshPath := filepath.Join(home, ".ssh", "config")
+	pws, err := newPasswords(sshPath)
+	if err != nil {
+		return err
+	}
+	pw := pws.session()
+	pw.Start()
+	defer pw.Close()
 	restoreByName := func(name string) error {
 		path, err := workspace.Resolve(name)
 		if err != nil {
@@ -50,7 +58,7 @@ func runTUI(args []string, _ io.Writer) error {
 		if err != nil {
 			return err
 		}
-		_, err = restore.Restore(client, ws)
+		_, err = restore.Restore(client, ws, restore.WithAskpass(pws.askpassFor(pw)))
 		return err
 	}
 	if *start {
@@ -59,14 +67,15 @@ func runTUI(args []string, _ io.Writer) error {
 		}
 	}
 	return tui.Run(tui.Config{
-		Client:   client,
-		Saved:    workspace.List,
-		Manage:   manage.Manager{Client: client, Procs: capture.PS},
-		Projects: projectStore{},
-		SSH:      sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
-		HostUse:  hostuse.Finder{Client: client, Procs: capture.PS},
-		KeyLog:   keyLog,
-		Restore:  restoreByName,
+		Client:    client,
+		Saved:     workspace.List,
+		Manage:    manage.Manager{Client: client, Procs: capture.PS},
+		Projects:  projectStore{},
+		SSH:       sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
+		HostUse:   hostuse.Finder{Client: client, Procs: capture.PS},
+		Passwords: pw,
+		KeyLog:    keyLog,
+		Restore:   restoreByName,
 	})
 }
 

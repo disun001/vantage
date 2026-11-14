@@ -181,6 +181,7 @@ func hostHelp() []helpGroup {
 			{"v", "ssh split beside"},
 			{"s", "ssh split below"},
 			{"x", "close host's panes"},
+			{"u", "unlock password vault"},
 		}},
 		{"Hosts", []bind{
 			{"a", "add"},
@@ -188,7 +189,6 @@ func hostHelp() []helpGroup {
 			{"d", "delete"},
 			{"r", "refresh"},
 		}},
-		focusGroup,
 		{"App", []bind{
 			{"H/esc", "back to workspaces"},
 			{"?", "this help"},

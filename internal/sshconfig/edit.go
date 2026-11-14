@@ -33,7 +33,12 @@ var fields = []struct {
 	{"User", func(h Host) string { return h.User }},
 	{"Port", func(h Host) string { return h.Port }},
 	{"ProxyJump", func(h Host) string { return h.ProxyJump }},
+	{"IdentityFile", func(h Host) string { return h.Identity }},
 }
+
+// identitiesOnly goes with IdentityFile: it keeps ssh from offering every key
+// the agent holds, which can end in "too many authentication failures".
+const identitiesOnly = "IdentitiesOnly"
 
 // Values go on a line ssh reads token by token and may end up on a command
 // line, so each is held to the characters its option can really contain: no
@@ -42,6 +47,9 @@ var (
 	hostNameRe  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]*$|^\[[0-9A-Fa-f:.]+\]$`)
 	userRe      = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._-]*$`)
 	proxyJumpRe = regexp.MustCompile(`^[A-Za-z0-9_@\[\]:.,-]+$`)
+	// identityRe takes a path with an optional leading ~ and no spaces: ssh
+	// splits the line on whitespace and expands % and $ tokens in it.
+	identityRe = regexp.MustCompile(`^[A-Za-z0-9_~/.][A-Za-z0-9_~/.@+=-]*$`)
 )
 
 // Validate reports whether h can be written: the alias must be a plain host
@@ -63,6 +71,9 @@ func Validate(h Host) error {
 	}
 	if h.ProxyJump != "" && (h.ProxyJump[0] == '-' || !proxyJumpRe.MatchString(h.ProxyJump)) {
 		return fmt.Errorf("jump %q is not a list of [user@]host[:port]", h.ProxyJump)
+	}
+	if h.Identity != "" && !identityRe.MatchString(h.Identity) {
+		return fmt.Errorf("identity %q: use a path without spaces or quotes", h.Identity)
 	}
 	return nil
 }
@@ -158,7 +169,7 @@ func own(lines []string, alias string) (block, error) {
 	return block{}, ErrNotFound
 }
 
-// ownValues reads the four options as the alias's own block sets them,
+// ownValues reads the options as the alias's own block sets them,
 // ignoring wildcard defaults: that is what an edit changes.
 func ownValues(lines []string, alias string) (Host, error) {
 	b, err := own(lines, alias)
@@ -168,6 +179,7 @@ func ownValues(lines []string, alias string) (Host, error) {
 	h := Host{Alias: alias}
 	set := map[string]*string{
 		"hostname": &h.HostName, "user": &h.User, "port": &h.Port, "proxyjump": &h.ProxyJump,
+		"identityfile": &h.Identity,
 	}
 	seen := map[string]bool{}
 	for _, s := range lines[b.start+1 : b.end] {
@@ -176,6 +188,10 @@ func ownValues(lines []string, alias string) (Host, error) {
 		if p, ok := set[k]; ok && !seen[k] {
 			*p, seen[k] = l.value, true // ssh keeps the first value it sees
 		}
+	}
+	// A key path often carries a trailing comment; it is not part of the path.
+	if i := strings.Index(h.Identity, " #"); i >= 0 {
+		h.Identity = strings.TrimSpace(h.Identity[:i])
 	}
 	return h, nil
 }
@@ -199,7 +215,7 @@ func joinLines(lines []string) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
-// editBlock sets the four options of from's block and, when h.Alias differs,
+// editBlock sets the options of from's block and, when h.Alias differs,
 // renames the block and repoints the ProxyJump hops of other blocks. Only options that differ from the block's own values are
 // touched; empty clears the option.
 func editBlock(content, from string, h Host) (string, error) {
@@ -228,6 +244,14 @@ func editBlock(content, from string, h Host) (string, error) {
 		}
 		b, _ := own(lines, from) // found above; lines moved since
 		lines = setOption(lines, b, f.key, f.get(h))
+	}
+	if cur.Identity != h.Identity {
+		b, _ := own(lines, from)
+		value := "" // clearing the identity clears the option it brought
+		if h.Identity != "" {
+			value = "yes"
+		}
+		lines = setOption(lines, b, identitiesOnly, value)
 	}
 	if from != h.Alias {
 		b, _ := own(lines, from)
@@ -325,6 +349,9 @@ func addBlock(content string, h Host) (string, error) {
 		if v := f.get(h); v != "" {
 			add = append(add, "  "+f.key+" "+v)
 		}
+	}
+	if h.Identity != "" {
+		add = append(add, "  "+identitiesOnly+" yes")
 	}
 	if at > 0 && strings.TrimSpace(lines[at-1]) != "" {
 		add = append([]string{""}, add...)

@@ -73,7 +73,7 @@ func TestHostsDetails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Host{{Alias: "db", HostName: "192.0.2.20", User: "admin", Port: "2222", ProxyJump: "bastion"}}
+	want := []Host{{Alias: "db", HostName: "192.0.2.20", User: "admin", Port: "2222", ProxyJump: "bastion", Identity: "/secret/key"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}

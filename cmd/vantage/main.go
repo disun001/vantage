@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/disun001/vantage/internal/askpass"
 )
 
 // command is one subcommand. run receives the arguments after the
@@ -29,6 +31,9 @@ func main() {
 
 // run is main without os.Exit so it can be tested. It returns the exit code.
 func run(args []string, out, errOut io.Writer) int {
+	if os.Getenv(askpass.EnvAlias) != "" {
+		return runAskpass(args, out, errOut) // ssh asking for a password
+	}
 	args = defaultToTUI(args)
 	switch args[0] {
 	case "-h", "--help", "help":

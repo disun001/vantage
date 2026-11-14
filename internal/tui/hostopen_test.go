@@ -193,6 +193,8 @@ func TestEnterOnAHostEndToEnd(t *testing.T) {
 	}
 	p.Send(tea.KeyMsg{Type: tea.KeyEsc}) // focus is in the terminal after the new window
 	p.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s"), Alt: true})
+	// Connecting threw the sidebar back to workspaces: reopen the hosts.
+	p.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("H")})
 	p.Send(tea.KeyMsg{Type: tea.KeyEnter})
 	// The index depends on the user's base-index, so ask tmux for it.
 	idx, err := exec.Command("tmux", "-L", c.Socket, "display-message", "-p", "-t", target, "#{window_index}").Output()

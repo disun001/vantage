@@ -15,13 +15,13 @@ const chevronW = foldW
 // the sidebar handles its own clicks and wheel, and events over the tmux
 // region are translated to its coordinates and forwarded.
 func (m model) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	if m.prompt != nil || m.form != nil || m.pform != nil || m.projDel != nil || m.hostDel != nil || m.hostPick != nil || m.hostShut != nil || m.help { // a prompt owns the input until it is answered
+	if m.prompt != nil || m.form != nil || m.pform != nil || m.projDel != nil || m.hostDel != nil || m.hostPick != nil || m.unlock != nil || m.hostShut != nil || m.help { // a prompt owns the input until it is answered
 		return m, nil
 	}
 	if msg.X < sidebarW {
 		return m.onSidebarMouse(msg)
 	}
-	if msg.X == sidebarW || m.term == nil || m.view == viewProjects { // divider, nothing to forward to, or the details page
+	if msg.X == sidebarW || m.term == nil || m.view == viewProjects || m.view == viewHosts { // divider, nothing to forward to, or a details page
 		return m, nil
 	}
 	if msg.Action == tea.MouseActionPress && m.focus != focusTerm {
@@ -42,7 +42,7 @@ func (m model) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 
 func (m model) onSidebarMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	if m.view == viewHosts {
-		return m.onHostMouse(msg), nil
+		return m.onHostMouse(msg)
 	}
 	if m.view == viewProjects {
 		return m.onProjectMouse(msg)
@@ -83,7 +83,7 @@ func (m model) onProjectMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 }
 
 // onHostMouse selects hosts: the wheel moves the cursor, a click picks a line.
-func (m model) onHostMouse(msg tea.MouseMsg) model {
+func (m model) onHostMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.Button == tea.MouseButtonWheelUp:
 		m = m.moveHost(-1)
@@ -94,8 +94,10 @@ func (m model) onHostMouse(msg tea.MouseMsg) model {
 		if i := entryAt(allFlat(len(m.hosts)), m.hostTop, m.listCap(), msg.Y-firstRowY); i >= 0 {
 			m.hostCur = m.hosts[i].Alias
 		}
+	default:
+		return m, nil
 	}
-	return m
+	return m, m.loadHostInfo()
 }
 
 // toVT converts a Bubble Tea mouse event to the emulator's, at x, y relative

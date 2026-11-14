@@ -37,7 +37,13 @@ type hostPick struct {
 func (m model) updateHosts(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case hostsMsg:
-		return m.onHosts(msg), nil
+		return m.onHostsLoaded(msg)
+	case pwSavedMsg:
+		return m.onPwSaved(msg)
+	case unlockDoneMsg:
+		return m.onUnlockDone(msg)
+	case hostInfoMsg:
+		return m.onHostInfo(msg), nil
 	case hostUsageMsg:
 		return m.onHostUsage(msg), nil
 	case hostSplitMsg:
@@ -110,11 +116,15 @@ func (m model) goPane(p tmux.PaneRef) (tea.Model, tea.Cmd) {
 // newHostWindow opens ssh to the alias in a new window of the session the
 // embedded client shows.
 func (m model) newHostWindow(alias string) (tea.Model, tea.Cmd) {
+	return m.afterUnlock(func(m model) (tea.Model, tea.Cmd) { return m.newHostWindowNow(alias) })
+}
+
+func (m model) newHostWindowNow(alias string) (tea.Model, tea.Cmd) {
 	if m.term == nil {
 		m.notice = "open a workspace first"
 		return m, nil
 	}
-	c, tty, pid := m.cfg.Client, m.tty, m.term.PID()
+	c, tty, pid, pw := m.cfg.Client, m.tty, m.term.PID(), m.cfg.Passwords
 	return m, func() tea.Msg {
 		if !workspace.ValidSSHAlias(alias) {
 			return hostGoMsg{err: fmt.Errorf("invalid ssh alias %q", alias)}
@@ -125,7 +135,7 @@ func (m model) newHostWindow(alias string) (tea.Model, tea.Cmd) {
 		}
 		session, err := c.ClientSession(tty)
 		if err == nil {
-			_, err = c.NewWindowRun(session, alias, workspace.SSHCommand(alias))
+			_, err = c.NewWindowRun(session, alias, workspace.SSHCommandWith(alias, askpassFor(pw, alias)))
 		}
 		return hostGoMsg{session: session, err: err}
 	}
@@ -138,10 +148,19 @@ func (m model) onHostGo(msg hostGoMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m = m.show(msg.session)
+	m.view = viewSessions
 	if m.term != nil {
 		m.focus = focusTerm
 	}
 	return m, m.refresh()
+}
+
+// askpassFor is the helper settings for alias, or nil without a vault.
+func askpassFor(pw Passwords, alias string) *workspace.Askpass {
+	if pw == nil {
+		return nil
+	}
+	return pw.Askpass(alias)
 }
 
 func oneLine(err error) string { return strings.Join(strings.Fields(err.Error()), " ") }

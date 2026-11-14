@@ -20,29 +20,37 @@ func TestValidate(t *testing.T) {
 	if err := Validate(Host{Alias: "v6", HostName: "[2001:db8::1]"}); err != nil {
 		t.Fatalf("bracketed ipv6 rejected: %v", err)
 	}
+	if err := Validate(Host{Alias: "k", Identity: "~/.ssh/id_ed25519"}); err != nil {
+		t.Fatalf("identity path rejected: %v", err)
+	}
 	bad := map[string]Host{
-		"empty alias":     {},
-		"option alias":    {Alias: "-oProxyCommand=x"},
-		"wildcard alias":  {Alias: "web*"},
-		"space alias":     {Alias: "a b"},
-		"newline host":    {Alias: "a", HostName: "x\nProxyCommand evil"},
-		"space host":      {Alias: "a", HostName: "x y"},
-		"option host":     {Alias: "a", HostName: "-oProxyCommand=x"},
-		"quote host":      {Alias: "a", HostName: `x"y`},
-		"percent host":    {Alias: "a", HostName: "x%h"},
-		"option user":     {Alias: "a", User: "-l"},
-		"newline user":    {Alias: "a", User: "u\nHost *"},
-		"port zero":       {Alias: "a", Port: "0"},
-		"port large":      {Alias: "a", Port: "65536"},
-		"port text":       {Alias: "a", Port: "ssh"},
-		"port signed":     {Alias: "a", Port: "+22"},
-		"port padded":     {Alias: "a", Port: "022"},
-		"jump option":     {Alias: "a", ProxyJump: "-oProxyCommand=x"},
-		"jump space":      {Alias: "a", ProxyJump: "a b"},
-		"jump shell":      {Alias: "a", ProxyJump: "a;rm"},
-		"jump comment":    {Alias: "a", ProxyJump: "a#b"},
-		"jump dollar":     {Alias: "a", ProxyJump: "$HOME"},
-		"unbalanced ipv6": {Alias: "a", HostName: "[::1"},
+		"space identity":   {Alias: "a", Identity: "~/my key"},
+		"option identity":  {Alias: "a", Identity: "-oProxyCommand=x"},
+		"token identity":   {Alias: "a", Identity: "~/%d/key"},
+		"env identity":     {Alias: "a", Identity: "$HOME/key"},
+		"newline identity": {Alias: "a", Identity: "k\nProxyCommand evil"},
+		"empty alias":      {},
+		"option alias":     {Alias: "-oProxyCommand=x"},
+		"wildcard alias":   {Alias: "web*"},
+		"space alias":      {Alias: "a b"},
+		"newline host":     {Alias: "a", HostName: "x\nProxyCommand evil"},
+		"space host":       {Alias: "a", HostName: "x y"},
+		"option host":      {Alias: "a", HostName: "-oProxyCommand=x"},
+		"quote host":       {Alias: "a", HostName: `x"y`},
+		"percent host":     {Alias: "a", HostName: "x%h"},
+		"option user":      {Alias: "a", User: "-l"},
+		"newline user":     {Alias: "a", User: "u\nHost *"},
+		"port zero":        {Alias: "a", Port: "0"},
+		"port large":       {Alias: "a", Port: "65536"},
+		"port text":        {Alias: "a", Port: "ssh"},
+		"port signed":      {Alias: "a", Port: "+22"},
+		"port padded":      {Alias: "a", Port: "022"},
+		"jump option":      {Alias: "a", ProxyJump: "-oProxyCommand=x"},
+		"jump space":       {Alias: "a", ProxyJump: "a b"},
+		"jump shell":       {Alias: "a", ProxyJump: "a;rm"},
+		"jump comment":     {Alias: "a", ProxyJump: "a#b"},
+		"jump dollar":      {Alias: "a", ProxyJump: "$HOME"},
+		"unbalanced ipv6":  {Alias: "a", HostName: "[::1"},
 	}
 	for name, h := range bad {
 		if err := Validate(h); err == nil {
@@ -73,6 +81,17 @@ func TestAddBlockGoesBeforeWildcardDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := strings.Replace(sample, "# defaults\n", "Host new\n  HostName 192.0.2.9\n  Port 2200\n\n# defaults\n", 1)
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestAddBlockWithIdentity(t *testing.T) {
+	got, err := addBlock("", Host{Alias: "new", HostName: "192.0.2.9", Identity: "~/.ssh/new_key"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "Host new\n  HostName 192.0.2.9\n  IdentityFile ~/.ssh/new_key\n  IdentitiesOnly yes\n"
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
@@ -112,12 +131,12 @@ func TestEditBlock(t *testing.T) {
 	}{
 		"replace keeps the rest": {
 			"Host web\n  HostName a\n  User deploy\n  IdentityFile k\n\nHost z\n  User q\n",
-			Host{Alias: "web", HostName: "b", User: "deploy"},
+			Host{Alias: "web", HostName: "b", User: "deploy", Identity: "k"},
 			"Host web\n  HostName b\n  User deploy\n  IdentityFile k\n\nHost z\n  User q\n",
 		},
 		"add after the last option": {
 			"Host web\n  HostName a\n  IdentityFile k\n\n# next\nHost z\n",
-			Host{Alias: "web", HostName: "a", Port: "2200"},
+			Host{Alias: "web", HostName: "a", Port: "2200", Identity: "k"},
 			"Host web\n  HostName a\n  IdentityFile k\n  Port 2200\n\n# next\nHost z\n",
 		},
 		"clear removes the line": {
@@ -154,6 +173,26 @@ func TestEditBlock(t *testing.T) {
 			"Host a\n  User x\nHost web\n  User y\n",
 			Host{Alias: "web", User: "z"},
 			"Host a\n  User x\nHost web\n  User z\n",
+		},
+		"setting an identity adds IdentitiesOnly": {
+			"Host web\n  HostName a\n",
+			Host{Alias: "web", HostName: "a", Identity: "~/.ssh/web_key"},
+			"Host web\n  HostName a\n  IdentityFile ~/.ssh/web_key\n  IdentitiesOnly yes\n",
+		},
+		"changing the identity keeps one IdentitiesOnly": {
+			"Host web\n  IdentityFile old\n  IdentitiesOnly yes\n",
+			Host{Alias: "web", Identity: "new"},
+			"Host web\n  IdentityFile new\n  IdentitiesOnly yes\n",
+		},
+		"clearing the identity removes IdentitiesOnly too": {
+			"Host web\n  HostName a\n  IdentityFile k\n  IdentitiesOnly yes\n",
+			Host{Alias: "web", HostName: "a"},
+			"Host web\n  HostName a\n",
+		},
+		"an IdentitiesOnly set by hand stays when no identity changes": {
+			"Host web\n  IdentitiesOnly yes\n",
+			Host{Alias: "web", User: "u"},
+			"Host web\n  IdentitiesOnly yes\n  User u\n",
 		},
 		"match section is not part of the block": {
 			"Host web\n  User a\nMatch all\n  Port 1\n",
@@ -214,7 +253,7 @@ func readFile(t *testing.T, p string) string {
 
 func TestFileEditWritesBackupAndKeepsMode(t *testing.T) {
 	f := fileWith(t, sample, 0o640)
-	if err := f.Edit("web", Host{Alias: "web", HostName: "192.0.2.50", User: "deploy"}); err != nil {
+	if err := f.Edit("web", Host{Alias: "web", HostName: "192.0.2.50", User: "deploy", Identity: "~/.ssh/key"}); err != nil {
 		t.Fatal(err)
 	}
 	want := strings.Replace(sample, "HostName 192.0.2.1", "HostName 192.0.2.50", 1)

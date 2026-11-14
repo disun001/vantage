@@ -103,6 +103,7 @@ var hostFields = []hostField{
 	{"user", func(h *sshconfig.Host) *string { return &h.User }},
 	{"port", func(h *sshconfig.Host) *string { return &h.Port }},
 	{"jump", func(h *sshconfig.Host) *string { return &h.ProxyJump }},
+	{"key", func(h *sshconfig.Host) *string { return &h.Identity }},
 }
 
 // hostForm is the pop-up for adding or editing a host: every field is on
@@ -110,9 +111,15 @@ var hostFields = []hostField{
 type hostForm struct {
 	edit  bool
 	from  string    // the alias being edited, to tell a rename
-	vals  [5]string // indexed like hostFields
+	vals  [6]string // indexed like hostFields
 	focus int
 	err   string // why the last Enter did not save
+	// The password section, offered when a vault is configured. It saves on
+	// its own, apart from the ssh config (see passwordRows).
+	pwOn   bool
+	pw     string // typed, never shown
+	sshMsg string // outcome of the last ssh config save
+	pwMsg  string // outcome of the last password save
 }
 
 // host collects the typed values.
@@ -191,6 +198,12 @@ func (m model) onHosts(msg hostsMsg) model {
 	return m
 }
 
+// onHostsLoaded refreshes the list, then the details of the host it lands on.
+func (m model) onHostsLoaded(msg hostsMsg) (tea.Model, tea.Cmd) {
+	m = m.onHosts(msg)
+	return m, m.loadHostInfo()
+}
+
 // neighbour is the host to park the cursor on when alias goes away: the one
 // below it, else the one above.
 func (m model) neighbour(alias string) string {
@@ -227,8 +240,18 @@ func (m model) toggleHosts() (model, tea.Cmd) {
 		m.view = viewSessions
 		return m, nil
 	}
-	m.view = viewHosts
+	m.view, m.focus = viewHosts, focusSidebar
 	return m, m.loadHosts()
+}
+
+// stepHost moves the cursor for a movement key and loads the details it lands on.
+func (m model) stepHost(s string) (tea.Model, tea.Cmd) {
+	delta := map[string]int{
+		"j": 1, "down": 1, "k": -1, "up": -1,
+		"g": -len(m.hosts), "home": -len(m.hosts), "G": len(m.hosts), "end": len(m.hosts),
+	}[s]
+	m = m.moveHost(delta)
+	return m, m.loadHostInfo()
 }
 
 // onHostKey handles a sidebar key in the hosts view.
@@ -239,20 +262,14 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 			m.term.Close()
 		}
 		return m, tea.Quit
-	case "j", "down":
-		m = m.moveHost(1)
-	case "k", "up":
-		m = m.moveHost(-1)
-	case "g", "home":
-		m = m.moveHost(-len(m.hosts))
-	case "G", "end":
-		m = m.moveHost(len(m.hosts))
+	case "j", "down", "k", "up", "g", "home", "G", "end":
+		return m.stepHost(s)
 	case "?":
 		m.help = true
 	case "r":
-		return m, m.loadHosts()
+		return m, tea.Batch(m.loadHosts(), m.loadHostInfo())
 	case "a":
-		m.form, m.notice = &hostForm{}, ""
+		m.form, m.notice = &hostForm{pwOn: m.cfg.Passwords != nil}, ""
 	case "e":
 		return m.startEdit(), nil
 	case "d":
@@ -261,6 +278,10 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 		}
 	case "enter":
 		return m.openHost()
+	case "u":
+		if p := m.cfg.Passwords; p != nil && p.NeedsUnlock() {
+			return m.afterUnlock(func(m model) (tea.Model, tea.Cmd) { return m, nil })
+		}
 	case "x":
 		return m.shutHost()
 	case "v":
@@ -271,10 +292,6 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 		return m.toggleHosts()
 	case "P":
 		return m.toggleProjects()
-	case "tab", "alt+l":
-		if m.term != nil {
-			m.focus = focusTerm
-		}
 	}
 	return m, nil
 }
@@ -282,6 +299,10 @@ func (m model) onHostKey(s string) (tea.Model, tea.Cmd) {
 // splitHost splits the embedded client's active pane and runs ssh to the
 // selected host in the new one. dir is "h" (side by side) or "v" (stacked).
 func (m model) splitHost(dir string) (tea.Model, tea.Cmd) {
+	return m.afterUnlock(func(m model) (tea.Model, tea.Cmd) { return m.splitHostNow(dir) })
+}
+
+func (m model) splitHostNow(dir string) (tea.Model, tea.Cmd) {
 	if len(m.hosts) == 0 {
 		return m, nil
 	}
@@ -289,7 +310,7 @@ func (m model) splitHost(dir string) (tea.Model, tea.Cmd) {
 		m.notice = "open a workspace first"
 		return m, nil
 	}
-	alias, c, tty, pid := m.hosts[m.hostPos()].Alias, m.cfg.Client, m.tty, m.term.PID()
+	alias, c, tty, pid, pw := m.hosts[m.hostPos()].Alias, m.cfg.Client, m.tty, m.term.PID(), m.cfg.Passwords
 	m.notice = ""
 	return m, func() tea.Msg {
 		tty, err := clientTTY(c, tty, pid)
@@ -298,7 +319,7 @@ func (m model) splitHost(dir string) (tea.Model, tea.Cmd) {
 		}
 		pane, cwd, err := c.ActivePane(tty)
 		if err == nil {
-			_, err = pick.Split(c, pane, dir, cwd, pick.Choice{Alias: alias})
+			_, err = pick.Split(c, pane, dir, cwd, pick.Choice{Alias: alias, Askpass: askpassFor(pw, alias)})
 		}
 		return hostSplitMsg{alias: alias, err: err}
 	}
@@ -310,17 +331,22 @@ func (m model) onHostSplit(msg hostSplitMsg) (tea.Model, tea.Cmd) {
 		m.notice = msg.err.Error()
 		return m, nil
 	}
-	m.focus = focusTerm
+	m.view, m.focus = viewSessions, focusTerm
 	return m, m.refresh()
 }
 
 // startDelete looks up what depends on the host, then asks. Without a usage
 // finder it asks straight away.
 func (m model) startDelete(alias string) (tea.Model, tea.Cmd) {
+	// A stored password goes with the host, so the vault must be open to know.
+	return m.afterUnlock(func(m model) (tea.Model, tea.Cmd) { return m.startDeleteNow(alias) })
+}
+
+func (m model) startDeleteNow(alias string) (tea.Model, tea.Cmd) {
 	m.notice = ""
 	u := m.cfg.HostUse
 	if u == nil {
-		m.hostDel = &hostDelete{alias: alias}
+		m.hostDel = &hostDelete{alias: alias, password: m.hasStoredPassword(alias)}
 		return m, nil
 	}
 	return m, func() tea.Msg {
@@ -332,7 +358,7 @@ func (m model) startDelete(alias string) (tea.Model, tea.Cmd) {
 // onHostUsage opens the delete pop-up, with a warning when something uses
 // the host.
 func (m model) onHostUsage(msg hostUsageMsg) model {
-	m.hostDel = &hostDelete{alias: msg.alias, use: msg.use, err: msg.err}
+	m.hostDel = &hostDelete{alias: msg.alias, use: msg.use, err: msg.err, password: m.hasStoredPassword(msg.alias)}
 	return m
 }
 
@@ -343,7 +369,7 @@ func (m model) onHostDelKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if k.String() != "y" {
 		return m, nil
 	}
-	s, u := m.cfg.SSH, m.cfg.HostUse
+	s, u, pw := m.cfg.SSH, m.cfg.HostUse, m.cfg.Passwords
 	return m, func() tea.Msg {
 		if err := s.Delete(alias); err != nil {
 			return hostSavedMsg{alias: alias, deleted: true, err: err}
@@ -357,6 +383,11 @@ func (m model) onHostDelKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			if err := u.Strip(alias); err != nil {
 				errs = append(errs, fmt.Errorf("workspaces not fully updated: %w", err))
+			}
+		}
+		if pw != nil {
+			if err := pw.Delete(alias); err != nil {
+				errs = append(errs, fmt.Errorf("its stored password was not removed: %w", err))
 			}
 		}
 		if err := errors.Join(errs...); err != nil {
@@ -379,7 +410,7 @@ func (m model) startEdit() model {
 		m.notice = ansi.Strip(alias + ": " + err.Error())
 		return m
 	}
-	f := hostForm{edit: true, from: alias, focus: 1}
+	f := hostForm{edit: true, from: alias, focus: 1, pwOn: m.cfg.Passwords != nil}
 	for i, fd := range hostFields {
 		f.vals[i] = *fd.ptr(&own)
 	}
@@ -391,7 +422,7 @@ func (m model) startEdit() model {
 func (m model) onFormKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	f := *m.form
 	m.form = &f
-	n := len(hostFields)
+	n := f.count()
 	switch k.Type {
 	case tea.KeyEsc, tea.KeyCtrlC:
 		m.form = nil
@@ -401,14 +432,18 @@ func (m model) onFormKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		f.focus = (f.focus + 1) % n
 	case tea.KeyShiftTab, tea.KeyUp:
 		f.focus = (f.focus + n - 1) % n
+	case tea.KeyCtrlX:
+		if f.onPassword() {
+			return m.removePassword()
+		}
 	case tea.KeyBackspace:
-		if r := []rune(f.vals[f.focus]); len(r) > 0 {
-			f.vals[f.focus] = string(r[:len(r)-1])
+		if r := []rune(*f.text()); len(r) > 0 {
+			*f.text() = string(r[:len(r)-1])
 		}
 	case tea.KeyCtrlU:
-		f.vals[f.focus] = ""
+		*f.text() = ""
 	case tea.KeyRunes:
-		f.vals[f.focus] += strings.Join(strings.Fields(string(k.Runes)), "") // no blanks in any field
+		f.typed(string(k.Runes))
 	}
 	return m, nil
 }
@@ -416,18 +451,36 @@ func (m model) onFormKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 // submitForm saves, or stops on the field that is wrong.
 func (m model) submitForm() (tea.Model, tea.Cmd) {
 	f := *m.form
+	if f.onPassword() {
+		return m.submitPassword()
+	}
 	if i, msg := f.check(); i >= 0 {
 		f.focus, f.err = i, ansi.Strip(msg)
 		m.form = &f
 		return m, nil
 	}
-	m.form, m.notice = nil, ""
+	if f.edit && f.from != f.host().Alias && m.cfg.Passwords != nil {
+		// A stored password follows the rename, so the vault must be open.
+		return m.afterUnlock(func(m model) (tea.Model, tea.Cmd) { return m.saveForm(f) })
+	}
+	return m.saveForm(f)
+}
+
+// saveForm writes the ssh config part of a form that passed its checks.
+func (m model) saveForm(f hostForm) (tea.Model, tea.Cmd) {
+	m.notice = ""
+	if f.pwOn { // stays open: the password section is next
+		f.sshMsg, f.err = "saving…", ""
+		m.form = &f
+		return m, m.saveHost(f)
+	}
+	m.form = nil
 	return m, m.saveHost(f)
 }
 
 // saveHost writes the finished form in the background.
 func (m model) saveHost(f hostForm) tea.Cmd {
-	s, u, h := m.cfg.SSH, m.cfg.HostUse, f.host()
+	s, u, pw, h := m.cfg.SSH, m.cfg.HostUse, m.cfg.Passwords, f.host()
 	return func() tea.Msg {
 		if !f.edit {
 			return hostSavedMsg{alias: h.Alias, err: s.Add(h)}
@@ -441,11 +494,19 @@ func (m model) saveHost(f hostForm) tea.Cmd {
 				msg.err = fmt.Errorf("host renamed, but %w", err)
 			}
 		}
+		if msg.renamed && pw != nil && msg.err == nil {
+			if err := pw.Rename(f.from, h.Alias); err != nil {
+				msg.err = fmt.Errorf("host renamed, but its stored password was not moved: %w", err)
+			}
+		}
 		return msg
 	}
 }
 
 func (m model) onHostSaved(msg hostSavedMsg) (tea.Model, tea.Cmd) {
+	if m.form != nil && m.form.pwOn && !msg.deleted {
+		return m.onHostSavedInForm(msg)
+	}
 	switch {
 	case msg.err != nil:
 		m.notice = ansi.Strip(fmt.Sprintf("%s: %v", msg.alias, msg.err))
@@ -517,6 +578,9 @@ func (m model) formBox() []string {
 	if f.err != "" {
 		rows = append(rows, noticeStyle.Render(f.err))
 	}
+	if f.pwOn {
+		return framed(append(rows, passwordRows(*f, inner)...), inner)
+	}
 	rows = append(rows, dimStyle.Render("tab next · enter save · esc"))
 	return framed(rows, inner)
 }
@@ -526,6 +590,8 @@ type hostDelete struct {
 	alias string
 	use   hostuse.Usage
 	err   error // the lookup failed, at least in part
+	// password: the vault holds a password for it, which is removed with it.
+	password bool
 }
 
 // box draws the delete pop-up, with a warning when something uses the host.
@@ -539,6 +605,9 @@ func (d hostDelete) box(w int) []string {
 	}
 	if n := len(d.use.Panes); n > 0 {
 		rows = append(rows, noticeStyle.Render(fmt.Sprintf("%d open pane(s) will be closed.", n)), "")
+	}
+	if d.password {
+		rows = append(rows, noticeStyle.Render("Its saved password is removed too."), "")
 	}
 	if d.err != nil {
 		rows = append(rows, noticeStyle.Render("Could not check everything:"), ansi.Strip(d.err.Error()), "")
@@ -558,6 +627,8 @@ func (m model) popup() []string {
 		return m.saveAllBox()
 	case m.prompt != nil:
 		return m.promptBox()
+	case m.unlock != nil:
+		return m.unlockBox()
 	case m.form != nil:
 		return m.formBox()
 	case m.pform != nil:

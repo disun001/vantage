@@ -38,7 +38,15 @@ func runRestore(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	res, err := restore.Restore(tmux.Client{Socket: *socket}, ws)
+	ssh, err := defaultSSHPath()
+	if err != nil {
+		return err
+	}
+	pw, err := newPasswords(ssh)
+	if err != nil {
+		return err
+	}
+	res, err := restore.Restore(tmux.Client{Socket: *socket}, ws, restore.WithAskpass(pw.askpassFor(nil)))
 	if err != nil {
 		return err
 	}
