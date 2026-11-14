@@ -70,10 +70,51 @@ Keys and forms are listed in [projects.md](projects.md#tui).
 | `v`     | Open an ssh split beside the active pane                                                                                     |
 | `s`     | Open an ssh split below the active pane                                                                                      |
 | `a`     | Add a host                                                                                                                   |
-| `e`     | Edit a host: alias, host, user, port, jump. A new alias renames it, repoints other hosts' jumps and updates saved workspaces |
+| `e`     | Edit a host: alias, host, user, port, jump, key. A new alias renames it, repoints other hosts' jumps and updates saved workspaces |
 | `d`     | Delete a host after a `y`. The pop-up warns if workspaces or open panes use it                                               |
 
+The right pane shows the host's details instead of a terminal: its ssh options,
+the key, whether a password is stored (never the password itself), the open
+panes connected to it and the saved workspaces that use it. After a connect or
+a split, the sidebar goes back to workspaces.
+
+| Key | Does                                                          |
+| --- | ------------------------------------------------------------- |
+| `u` | Unlock the password vault (asked once per run, or on first use) |
+
 Host changes are written to `~/.ssh/config` (see [Safety](#safety)).
+
+### Key and password login
+
+The add / edit form has a `key` line, the path of a private key. It is written
+as `IdentityFile <path>` plus `IdentitiesOnly yes`, and clearing it removes both.
+Vantage stores the path only, never the key. A key with its own passphrase is
+left to ssh and your agent.
+
+With a vault configured, the form also has a `password` section, below the ssh
+config part. The two parts save apart: `Enter` saves only the section the
+cursor is in, so one failing never half-saves the other. The password section
+opens once the host exists. `ctrl+x` on it removes the stored password.
+
+- **Where.** `passwords.age` in the config dir (`$VANTAGE_CONFIG_DIR`, else
+  `$XDG_CONFIG_HOME/vantage`, else `~/.config/vantage`): one file, encrypted with
+  [age](https://age-encryption.org), safe to keep in a dotfiles repo.
+- **Unlock.** By default a passphrase, chosen twice when the vault is created and
+  asked once per run. Set `VANTAGE_AGE_IDENTITY` to an age identity file to unlock
+  without a prompt.
+- **Use.** For a host with a stored password, vantage starts ssh with
+  `SSH_ASKPASS` pointing at itself (`SSH_ASKPASS_REQUIRE=force`, OpenSSH 8.4 or
+  newer) and `NumberOfPasswordPrompts=1`. The password never appears in the command
+  line, the shell history or the environment: the helper asks the running TUI over
+  a socket only your user can reach. It answers only ssh's plain
+  `user@host's password:` prompt for that host. Anything else (host key question,
+  key passphrase, verification code, a jump host's password) goes to you in the
+  pane. One wrong attempt ends the connection, and the pane says the stored
+  password may be wrong.
+- **Where it applies.** Connecting from the hosts view (`Enter`, `v`, `s`). Panes
+  restored from a workspace file and the `prefix S` / `V` picker run plain ssh.
+- **Rename and delete.** A rename moves the stored password to the new alias. A
+  delete removes it, and the confirmation says so.
 
 ## ssh split picker
 
@@ -92,7 +133,10 @@ side) to a pop-up that asks for a local shell or an ssh host. See
   Each rewritten file keeps a `name.toml.vantage.bak` copy.
 - Commands in a workspace only run on restore when you set `autorun = true`.
   `capture` saves every command with `autorun = false`.
-- Vantage makes no network connections. It runs `tmux` and `ps`.
+- Stored passwords live only in the encrypted vault and, while the TUI runs, in
+  its memory. They are never written to a command line, a log or `~/.ssh/config`.
+- Vantage makes no network connections. It runs `tmux`, `ps` and `ssh` (for the
+  panes you open).
 
 ## Troubleshooting
 

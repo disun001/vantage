@@ -56,6 +56,8 @@ vantage capture mysession
   (`config.vantage.bak`), writes atomically and refuses to write anything it
   cannot parse back. Details in [docs/usage.md](docs/usage.md#safety).
 - Commands in a workspace never run on restore unless you set `autorun = true`.
+- Stored ssh passwords sit in an age-encrypted vault, never in a command line or
+  `~/.ssh/config`. See [docs/usage.md](docs/usage.md#key-and-password-login).
 - Vantage makes no network connections. It only runs `tmux` and `ps`.
 
 ## Requirements
