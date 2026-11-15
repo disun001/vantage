@@ -15,7 +15,10 @@ gives you no overview of what is open. Vantage adds:
 - **A sidebar.** Every session and its windows in one tree, next to a real tmux
   client. Your tmux keys, panes and plugins keep working.
 - **ssh awareness.** Your `~/.ssh/config` hosts in the sidebar. See which are
-  connected, jump to an open pane, or open a new ssh split from a pop-up.
+  connected, jump to an open pane, or open a new ssh split from a pop-up. Log in
+  with a key or a password kept in an encrypted vault.
+- **Projects.** A set of git repos cloned, kept fresh and shown with their
+  state, linked to workspaces.
 
 ## Install
 
@@ -58,7 +61,7 @@ vantage capture mysession
 - Commands in a workspace never run on restore unless you set `autorun = true`.
 - Stored ssh passwords sit in an age-encrypted vault, never in a command line or
   `~/.ssh/config`. See [docs/usage.md](docs/usage.md#key-and-password-login).
-- Vantage makes no network connections. It only runs `tmux` and `ps`.
+- Vantage runs `tmux`, `ps`, `ssh` and `git`. Network traffic comes only from those.
 
 ## Requirements
 
@@ -71,6 +74,7 @@ vantage capture mysession
 | ---------------------------------------------------- | -------------------------------------------- |
 | [docs/usage.md](docs/usage.md)                       | Commands, TUI keys, safety                   |
 | [docs/installation.md](docs/installation.md)         | Install options, config location, tmux setup |
+| [docs/projects.md](docs/projects.md)                 | Projects: repos, clone, status               |
 | [docs/workspace-format.md](docs/workspace-format.md) | TOML schema reference                        |
 | [docs/architecture.md](docs/architecture.md)         | Design decisions and their reasons           |
 
