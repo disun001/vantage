@@ -2,7 +2,7 @@
 
 ```text
 cmd/vantage/        CLI: main.go dispatches; one file per subcommand
-                    (list.go, restore.go, capture.go, pick.go, tui.go); flags.go holds shared flag helpers
+                    (list.go, restore.go, capture.go, pick.go, renamepane.go, project.go, tui.go); flags.go holds shared flag helpers
 internal/workspace/ workspace schema, load, validate, config dir lookup
 internal/tmux/      thin adapter over the tmux CLI (the only place that execs tmux)
 internal/git/       thin adapter over the git CLI (the only place that execs git)
