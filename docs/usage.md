@@ -2,14 +2,16 @@
 
 ## Commands
 
-| Command                     | Does                                                |
-| --------------------------- | --------------------------------------------------- |
-| `vantage`                   | Starts the TUI (same as `vantage tui`)              |
-| `vantage list`              | Lists saved workspaces                              |
-| `vantage restore <name>`    | Creates the tmux session for a workspace            |
-| `vantage capture <session>` | Saves a running tmux session as a workspace file    |
-| `vantage pick --split h\|v` | Splits the pane as local or ssh, chosen from a menu |
-| `vantage version`           | Prints the version (`--version` works too)          |
+| Command                     | Does                                                         |
+| --------------------------- | ------------------------------------------------------------ |
+| `vantage`                   | Starts the TUI (same as `vantage tui`)                       |
+| `vantage list`              | Lists saved workspaces                                       |
+| `vantage restore <name>`    | Creates the tmux session for a workspace                     |
+| `vantage capture <session>` | Saves a running tmux session as a workspace file             |
+| `vantage pick --split h\|v` | Splits the pane as local or ssh, chosen from a menu          |
+| `vantage rename-pane`       | Renames a pane (see pane names below)                        |
+| `vantage project <sub>`     | `list`, `sync`, `status`, `update`, `rm` (see `projects.md`) |
+| `vantage version`           | Prints the version (`--version` works too)                   |
 
 `vantage --start` is the TUI with a startup step, meant for a terminal that
 should always open on something (for example a terminal emulator's shell
