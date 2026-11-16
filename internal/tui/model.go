@@ -40,6 +40,11 @@ type Config struct {
 	HostUse HostUsage
 	// Passwords is the vault of stored ssh passwords. Nil turns them off.
 	Passwords Passwords
+	// Folds lists the sessions the user folded, and SaveFolds stores that
+	// list again after every change. Nil turns the memory off: folds last
+	// until vantage quits.
+	Folds     func() ([]string, error)
+	SaveFolds func(names []string) error
 	// KeyLog, when set, gets one line per non-text key press (see logKey).
 	KeyLog io.Writer
 }
@@ -82,7 +87,7 @@ type model struct {
 	rows     []row
 	cur      key             // the line under the cursor, by name
 	top      int             // first visible item, for scrolling
-	open     map[string]bool // sessions the user opened or closed by hand
+	folded   map[string]bool // sessions the user folded; every other one shows its windows
 	focus    focus
 	term     *embed.Term
 	tty      string // tty of the embedded tmux client, once known
@@ -151,7 +156,20 @@ type (
 	}
 )
 
-func newModel(cfg Config, h *hub) model { return model{cfg: cfg, hub: h} }
+func newModel(cfg Config, h *hub) model {
+	m := model{cfg: cfg, hub: h}
+	if cfg.Folds != nil {
+		names, err := cfg.Folds()
+		if err != nil {
+			m.notice = err.Error()
+		}
+		m.folded = map[string]bool{}
+		for _, n := range names {
+			m.folded[n] = true
+		}
+	}
+	return m
+}
 
 func (m model) Init() tea.Cmd { return tea.Batch(m.refresh(), tick(), modeTick()) }
 
@@ -264,6 +282,7 @@ func (m model) onRows(msg rowsMsg) model {
 		return m
 	}
 	m.rows = msg.rows
+	m = m.pruneFolds()
 	if m.term != nil && m.term.PID() == msg.pid {
 		if msg.tty != "" {
 			m.tty = msg.tty

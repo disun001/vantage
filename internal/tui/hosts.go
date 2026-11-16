@@ -166,7 +166,7 @@ func (m model) moveHost(delta int) model {
 }
 
 func (m model) hostScrolled() model {
-	m.hostTop = scrollTop(allFlat(len(m.hosts)), m.hostTop, m.hostPos(), m.listCap())
+	m.hostTop = scrollTop(noHeads(len(m.hosts)), m.hostTop, m.hostPos(), m.listCap())
 	return m
 }
 
@@ -534,11 +534,7 @@ func (m model) hostsSidebar() []string {
 	out[1] = m.tabLine()
 	note := m.noticeLines()
 	cur := m.hostPos()
-	for y, i := range span(allFlat(len(m.hosts)), m.hostTop, m.listCap()) {
-		if i < 0 {
-			out[firstRowY+y] = ruleLine()
-			continue
-		}
+	for y, i := range span(noHeads(len(m.hosts)), m.hostTop, m.listCap()) {
 		out[firstRowY+y] = m.hostLine(m.hosts[i], i == cur)
 	}
 	if len(m.hosts) == 0 {

@@ -70,14 +70,9 @@ func mergeRows(live []tmux.Session, wins []tmux.Window, panes []tmux.PaneRef, sa
 	return rows
 }
 
-// expanded reports whether a session shows its windows. Until the user
-// toggles it, a session is open exactly while it is the one on screen.
-func (m model) expanded(r row) bool {
-	if v, ok := m.open[r.Name]; ok {
-		return v
-	}
-	return r.Name == m.current
-}
+// expanded reports whether a session shows its windows: every session does
+// until the user folds it.
+func (m model) expanded(r row) bool { return !m.folded[r.Name] }
 
 // items flattens the rows into the visible lines.
 func (m model) items() []item {
@@ -154,12 +149,12 @@ func (m model) scrolled() model {
 		return m.projScrolled()
 	}
 	items := m.items()
-	m.top = scrollTop(m.flatItems(items), m.top, m.pos(items), m.listCap())
+	m.top = scrollTop(m.headItems(items), m.top, m.pos(items), m.listCap())
 	return m
 }
 
-// toggle opens or closes the session under the cursor. A window line toggles
-// its session. Saved workspaces have nothing to open.
+// toggle folds or unfolds the session under the cursor and remembers it. A
+// window line toggles its session. Saved workspaces have nothing to fold.
 func (m model) toggle(collapseOnly bool) model {
 	it, ok := m.selected()
 	if !ok || !m.rows[it.Row].Live {
@@ -169,10 +164,59 @@ func (m model) toggle(collapseOnly bool) model {
 	if collapseOnly && !m.expanded(r) {
 		return m
 	}
-	if m.open == nil {
-		m.open = map[string]bool{}
-	}
-	m.open[r.Name] = !m.expanded(r)
+	m.folded = withFold(m.folded, r.Name, m.expanded(r))
 	m.cur = key{r.Name, -1}
+	return m.saveFolds()
+}
+
+// withFold returns a copy of folded with name set or cleared. The model is
+// copied by value, so the map is never edited in place.
+func withFold(folded map[string]bool, name string, fold bool) map[string]bool {
+	next := make(map[string]bool, len(folded)+1)
+	for k := range folded {
+		next[k] = true
+	}
+	if fold {
+		next[name] = true
+	} else {
+		delete(next, name)
+	}
+	return next
+}
+
+// pruneFolds forgets folded names that are neither a live session nor a saved
+// workspace, so a new session that reuses an old name starts unfolded.
+func (m model) pruneFolds() model {
+	known := map[string]bool{}
+	for _, r := range m.rows {
+		known[r.Name] = true
+	}
+	next := map[string]bool{}
+	for n := range m.folded {
+		if known[n] {
+			next[n] = true
+		}
+	}
+	if len(next) == len(m.folded) {
+		return m
+	}
+	m.folded = next
+	return m.saveFolds()
+}
+
+// saveFolds stores the folded names, sorted. A failure shows as a notice and
+// the fold still holds until vantage quits.
+func (m model) saveFolds() model {
+	if m.cfg.SaveFolds == nil {
+		return m
+	}
+	names := make([]string, 0, len(m.folded))
+	for n := range m.folded {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	if err := m.cfg.SaveFolds(names); err != nil {
+		m.notice = err.Error()
+	}
 	return m
 }

@@ -147,17 +147,17 @@ func TestRenamePromptStartsWithName(t *testing.T) {
 	}
 }
 
-func TestRenameMovesCursorAndOpenState(t *testing.T) {
+func TestRenameMovesCursorAndFoldState(t *testing.T) {
 	m := manageModel(&fakeManager{})
 	m.cur = key{"a", 2}
-	m.open = map[string]bool{"a": true, "b": false}
+	m.folded = map[string]bool{"a": true}
 	next, _ := m.Update(manageMsg{op: promptRename, from: "a", to: "z"})
 	got := next.(model)
-	if got.cur != (key{"z", 2}) || got.current != "z" || !got.open["z"] || got.open["b"] {
-		t.Errorf("cur=%+v current=%q open=%v", got.cur, got.current, got.open)
+	if got.cur != (key{"z", 2}) || got.current != "z" || !got.folded["z"] {
+		t.Errorf("cur=%+v current=%q folded=%v", got.cur, got.current, got.folded)
 	}
-	if _, stale := got.open["a"]; stale {
-		t.Error("old name left in the open map")
+	if got.folded["a"] {
+		t.Error("old name left in the folded map")
 	}
 }
 
@@ -190,7 +190,7 @@ func TestDeletePrompt(t *testing.T) {
 func TestDeleteParksCursorOnNeighbour(t *testing.T) {
 	m := manageModel(&fakeManager{})
 	m.cur = key{"saved", -1} // last row, not running
-	if got := m.afterDelete("saved").cur; got != (key{"b", -1}) {
+	if got := m.afterDelete("saved").cur; got != (key{"b", 1}) {
 		t.Errorf("cursor = %+v, want the line above", got)
 	}
 	m.cur = key{"a", 2} // a window line of a live session: its whole row goes

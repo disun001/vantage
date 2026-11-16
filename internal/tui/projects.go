@@ -102,7 +102,7 @@ func (m model) moveProj(delta int) (model, tea.Cmd) {
 }
 
 func (m model) projScrolled() model {
-	m.projTop = scrollTop(allFlat(len(m.projects)), m.projTop, m.projPos(), m.listCap())
+	m.projTop = scrollTop(noHeads(len(m.projects)), m.projTop, m.projPos(), m.listCap())
 	return m
 }
 

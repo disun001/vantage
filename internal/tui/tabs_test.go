@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -44,34 +45,33 @@ func TestWorkspaceRowKeepsWidthAndNote(t *testing.T) {
 	}
 }
 
-func TestSpanPutsAHairlineBetweenEntriesNotWindows(t *testing.T) {
-	// two sessions, the first with two windows
-	flat := []bool{true, false, false, true}
-	got := span(flat, 0, 10)
-	want := []int{0, 1, 2, -1, 3}
-	if len(got) != len(want) {
+func TestSpanDrawsTheHeaderWithItsEntry(t *testing.T) {
+	head := []bool{false, false, false, true}
+	if got, want := span(head, 0, 10), []int{0, 1, 2, -1, 3}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("span = %v, want %v", got, want)
 	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("span = %v, want %v", got, want)
-		}
-	}
-	if got := span(flat, 0, 4); len(got) != 3 { // the hairline and the last entry no longer fit
+	if got := span(head, 0, 4); !reflect.DeepEqual(got, []int{0, 1, 2}) { // the header and its entry no longer fit
 		t.Errorf("tight span = %v", got)
+	}
+	if got, want := span(head, 3, 10), []int{-1, 3}; !reflect.DeepEqual(got, want) { // the header scrolls with it
+		t.Errorf("span from the header's entry = %v, want %v", got, want)
+	}
+	if got := span(noHeads(4), 0, 10); len(got) != 4 { // no rules between entries
+		t.Errorf("plain span = %v", got)
 	}
 }
 
 func TestScrollTopKeepsTheCursorInView(t *testing.T) {
-	flat := allFlat(10) // 2 lines per entry after the first
+	head := noHeads(10)
+	head[7] = true
 	top := 0
 	for pos := 0; pos < 10; pos++ {
-		top = scrollTop(flat, top, pos, 5)
-		if !drawn(span(flat, top, 5), pos) {
+		top = scrollTop(head, top, pos, 5)
+		if !drawn(span(head, top, 5), pos) {
 			t.Fatalf("cursor %d off screen with top %d", pos, top)
 		}
 	}
-	if top = scrollTop(flat, top, 0, 5); top != 0 {
+	if top = scrollTop(head, top, 0, 5); top != 0 {
 		t.Errorf("scrolling back to the first entry left top at %d", top)
 	}
 }

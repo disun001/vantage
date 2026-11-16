@@ -237,7 +237,7 @@ func (m model) onManage(msg manageMsg) (tea.Model, tea.Cmd) {
 }
 
 // renamed moves everything the model keeps by session name over to the new
-// name, so the cursor, the open state and the bold current marker follow.
+// name, so the cursor, the fold state and the bold current marker follow.
 func (m model) renamed(from, to string) model {
 	if m.cur.Session == from {
 		m.cur.Session = to
@@ -245,14 +245,9 @@ func (m model) renamed(from, to string) model {
 	if m.current == from {
 		m.current = to
 	}
-	if v, ok := m.open[from]; ok {
-		next := map[string]bool{to: v}
-		for k, o := range m.open {
-			if k != from {
-				next[k] = o
-			}
-		}
-		m.open = next
+	if m.folded[from] {
+		m.folded = withFold(withFold(m.folded, from, false), to, true)
+		m = m.saveFolds()
 	}
 	return m
 }

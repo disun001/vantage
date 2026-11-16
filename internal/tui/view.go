@@ -107,9 +107,9 @@ func (m model) sidebar() []string {
 	note := m.noticeLines()
 	items := m.items()
 	cur := m.pos(items)
-	for y, i := range span(m.flatItems(items), m.top, m.listCap()) {
+	for y, i := range span(m.headItems(items), m.top, m.listCap()) {
 		if i < 0 {
-			out[firstRowY+y] = ruleLine()
+			out[firstRowY+y] = savedHeader()
 			continue
 		}
 		out[firstRowY+y] = m.itemLine(items[i], i == cur)

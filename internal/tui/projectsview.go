@@ -16,11 +16,7 @@ func (m model) projectsSidebar() []string {
 	out[1] = m.tabLine()
 	note := m.noticeLines()
 	cur := m.projPos()
-	for y, i := range span(allFlat(len(m.projects)), m.projTop, m.listCap()) {
-		if i < 0 {
-			out[firstRowY+y] = ruleLine()
-			continue
-		}
+	for y, i := range span(noHeads(len(m.projects)), m.projTop, m.listCap()) {
 		out[firstRowY+y] = m.projectLine(m.projects[i], i == cur)
 	}
 	if len(m.projects) == 0 {

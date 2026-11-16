@@ -51,7 +51,7 @@ listing every key of the current view, grouped and explained. `esc`, `?` or
 
 | Key     | Does                                                                                                   |
 | ------- | ------------------------------------------------------------------------------------------------------ |
-| `space` | Fold or unfold a session                                                                               |
+| `space` | Fold or unfold a session. Sessions start unfolded; a fold is remembered across restarts                |
 | `n`     | New workspace (asks for a name in a pop-up)                                                            |
 | `R`     | Rename the workspace and its live session. On a window line: rename that window, in the saved file too |
 | `K`     | Stop: kill the session, keep the workspace file, after a `y` in a pop-up                               |
