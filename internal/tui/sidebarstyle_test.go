@@ -104,7 +104,7 @@ func TestWindowTilesAlignAndHang(t *testing.T) {
 	m := model{focus: focusSidebar}
 	r := row{Name: "api", Live: true, Wins: []win{{Index: 1, Name: "edit", Panes: 2}, {Index: 10, Name: "logs", Panes: 1}}}
 	a, b := ansi.Strip(m.winLine(r, 0, false)), ansi.Strip(m.winLine(r, 1, false))
-	if !strings.HasPrefix(a, "   ├") || !strings.HasPrefix(b, "   └") {
+	if !strings.HasPrefix(a, "  ├") || !strings.HasPrefix(b, "  └") {
 		t.Errorf("tree guides: %q %q", a, b)
 	}
 	if strings.Index(a, "edit") != strings.Index(b, "logs") {
@@ -112,5 +112,39 @@ func TestWindowTilesAlignAndHang(t *testing.T) {
 	}
 	if !strings.HasSuffix(a, "2p  ") && !strings.HasSuffix(a, "2p ") {
 		t.Errorf("pane count at the right edge: %q", a)
+	}
+}
+
+func TestFoldSignAndNoRules(t *testing.T) {
+	m := model{focus: focusSidebar, w: 60, h: 20, rows: []row{
+		{Name: "api", Live: true, Windows: 1, Panes: 1, Wins: []win{{Index: 1, Name: "sh", Panes: 1}}},
+		{Name: "web", Live: true, Windows: 1, Panes: 1, Wins: []win{{Index: 1, Name: "sh", Panes: 1}}},
+		{Name: "notes", Saved: true},
+	}, folded: map[string]bool{"web": true}}
+	var text []string
+	for _, l := range m.sidebar() {
+		text = append(text, ansi.Strip(l))
+	}
+	all := strings.Join(text, "\n")
+	if strings.ContainsAny(all, "╌┄") {
+		t.Errorf("rule between entries:\n%s", all)
+	}
+	for i, want := range map[int]string{2: " - api", 4: " + web", 5: " saved", 6: "   notes"} {
+		if !strings.HasPrefix(text[i], want) {
+			t.Errorf("line %d = %q, want prefix %q\n%s", i, text[i], want, all)
+		}
+	}
+}
+
+func TestCursorLineIsTinted(t *testing.T) {
+	trueColor(t)
+	m := model{focus: focusSidebar}
+	r := row{Name: "api", Live: true, Windows: 1, Panes: 1}
+	on, off := m.rowLine(r, true), m.rowLine(r, false)
+	if !strings.Contains(on, "49;50;68") && !strings.Contains(on, "69;71;89") { // surf0 or surf1
+		t.Errorf("cursor line has no tint: %q", on)
+	}
+	if strings.Contains(off, "69;71;89") || strings.Contains(ansi.Strip(on), "❯") {
+		t.Errorf("tint leaked or mark kept: %q / %q", on, off)
 	}
 }

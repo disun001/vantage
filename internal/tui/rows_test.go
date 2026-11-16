@@ -106,11 +106,11 @@ func TestScrollKeepsCursorVisible(t *testing.T) {
 		t.Fatalf("cap %d", c)
 	}
 	m = m.setPos(m.items(), 7).scrolled()
-	if m.top != 5 { // a hairline sits between entries: 3 entries in 5 lines
-		t.Errorf("top = %d, want 5", m.top)
+	if m.top != 3 { // five lines, one per entry
+		t.Errorf("top = %d, want 3", m.top)
 	}
 	m = m.setPos(m.items(), 6).scrolled()
-	if m.top != 5 { // still visible: no jump
+	if m.top != 3 { // still visible: no jump
 		t.Errorf("top = %d after moving up inside the view", m.top)
 	}
 	m = m.setPos(m.items(), 1).scrolled()

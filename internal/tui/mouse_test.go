@@ -9,7 +9,8 @@ import (
 
 func TestSidebarClickSelectsRow(t *testing.T) {
 	m := model{w: 80, h: 20, rows: []row{{Name: "a"}, {Name: "b"}, {Name: "c"}}, focus: focusTerm}
-	click := tea.MouseMsg{X: 3, Y: firstRowY + 4, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress}
+	// line 0 is the saved header, so c is on line 3
+	click := tea.MouseMsg{X: 3, Y: firstRowY + 3, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress}
 	got, cmd := m.onMouse(click)
 	gm := got.(model)
 	if gm.cur != (key{"c", -1}) || gm.focus != focusSidebar || cmd == nil {

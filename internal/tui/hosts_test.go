@@ -335,7 +335,7 @@ func TestMouseIgnoredWhileFormOpen(t *testing.T) {
 
 func TestMouseSelectsHost(t *testing.T) {
 	m := openHosts(t, twoHosts())
-	next, _ := m.Update(tea.MouseMsg{X: 2, Y: firstRowY + 2, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	next, _ := m.Update(tea.MouseMsg{X: 2, Y: firstRowY + 1, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
 	if got := next.(model); got.hostCur != "db" {
 		t.Errorf("cur = %q", got.hostCur)
 	}

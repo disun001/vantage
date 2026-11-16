@@ -3,20 +3,17 @@ package tui
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/charmbracelet/x/ansi"
 )
 
-func repeat(s string, n int) string { return strings.Repeat(s, n) }
-
 // entry is one top-level line of any list: a session, a host or a project.
-// All three share the layout: a cursor mark, a fold arrow, the name, then on
-// the right a plain dim note and a status dot.
+// All three share the layout: a fold sign, the name, then on the right a plain
+// dim note and a status dot. The cursor line is tinted.
 type entry struct {
 	name     string
 	nameFG   string
-	fold     string // "▸", "▾" or " "
+	fold     string // "+", "-" or " "
 	meta     string // right-hand note, plain text
 	dot      string // status glyph, empty for none
 	dotFG    string
@@ -24,13 +21,27 @@ type entry struct {
 	onScreen bool // the session shown in the terminal: mauve, bold
 }
 
-// foldW is the cursor mark and fold arrow before a name: " ❯▾ ".
-const foldW = 4
+// foldW is the fold sign before a name: " - ".
+const foldW = 3
+
+// winIndent is what a window line carries before its title: " ├ ".
+const winIndent = 4
+
+// cursorBG is the tint of the line under the cursor, brighter while the
+// sidebar has the focus.
+func (m model) cursorBG(on bool) string {
+	switch {
+	case !on:
+		return ""
+	case m.focus == focusSidebar:
+		return mocSurf1
+	}
+	return mocSurf0
+}
 
 func (m model) entryLine(e entry) string {
-	l := lineBuf{}
+	l := lineBuf{bg: m.cursorBG(e.cursor)}
 	l.add(mocText, "", false, " ")
-	m.markCell(&l, e.cursor)
 	l.add(mocOverlay, "", false, e.fold+" ")
 	fg, bold := e.nameFG, e.cursor
 	if e.onScreen {
@@ -66,20 +77,6 @@ func (l *lineBuf) plainTail(meta, dot, dotFG string) {
 	l.add(mocText, "", false, " ")
 }
 
-// markCell draws the cursor mark, or a plain gap where the cursor is not.
-// The mark is mauve with the sidebar focused and dim without.
-func (m model) markCell(l *lineBuf, on bool) {
-	if !on {
-		l.add(mocText, "", false, " ")
-		return
-	}
-	fg := mocOverlay
-	if m.focus == focusSidebar {
-		fg = mocMauve
-	}
-	l.add(fg, "", true, "❯")
-}
-
 func (m model) itemLine(it item, selected bool) string {
 	r := m.rows[it.Row]
 	if it.Win >= 0 {
@@ -95,9 +92,9 @@ func (m model) rowLine(r row, selected bool) string {
 	if r.Live {
 		e.nameFG, e.meta, e.dot, e.dotFG = mocText, fmt.Sprintf("%dw %dp", r.Windows, r.Panes), iconDot, mocGreen
 		if len(r.Wins) > 0 {
-			e.fold = "▸"
+			e.fold = "+"
 			if m.expanded(r) {
-				e.fold = "▾"
+				e.fold = "-"
 			}
 		}
 	}
@@ -109,7 +106,7 @@ func (m model) rowLine(r row, selected bool) string {
 // the active window of the session on screen is yellow.
 func (m model) winLine(r row, i int, selected bool) string {
 	w := r.Wins[i]
-	l := lineBuf{}
+	l := lineBuf{bg: m.cursorBG(selected)}
 	guide := "├"
 	if i == len(r.Wins)-1 {
 		guide = "└"
@@ -123,11 +120,9 @@ func (m model) winLine(r row, i int, selected bool) string {
 	if w.Active && r.Name == m.current {
 		fg, bold = mocYellow, true
 	}
-	l.add(mocText, "", false, " ")
-	m.markCell(&l, selected)
-	l.add(mocText, "", false, " ")
+	l.add(mocText, "", false, "  ")
 	l.add(mocOverlay, "", false, guide+" ")
-	room := max(sidebarW-foldW-2-len(meta)-3, 1)
+	room := max(sidebarW-winIndent-len(meta)-3, 1)
 	title := ansi.Truncate(fmt.Sprintf("%*d %s", digits, w.Index, w.Name), room, "…")
 	l.add(fg, "", bold, title)
 	l.padTo(sidebarW - len(meta) - 2)

@@ -55,7 +55,7 @@ func (m model) onSidebarMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
 		m.focus = focusSidebar
 		items := m.items()
-		if i := entryAt(m.flatItems(items), m.top, m.listCap(), msg.Y-firstRowY); i >= 0 {
+		if i := entryAt(m.headItems(items), m.top, m.listCap(), msg.Y-firstRowY); i >= 0 {
 			m = m.setPos(items, i)
 			if it := items[i]; msg.X < chevronW && it.Win < 0 && m.rows[it.Row].Live {
 				return m.toggle(false), nil // a click on the arrow only folds
@@ -75,7 +75,7 @@ func (m model) onProjectMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m.moveProj(1)
 	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
 		m.focus = focusSidebar
-		if i := entryAt(allFlat(len(m.projects)), m.projTop, m.listCap(), msg.Y-firstRowY); i >= 0 {
+		if i := entryAt(noHeads(len(m.projects)), m.projTop, m.listCap(), msg.Y-firstRowY); i >= 0 {
 			return m.moveProj(i - m.projPos())
 		}
 	}
@@ -91,7 +91,7 @@ func (m model) onHostMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		m = m.moveHost(1)
 	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
 		m.focus = focusSidebar
-		if i := entryAt(allFlat(len(m.hosts)), m.hostTop, m.listCap(), msg.Y-firstRowY); i >= 0 {
+		if i := entryAt(noHeads(len(m.hosts)), m.hostTop, m.listCap(), msg.Y-firstRowY); i >= 0 {
 			m.hostCur = m.hosts[i].Alias
 		}
 	default:

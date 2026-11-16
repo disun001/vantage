@@ -1,18 +1,14 @@
 package tui
 
-// ruleW is the width of the hairline between two entries.
-const ruleW = sidebarW - 2
-
 // span lays out the sidebar list from entry top within capLines screen
-// lines. flat marks the entries that stand alone (a session, a host, a
-// project); a hairline goes above each of them except the first drawn. The
-// result has one value per screen line: an entry index, or -1 for a hairline.
-// Entries that hang off another (a window) never get a hairline above.
-func span(flat []bool, top, capLines int) []int {
+// lines. head marks the entries with a header line above them (the saved
+// workspaces list has one); the header always draws with its entry. The
+// result has one value per screen line: an entry index, or -1 for a header.
+func span(head []bool, top, capLines int) []int {
 	var out []int
-	for i := top; i < len(flat); i++ {
+	for i := top; i < len(head); i++ {
 		need := 1
-		if flat[i] && i > top {
+		if head[i] {
 			need = 2
 		}
 		if len(out)+need > capLines {
@@ -28,15 +24,15 @@ func span(flat []bool, top, capLines int) []int {
 
 // scrollTop moves the first drawn entry so that the cursor entry pos is on
 // screen, and so that no blank room is left below the last entry.
-func scrollTop(flat []bool, top, pos, capLines int) int {
-	top = max(0, min(top, len(flat)-1))
+func scrollTop(head []bool, top, pos, capLines int) int {
+	top = max(0, min(top, len(head)-1))
 	top = min(top, pos)
-	for top < pos && !drawn(span(flat, top, capLines), pos) {
+	for top < pos && !drawn(span(head, top, capLines), pos) {
 		top++
 	}
 	for top > 0 {
-		lines := span(flat, top-1, capLines)
-		if len(lines) == 0 || lines[len(lines)-1] != len(flat)-1 {
+		lines := span(head, top-1, capLines)
+		if len(lines) == 0 || lines[len(lines)-1] != len(head)-1 {
 			break
 		}
 		top--
@@ -53,40 +49,37 @@ func drawn(lines []int, entry int) bool {
 	return false
 }
 
-// entryAt is the entry shown on sidebar screen line y, or -1 for a hairline
-// or an empty line.
-func entryAt(flat []bool, top, capLines, y int) int {
-	lines := span(flat, top, capLines)
+// entryAt is the entry shown on sidebar screen line y, or -1 for a header or
+// an empty line.
+func entryAt(head []bool, top, capLines, y int) int {
+	lines := span(head, top, capLines)
 	if y < 0 || y >= len(lines) {
 		return -1
 	}
 	return lines[y]
 }
 
-// allFlat marks n entries that all stand alone.
-func allFlat(n int) []bool {
-	f := make([]bool, n)
-	for i := range f {
-		f[i] = true
-	}
-	return f
-}
+// noHeads is the layout of n entries with no header line, as in the hosts
+// and projects lists.
+func noHeads(n int) []bool { return make([]bool, n) }
 
-// flatItems marks the session lines of the workspaces list; window lines
-// hang off their session.
-func (m model) flatItems(items []item) []bool {
-	f := make([]bool, len(items))
+// headItems marks where the saved header goes: above the first workspace
+// that is not running. Rows are ordered running first, saved-only after.
+func (m model) headItems(items []item) []bool {
+	h := make([]bool, len(items))
 	for i, it := range items {
-		f[i] = it.Win < 0
+		if !m.rows[it.Row].Live {
+			h[i] = true
+			break
+		}
 	}
-	return f
+	return h
 }
 
-// ruleLine draws the hairline between two entries.
-func ruleLine() string {
+// savedHeader labels the workspaces that are saved but not running.
+func savedHeader() string {
 	l := lineBuf{}
-	l.add(mocText, "", false, " ")
-	l.add(mocSurf1, "", false, repeat("╌", ruleW))
+	l.add(mocOverlay, "", false, " saved")
 	l.padTo(sidebarW)
 	return l.String()
 }

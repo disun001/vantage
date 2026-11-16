@@ -149,7 +149,7 @@ func (m model) scrolled() model {
 		return m.projScrolled()
 	}
 	items := m.items()
-	m.top = scrollTop(m.flatItems(items), m.top, m.pos(items), m.listCap())
+	m.top = scrollTop(m.headItems(items), m.top, m.pos(items), m.listCap())
 	return m
 }
 
