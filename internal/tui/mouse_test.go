@@ -46,10 +46,10 @@ func TestToVT(t *testing.T) {
 }
 
 func TestClickOnArrowFoldsWithoutOpening(t *testing.T) {
-	m := treeModel() // a is open: lines a, a:1, a:2, b, saved
+	m := treeModel() // lines a, a:1, a:2, b, b:1, saved
 	got, cmd := m.onMouse(tea.MouseMsg{X: 0, Y: firstRowY, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
 	gm := got.(model)
-	if cmd != nil || len(gm.items()) != 3 {
+	if cmd != nil || len(gm.items()) != 4 {
 		t.Errorf("arrow click: cmd=%v items=%v", cmd, gm.items())
 	}
 	// Clicking a window line opens it.

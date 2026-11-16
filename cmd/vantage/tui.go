@@ -74,6 +74,8 @@ func runTUI(args []string, _ io.Writer) error {
 		SSH:       sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
 		HostUse:   hostuse.Finder{Client: client, Procs: capture.PS},
 		Passwords: pw,
+		Folds:     loadFolds,
+		SaveFolds: saveFolds,
 		KeyLog:    keyLog,
 		Restore:   restoreByName,
 	})

@@ -215,6 +215,23 @@ func ConfigDir() (string, error) {
 	return filepath.Join(home, ".config", "vantage"), nil
 }
 
+// StateDir returns where vantage keeps state that is not configuration, such
+// as which sessions the sidebar has folded: $VANTAGE_STATE_DIR, else
+// $XDG_STATE_HOME/vantage, else ~/.local/state/vantage.
+func StateDir() (string, error) {
+	if d := os.Getenv("VANTAGE_STATE_DIR"); d != "" {
+		return d, nil
+	}
+	if d := os.Getenv("XDG_STATE_HOME"); d != "" {
+		return filepath.Join(d, "vantage"), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".local", "state", "vantage"), nil
+}
+
 // Dir returns the workspaces directory, ConfigDir()/workspaces.
 func Dir() (string, error) {
 	c, err := ConfigDir()

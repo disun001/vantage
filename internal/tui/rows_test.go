@@ -39,16 +39,20 @@ func treeModel() model {
 	}
 }
 
-func TestItemsExpandCurrentOnly(t *testing.T) {
+func TestItemsExpandEverySessionUnlessFolded(t *testing.T) {
 	m := treeModel()
-	want := []item{{0, -1}, {0, 0}, {0, 1}, {1, -1}, {2, -1}}
+	want := []item{{0, -1}, {0, 0}, {0, 1}, {1, -1}, {1, 0}, {2, -1}}
 	if got := m.items(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
-	m.current = "b"
-	want = []item{{0, -1}, {1, -1}, {1, 0}, {2, -1}}
+	m.current = "b" // which session is on screen does not change the tree
 	if got := m.items(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("after switching: got %v, want %v", got, want)
+	}
+	m.folded = map[string]bool{"a": true}
+	want = []item{{0, -1}, {1, -1}, {1, 0}, {2, -1}}
+	if got := m.items(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("with a folded: got %v, want %v", got, want)
 	}
 }
 
@@ -75,17 +79,17 @@ func TestMoveAndToggle(t *testing.T) {
 		t.Fatalf("cur = %v", m.cur)
 	}
 	m = m.toggle(true) // collapse from a window line: back on the session
-	if m.cur != (key{"a", -1}) || len(m.items()) != 3 {
+	if m.cur != (key{"a", -1}) || len(m.items()) != 4 {
 		t.Errorf("collapse: cur=%v items=%v", m.cur, m.items())
 	}
-	if m = m.toggle(true); len(m.items()) != 3 {
+	if m = m.toggle(true); len(m.items()) != 4 {
 		t.Errorf("collapse of a closed session must do nothing")
 	}
-	if m = m.toggle(false); len(m.items()) != 5 {
+	if m = m.toggle(false); len(m.items()) != 6 {
 		t.Errorf("toggle did not reopen: %v", m.items())
 	}
 	m.cur = key{"saved", -1}
-	if got := m.toggle(false); !reflect.DeepEqual(got.open, m.open) {
+	if got := m.toggle(false); !reflect.DeepEqual(got.folded, m.folded) {
 		t.Errorf("saved workspace toggled")
 	}
 	if m = m.move(5); m.cur != (key{"saved", -1}) {
@@ -132,16 +136,42 @@ func TestDescend(t *testing.T) {
 
 	m.cur = key{"a", -1}
 	m = m.toggle(false) // close it
-	if len(m.items()) != 3 {
+	if len(m.items()) != 4 {
 		t.Fatalf("setup: %v", m.items())
 	}
 	m, selected = step(m) // closed session: open the tree, nothing selected
-	if len(m.items()) != 5 || m.cur != (key{"a", -1}) || selected {
+	if len(m.items()) != 6 || m.cur != (key{"a", -1}) || selected {
 		t.Errorf("closed session: items=%v cur=%v selected=%v", m.items(), m.cur, selected)
 	}
 
 	m.cur = key{"saved", -1} // nothing to open under a saved workspace
 	if got, selected := step(m); got.cur != m.cur || selected {
 		t.Errorf("saved: cur=%v selected=%v", got.cur, selected)
+	}
+}
+
+func TestFoldsAreRememberedAndPruned(t *testing.T) {
+	var saved [][]string
+	cfg := Config{
+		Folds:     func() ([]string, error) { return []string{"a", "gone"}, nil },
+		SaveFolds: func(n []string) error { saved = append(saved, n); return nil },
+	}
+	m := newModel(cfg, &hub{})
+	m.rows = treeModel().rows
+	if !m.folded["a"] || m.expanded(m.rows[0]) {
+		t.Fatalf("loaded folds not applied: %v", m.folded)
+	}
+	m = m.pruneFolds() // "gone" is neither live nor saved
+	if m.folded["gone"] || !reflect.DeepEqual(saved, [][]string{{"a"}}) {
+		t.Errorf("prune: folded=%v saved=%v", m.folded, saved)
+	}
+	m.cur = key{"b", -1}
+	m = m.toggle(false)
+	if want := []string{"a", "b"}; !reflect.DeepEqual(saved[len(saved)-1], want) {
+		t.Errorf("toggle saved %v, want %v", saved[len(saved)-1], want)
+	}
+	m = m.toggle(false)
+	if want := []string{"a"}; !reflect.DeepEqual(saved[len(saved)-1], want) {
+		t.Errorf("unfold saved %v, want %v", saved[len(saved)-1], want)
 	}
 }

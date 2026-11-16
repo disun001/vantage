@@ -196,3 +196,21 @@ func TestSSHCommandWithAskpassWithoutASocketLeavesItOut(t *testing.T) {
 		t.Errorf("a pane without a TUI opens the vault itself:\n%s", got)
 	}
 }
+
+func TestStateDir(t *testing.T) {
+	t.Setenv("VANTAGE_STATE_DIR", "")
+	t.Setenv("XDG_STATE_HOME", "/xdg")
+	if got, err := StateDir(); err != nil || got != "/xdg/vantage" {
+		t.Errorf("XDG_STATE_HOME: got %q, %v", got, err)
+	}
+	t.Setenv("VANTAGE_STATE_DIR", "/own")
+	if got, err := StateDir(); err != nil || got != "/own" {
+		t.Errorf("VANTAGE_STATE_DIR: got %q, %v", got, err)
+	}
+	t.Setenv("VANTAGE_STATE_DIR", "")
+	t.Setenv("XDG_STATE_HOME", "")
+	t.Setenv("HOME", "/h")
+	if got, err := StateDir(); err != nil || got != "/h/.local/state/vantage" {
+		t.Errorf("home fallback: got %q, %v", got, err)
+	}
+}
