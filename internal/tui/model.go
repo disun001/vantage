@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/disun001/vantage/internal/embed"
+	"github.com/disun001/vantage/internal/limits"
 	"github.com/disun001/vantage/internal/sshconfig"
 	"github.com/disun001/vantage/internal/tmux"
 )
@@ -47,6 +48,12 @@ type Config struct {
 	SaveFolds func(names []string) error
 	// KeyLog, when set, gets one line per non-text key press (see logKey).
 	KeyLog io.Writer
+	// Limits probes the 5-hour and weekly usage windows, every LimitsEvery.
+	// Nil turns the block above "? keys" off.
+	Limits      func() (limits.Snapshot, error)
+	LimitsEvery time.Duration
+	// Notice is shown at start, for a problem found before the TUI opened.
+	Notice string
 }
 
 // Manager changes workspaces on behalf of the sidebar.
@@ -116,6 +123,7 @@ type model struct {
 	projDel  *projDelete    // the delete question, while it is open
 	help     bool           // the key help pop-up is open
 	shown    bool           // a live session was auto-shown once; do not re-attach after a detach
+	limits   limitState     // the usage windows, when Config.Limits is set
 	mode     tmux.Mode      // PREFIX, COPY or SYNC of the embedded client, for the title pill
 }
 
@@ -157,7 +165,7 @@ type (
 )
 
 func newModel(cfg Config, h *hub) model {
-	m := model{cfg: cfg, hub: h}
+	m := model{cfg: cfg, hub: h, notice: cfg.Notice}
 	if cfg.Folds != nil {
 		names, err := cfg.Folds()
 		if err != nil {
@@ -171,7 +179,7 @@ func newModel(cfg Config, h *hub) model {
 	return m
 }
 
-func (m model) Init() tea.Cmd { return tea.Batch(m.refresh(), tick(), modeTick()) }
+func (m model) Init() tea.Cmd { return tea.Batch(m.refresh(), tick(), modeTick(), m.limitsInit()) }
 
 func tick() tea.Cmd {
 	return tea.Tick(tickEvery, func(time.Time) tea.Msg { return tickMsg{} })
@@ -215,6 +223,9 @@ func (m model) refresh() tea.Cmd {
 // Update runs the message, then keeps the cursor on screen and starts the
 // short poll that finds a newly attached client.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if next, cmd, ok := m.updateLimits(msg); ok {
+		return next, cmd
+	}
 	prev := m.term
 	next, cmd := m.update(msg)
 	nm, ok := next.(model)

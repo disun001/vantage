@@ -104,7 +104,6 @@ func (m model) sidebar() []string {
 	out[0] = fit(m.pill(), sidebarW)
 	out[1] = m.tabLine()
 
-	note := m.noticeLines()
 	items := m.items()
 	cur := m.pos(items)
 	for y, i := range span(m.headItems(items), m.top, m.listCap()) {
@@ -114,14 +113,7 @@ func (m model) sidebar() []string {
 		}
 		out[firstRowY+y] = m.itemLine(items[i], i == cur)
 	}
-	for i, l := range note {
-		style := noticeStyle
-		if m.notice == m.okNotice {
-			style = dimStyle
-		}
-		out[m.h-1-len(note)+i] = fit(style.Render(l), sidebarW)
-	}
-	out[m.h-1] = fit(hintStyle("? keys"), sidebarW)
+	m.drawFoot(out, true)
 	return out
 }
 
@@ -141,4 +133,23 @@ func (m model) noticeLines() []string {
 		lines[maxNoticeLines-1] = ansi.Truncate(lines[maxNoticeLines-1], sidebarW-1, "") + "…"
 	}
 	return lines
+}
+
+// drawFoot fills the last lines of a sidebar: the notice, the limits block,
+// then the "? keys" hint. Every view calls it so the bottom stays identical.
+// dimOK draws a good-news notice dim instead of as an error.
+func (m model) drawFoot(out []string, dimOK bool) {
+	lim := m.limitRows()
+	note := m.noticeLines()
+	for i, l := range note {
+		style := noticeStyle
+		if dimOK && m.notice == m.okNotice {
+			style = dimStyle
+		}
+		out[m.h-1-len(lim)-len(note)+i] = fit(style.Render(l), sidebarW)
+	}
+	for i, l := range lim {
+		out[m.h-1-len(lim)+i] = l
+	}
+	out[m.h-1] = fit(hintStyle("? keys"), sidebarW)
 }

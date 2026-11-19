@@ -66,6 +66,11 @@ func runTUI(args []string, _ io.Writer) error {
 			return fmt.Errorf("start: %w", err)
 		}
 	}
+	lim, err := limitsConfig()
+	if err != nil {
+		return err
+	}
+	defer lim.stop() // quitting kills a probe still running
 	return tui.Run(tui.Config{
 		Client:    client,
 		Saved:     workspace.List,
@@ -77,7 +82,8 @@ func runTUI(args []string, _ io.Writer) error {
 		Folds:     loadFolds,
 		SaveFolds: saveFolds,
 		KeyLog:    keyLog,
-		Restore:   restoreByName,
+		Limits:    lim.probe, LimitsEvery: lim.every, Notice: lim.warn,
+		Restore: restoreByName,
 	})
 }
 
