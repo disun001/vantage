@@ -137,7 +137,7 @@ func (m model) selected() (item, bool) {
 
 // listCap is how many sidebar lines fit between the title and the footer.
 func (m model) listCap() int {
-	return max(1, m.h-firstRowY-1-len(m.noticeLines()))
+	return max(1, m.h-firstRowY-1-len(m.noticeLines())-len(m.limitRows()))
 }
 
 // scrolled keeps the cursor line inside the visible window of the list.

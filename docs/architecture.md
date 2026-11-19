@@ -39,6 +39,13 @@ sidebar TUI.
 - Hosts view: ssh host details, guarded add and edit, key and password login.
 - Password vault (age) and `SSH_ASKPASS` helper with one unlock for all panes.
 - Projects: multi-repo clone and status, linked to workspaces.
+- Usage limits: opt-in block above `? keys` with the 5-hour and weekly windows
+  (`5h ▓▓░░░░░░  24% ↻2h10m`). Off unless `$VANTAGE_CONFIG_DIR/config.toml` has
+  `[limits] enabled = true` (optional `interval = "5m"`, floor `2m`). Every
+  interval vantage runs a stripped `claude -p` (haiku, no tools, no MCP, empty
+  temp dir, about $0.0004) and reads the `rate_limit_event` from stream-json.
+  Hidden until a probe works; dim after two failed probes; `--` once a window's
+  reset time has passed; dropped on terminals under 12 lines.
 - Custom pane titles, saved in workspaces (`alt+r`, `prefix T`, `vantage rename-pane`).
 
 ## Notes on the TUI

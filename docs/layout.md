@@ -17,6 +17,7 @@ internal/hostuse/  what depends on an ssh alias (workspaces, live panes) before 
 internal/connections/ which ssh hosts are already open in live tmux panes
 internal/pick/      fuzzy menu (local or ssh) and the split it creates
 internal/embed/     runs a program in a PTY and mirrors it in a virtual screen
+internal/limits/    claude 5-hour and weekly usage: stream-json parser, the cheap `claude -p` probe, config.toml
 internal/tui/       sidebar of sessions + embedded tmux client, focus keys
 examples/tmux       tmux snippet binding prefix S / V to the picker
 examples/workspaces sample definitions (the only workspace files tracked)
@@ -26,6 +27,7 @@ docs/               contributor docs
 ## Rules
 
 - **Dependencies point inward.** `cmd` -> `restore`/`capture`/`pick`/`tui` -> `workspace`, `tmux`, `sshconfig`, `embed`. `workspace` imports nothing from this repo. `tmux` imports nothing from this repo. `project` -> `git`, `workspace` (config dir, workspace files for the project link); `git` imports nothing from this repo.
+- **Only `internal/limits` runs `claude`.** The TUI gets a probe func through `tui.Config`; `limits` imports nothing from this repo.
 - **Only `internal/git` runs `git`.** Same reasoning: one place to validate and to fake.
 - **Only `internal/tmux` runs `tmux`.** Everything else calls its methods. This keeps the socket-safety rule in one place and makes mocking possible.
 - **Business logic does not live in `cmd`.** Command files parse flags, call a package, and print.

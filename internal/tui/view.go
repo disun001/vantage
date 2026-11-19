@@ -104,7 +104,6 @@ func (m model) sidebar() []string {
 	out[0] = fit(m.pill(), sidebarW)
 	out[1] = m.tabLine()
 
-	note := m.noticeLines()
 	items := m.items()
 	cur := m.pos(items)
 	for y, i := range span(m.headItems(items), m.top, m.listCap()) {
@@ -114,14 +113,7 @@ func (m model) sidebar() []string {
 		}
 		out[firstRowY+y] = m.itemLine(items[i], i == cur)
 	}
-	for i, l := range note {
-		style := noticeStyle
-		if m.notice == m.okNotice {
-			style = dimStyle
-		}
-		out[m.h-1-len(note)+i] = fit(style.Render(l), sidebarW)
-	}
-	out[m.h-1] = fit(hintStyle("? keys"), sidebarW)
+	m.drawFoot(out, true)
 	return out
 }
 

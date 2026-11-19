@@ -66,18 +66,24 @@ func runTUI(args []string, _ io.Writer) error {
 			return fmt.Errorf("start: %w", err)
 		}
 	}
+	lim, err := limitsConfig()
+	if err != nil {
+		return err
+	}
 	return tui.Run(tui.Config{
-		Client:    client,
-		Saved:     workspace.List,
-		Manage:    manage.Manager{Client: client, Procs: capture.PS},
-		Projects:  projectStore{},
-		SSH:       sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
-		HostUse:   hostuse.Finder{Client: client, Procs: capture.PS},
-		Passwords: pw,
-		Folds:     loadFolds,
-		SaveFolds: saveFolds,
-		KeyLog:    keyLog,
-		Restore:   restoreByName,
+		Client:      client,
+		Saved:       workspace.List,
+		Manage:      manage.Manager{Client: client, Procs: capture.PS},
+		Projects:    projectStore{},
+		SSH:         sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
+		HostUse:     hostuse.Finder{Client: client, Procs: capture.PS},
+		Passwords:   pw,
+		Folds:       loadFolds,
+		SaveFolds:   saveFolds,
+		KeyLog:      keyLog,
+		Limits:      lim.probe,
+		LimitsEvery: lim.every,
+		Restore:     restoreByName,
 	})
 }
 

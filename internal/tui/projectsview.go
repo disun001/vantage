@@ -14,7 +14,6 @@ func (m model) projectsSidebar() []string {
 	}
 	out[0] = fit(m.pill(), sidebarW)
 	out[1] = m.tabLine()
-	note := m.noticeLines()
 	cur := m.projPos()
 	for y, i := range span(noHeads(len(m.projects)), m.projTop, m.listCap()) {
 		out[firstRowY+y] = m.projectLine(m.projects[i], i == cur)
@@ -22,14 +21,7 @@ func (m model) projectsSidebar() []string {
 	if len(m.projects) == 0 {
 		out[firstRowY] = fit(hintStyle("no projects: a adds one"), sidebarW)
 	}
-	for i, l := range note {
-		style := noticeStyle
-		if m.notice == m.okNotice {
-			style = dimStyle
-		}
-		out[m.h-1-len(note)+i] = fit(style.Render(l), sidebarW)
-	}
-	out[m.h-1] = fit(hintStyle("? keys"), sidebarW)
+	m.drawFoot(out, true)
 	return out
 }
 
