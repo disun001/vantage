@@ -52,6 +52,8 @@ type Config struct {
 	// Nil turns the block above "? keys" off.
 	Limits      func() (limits.Snapshot, error)
 	LimitsEvery time.Duration
+	// Notice is shown at start, for a problem found before the TUI opened.
+	Notice string
 }
 
 // Manager changes workspaces on behalf of the sidebar.
@@ -163,7 +165,7 @@ type (
 )
 
 func newModel(cfg Config, h *hub) model {
-	m := model{cfg: cfg, hub: h}
+	m := model{cfg: cfg, hub: h, notice: cfg.Notice}
 	if cfg.Folds != nil {
 		names, err := cfg.Folds()
 		if err != nil {

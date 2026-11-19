@@ -14,10 +14,12 @@ type tuiLimits struct {
 	probe func() (limits.Snapshot, error)
 	every time.Duration
 	stop  func() // cancels a probe in flight; never nil
+	warn  string // why the block is off, when config.toml is bad
 }
 
 // limitsConfig reads config.toml and returns the probe only when the user
-// opted in with [limits] enabled = true.
+// opted in with [limits] enabled = true. A bad config.toml turns it off with
+// a warning instead of failing.
 func limitsConfig() (tuiLimits, error) {
 	dir, err := workspace.ConfigDir()
 	if err != nil {
@@ -25,7 +27,8 @@ func limitsConfig() (tuiLimits, error) {
 	}
 	cfg, err := limits.LoadConfig(dir)
 	if err != nil {
-		return tuiLimits{stop: func() {}}, err
+		// A cosmetic feature must not stop vantage: turn it off and say why.
+		return tuiLimits{stop: func() {}, warn: "limits off: " + err.Error()}, nil
 	}
 	if !cfg.Enabled {
 		return tuiLimits{stop: func() {}}, nil

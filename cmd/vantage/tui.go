@@ -72,19 +72,18 @@ func runTUI(args []string, _ io.Writer) error {
 	}
 	defer lim.stop() // quitting kills a probe still running
 	return tui.Run(tui.Config{
-		Client:      client,
-		Saved:       workspace.List,
-		Manage:      manage.Manager{Client: client, Procs: capture.PS},
-		Projects:    projectStore{},
-		SSH:         sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
-		HostUse:     hostuse.Finder{Client: client, Procs: capture.PS},
-		Passwords:   pw,
-		Folds:       loadFolds,
-		SaveFolds:   saveFolds,
-		KeyLog:      keyLog,
-		Limits:      lim.probe,
-		LimitsEvery: lim.every,
-		Restore:     restoreByName,
+		Client:    client,
+		Saved:     workspace.List,
+		Manage:    manage.Manager{Client: client, Procs: capture.PS},
+		Projects:  projectStore{},
+		SSH:       sshconfig.File{Path: filepath.Join(home, ".ssh", "config")},
+		HostUse:   hostuse.Finder{Client: client, Procs: capture.PS},
+		Passwords: pw,
+		Folds:     loadFolds,
+		SaveFolds: saveFolds,
+		KeyLog:    keyLog,
+		Limits:    lim.probe, LimitsEvery: lim.every, Notice: lim.warn,
+		Restore: restoreByName,
 	})
 }
 
