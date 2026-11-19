@@ -85,25 +85,6 @@ func countdown(d time.Duration) string {
 	}
 }
 
-// drawFoot fills the last lines of a sidebar: the notice, the limits block,
-// then the "? keys" hint. Every view calls it so the bottom stays identical.
-// dimOK draws a good-news notice dim instead of as an error.
-func (m model) drawFoot(out []string, dimOK bool) {
-	lim := m.limitRows()
-	note := m.noticeLines()
-	for i, l := range note {
-		style := noticeStyle
-		if dimOK && m.notice == m.okNotice {
-			style = dimStyle
-		}
-		out[m.h-1-len(lim)-len(note)+i] = fit(style.Render(l), sidebarW)
-	}
-	for i, l := range lim {
-		out[m.h-1-len(lim)+i] = l
-	}
-	out[m.h-1] = fit(hintStyle("? keys"), sidebarW)
-}
-
 type limitsTickMsg struct{}
 
 // limitsInit probes once at start, then on every tick. Without Limits it

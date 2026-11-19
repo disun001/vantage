@@ -13,6 +13,7 @@ import (
 type tuiLimits struct {
 	probe func() (limits.Snapshot, error)
 	every time.Duration
+	stop  func() // cancels a probe in flight; never nil
 }
 
 // limitsConfig reads config.toml and returns the probe only when the user
@@ -20,14 +21,15 @@ type tuiLimits struct {
 func limitsConfig() (tuiLimits, error) {
 	dir, err := workspace.ConfigDir()
 	if err != nil {
-		return tuiLimits{}, fmt.Errorf("config dir: %w", err)
+		return tuiLimits{stop: func() {}}, fmt.Errorf("config dir: %w", err)
 	}
 	cfg, err := limits.LoadConfig(dir)
 	if err != nil {
-		return tuiLimits{}, err
+		return tuiLimits{stop: func() {}}, err
 	}
 	if !cfg.Enabled {
-		return tuiLimits{}, nil
+		return tuiLimits{stop: func() {}}, nil
 	}
-	return tuiLimits{probe: func() (limits.Snapshot, error) { return limits.Probe(context.Background()) }, every: cfg.Interval}, nil
+	ctx, cancel := context.WithCancel(context.Background())
+	return tuiLimits{stop: cancel, probe: func() (limits.Snapshot, error) { return limits.Probe(ctx) }, every: cfg.Interval}, nil
 }

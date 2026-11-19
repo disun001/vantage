@@ -40,9 +40,30 @@ func TestParseNoLimits(t *testing.T) {
 	}
 }
 
-func TestParseBadJSON(t *testing.T) {
-	if _, err := Parse(strings.NewReader("{not json")); err == nil || errors.Is(err, ErrNoLimits) {
-		t.Errorf("err = %v, want a parse error", err)
+func TestParseSkipsNonJSONLines(t *testing.T) {
+	in := "warning: something\n{not json\n" + stream + "trailing banner"
+	s, err := Parse(strings.NewReader(in))
+	if err != nil || !s.FiveHour.Known {
+		t.Fatalf("snap %+v, err %v", s, err)
+	}
+}
+
+func TestParseOutOfRange(t *testing.T) {
+	win := func(u, r string) string {
+		return `{"type":"rate_limit_event","rate_limit_info":{"unifiedWindows":{"five_hour":{"utilization":` + u + `,"resetsAt":` + r + `}}}}`
+	}
+	for name, in := range map[string]string{
+		"percent not fraction": win("24", "1795065000"),
+		"negative":             win("-0.1", "1795065000"),
+		"milliseconds":         win("0.2", "1795065000000"),
+		"zero reset":           win("0.2", "0"),
+	} {
+		if _, err := Parse(strings.NewReader(in)); !errors.Is(err, ErrOutOfRange) {
+			t.Errorf("%s: err = %v, want ErrOutOfRange", name, err)
+		}
+	}
+	if _, err := Parse(strings.NewReader(win("1.05", "1795065000"))); err != nil {
+		t.Errorf("overage above 1 is valid: %v", err)
 	}
 }
 

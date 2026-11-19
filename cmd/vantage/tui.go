@@ -70,6 +70,7 @@ func runTUI(args []string, _ io.Writer) error {
 	if err != nil {
 		return err
 	}
+	defer lim.stop() // quitting kills a probe still running
 	return tui.Run(tui.Config{
 		Client:      client,
 		Saved:       workspace.List,

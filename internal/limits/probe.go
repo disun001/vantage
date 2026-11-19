@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -22,6 +23,7 @@ var probeArgs = []string{
 	"--tools", "",
 	"--strict-mcp-config", "--mcp-config", `{"mcpServers":{}}`,
 	"--disable-slash-commands",
+	"--setting-sources", "", // user hooks would run on every probe
 	"--no-session-persistence",
 	"--system-prompt", ".",
 	"--output-format", "stream-json", "--verbose",
@@ -44,10 +46,22 @@ func Probe(ctx context.Context) (Snapshot, error) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, probeArgs...)
 	cmd.Dir = dir
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	if err := cmd.Run(); err != nil {
-		return Snapshot{}, fmt.Errorf("run claude: %w", err)
+	var out, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &stderr
+	runErr := cmd.Run()
+	// The windows may be in the output even when the exit code is not 0.
+	snap, parseErr := Parse(&out)
+	if parseErr == nil {
+		return snap, nil
 	}
-	return Parse(&out)
+	if runErr != nil {
+		return Snapshot{}, fmt.Errorf("run claude: %w: %s", runErr, firstLine(stderr.String()))
+	}
+	return Snapshot{}, parseErr
+}
+
+// firstLine keeps an error message to one short line.
+func firstLine(s string) string {
+	line, _, _ := strings.Cut(strings.TrimSpace(s), "\n")
+	return line[:min(len(line), 200)]
 }

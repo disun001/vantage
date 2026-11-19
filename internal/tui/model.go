@@ -121,8 +121,8 @@ type model struct {
 	projDel  *projDelete    // the delete question, while it is open
 	help     bool           // the key help pop-up is open
 	shown    bool           // a live session was auto-shown once; do not re-attach after a detach
-	limits   limitState
-	mode     tmux.Mode // PREFIX, COPY or SYNC of the embedded client, for the title pill
+	limits   limitState     // the usage windows, when Config.Limits is set
+	mode     tmux.Mode      // PREFIX, COPY or SYNC of the embedded client, for the title pill
 }
 
 // statusBar is the tmux status bar of the embedded client. The embedded

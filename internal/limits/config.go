@@ -25,7 +25,7 @@ type Config struct {
 	Interval time.Duration
 }
 
-type file struct {
+type fileConfig struct {
 	Limits struct {
 		Enabled  bool   `toml:"enabled"`
 		Interval string `toml:"interval"`
@@ -36,7 +36,7 @@ type file struct {
 // below MinInterval is raised to it.
 func LoadConfig(dir string) (Config, error) {
 	cfg := Config{Interval: DefaultInterval}
-	var f file
+	var f fileConfig
 	path := filepath.Join(dir, "config.toml")
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
